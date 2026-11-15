@@ -128,10 +128,22 @@ const glassLine = createWaterline( renderer, scene, camera, { glassZ: TD / 2, xM
 // The port's film is thinner and flatter than the meniscus on a pane.
 const lensLine = createWaterline( renderer, scene, camera, { lens: true, meniscus: 0.0008, power: 2.5, prepare } );
 addEventListener( 'resize', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );
+// Which pass: in front of the glass, the pane split; over or in the tank,
+// the camera port (it may cross the surface); anywhere else outside (beside
+// or behind the tank) a plain render. The port there drew its waterline,
+// 3 cm from the eye, across the whole frame, far from any water.
 function draw() {
 
-	if ( camera.position.z > TD / 2 ) glassLine.render();
-	else lensLine.render(); // inside the tank: the port may cross the surface
+	const p = camera.position;
+	if ( p.z > TD / 2 ) glassLine.render();
+	else if ( Math.abs( p.x ) < TW / 2 && Math.abs( p.z ) < TD / 2 ) lensLine.render();
+	else {
+
+		prepare( camera );
+		renderer.setRenderTarget( null );
+		renderer.render( scene, camera );
+
+	}
 
 }
 
