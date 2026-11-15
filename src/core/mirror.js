@@ -8,6 +8,13 @@
 // is above the level; side -1: seen from below, what is below it.
 // sample( offset ) gives the mirror colour at this pixel, offset in screen
 // UV (ripples). render( renderer, camera ) before the frame that uses it.
+//
+// The group always holds exactly one clipping plane. three bumps a clipping
+// context's version, and rebuilds the TSL graph of every object under it,
+// whenever the plane COUNT changes. Swapping [] and [ plane ] around each
+// mirror pass rebuilt the whole aquarium twice a frame (about 1.1 s of CPU
+// per frame). So outside a mirror pass the shared plane sits 1e9 m away and
+// clips nothing; a pass only changes its values, which are uniforms.
 
 import { RenderTarget, HalfFloatType, PerspectiveCamera, Plane, Vector2, Vector3 } from 'three/webgpu';
 import { texture, screenUV } from 'three/tsl';
@@ -19,6 +26,15 @@ export function createMirror( { group, level, side = 1, resolutionScale = 0.5, h
 	const plane = new Plane( new Vector3( 0, side, 0 ), - side * level );
 	const size = new Vector2(), fwd = new Vector3(), up = new Vector3(), target = new Vector3();
 	const map = texture( rt.texture );
+	// One plane per group, shared by its mirrors (see the note above).
+	let shared = group.userData.ixClipPlane;
+	if ( ! shared ) {
+
+		shared = group.userData.ixClipPlane = new Plane( new Vector3( 0, 1, 0 ), 1e9 );
+		group.clippingPlanes = [ shared ];
+
+	}
+	const saved = new Plane();
 
 	return {
 		rt,
@@ -42,12 +58,13 @@ export function createMirror( { group, level, side = 1, resolutionScale = 0.5, h
 			cam.lookAt( target.copy( cam.position ).add( fwd ) );
 			cam.updateMatrixWorld();
 			for ( const o of hide ) o.visible = false;
-			const prevPlanes = group.clippingPlanes, prevRT = renderer.getRenderTarget();
-			group.clippingPlanes = [ plane ];
+			const prevRT = renderer.getRenderTarget();
+			saved.copy( shared );
+			shared.copy( plane );
 			renderer.setRenderTarget( rt );
 			renderer.render( group.parent ?? group, cam );
 			renderer.setRenderTarget( prevRT );
-			group.clippingPlanes = prevPlanes;
+			shared.copy( saved );
 			for ( const o of hide ) o.visible = true;
 
 		},
