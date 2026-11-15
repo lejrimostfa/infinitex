@@ -39,11 +39,20 @@ document.body.appendChild( nav );
 const phone = matchMedia( '(pointer: coarse)' ).matches && Math.min( screen.width, screen.height ) < 820;
 const note = document.createElement( 'div' );
 note.id = 'ix-note';
-note.innerHTML = 'Compiling the materials on your GPU…<br><small>'
+note.innerHTML = '<span class="progress">Compiling the materials on your GPU…</span><br><small>'
 	+ ( phone ? 'Phones are not fast enough yet: expect a slow frame rate. A desktop browser with WebGPU works best.'
 		: here === 'cubes.html' && ! location.search.includes( 'family' )
-			? '241 materials compile on the first visit: about half a minute. Then scroll to zoom, drag to orbit.'
+			? 'The cubes appear as their materials compile: up to a minute or two on the first visit. Then scroll to zoom, drag to orbit.'
 			: 'The first visit takes a few seconds. Scroll to zoom, drag to orbit.' ) + '</small>';
 document.body.appendChild( note );
+
+// Progress line under the loading note, for pages that compile in steps
+// (cubes.js reveals its matters a few per frame).
+export function setLoadingProgress( text ) {
+
+	const head = document.querySelector( '#ix-note .progress' );
+	if ( head ) head.textContent = text;
+
+}
 
 const poll = setInterval( () => { if ( window.__ix?.ready ) { clearInterval( poll ); note.remove(); } }, 200 );

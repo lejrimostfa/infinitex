@@ -17,7 +17,7 @@ for ( const webgl of [ false, true ] ) {
 	const page = await browser.newPage( { viewport: { width: 1280, height: 720 } } );
 	page.on( 'pageerror', ( e ) => console.error( 'page error:', e.message ) );
 	await page.goto( `${ BASE }?film${ webgl ? '&webgl' : '' }` );
-	await page.waitForFunction( () => window.__ix?.ready, null, { timeout: 120000 } );
+	await page.waitForFunction( () => window.__ix?.ready, null, { timeout: 300000 } );
 	runs.push( await page.evaluate( () => window.__ix.bench() ) );
 	await page.close();
 
