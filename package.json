@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "vite --port 5211 --strictPort",
     "build": "vite build",
-    "test": "node --test tests/"
+    "gate": "node tests/run-gate.mjs"
   },
   "peerDependencies": {
     "three": ">=0.187.0"
