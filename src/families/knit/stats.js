@@ -9,6 +9,11 @@ import { CANDIDATES, LEG, legShape, legEvalCPU } from './legs.js';
 export const AO_BACKGROUND = 0.15;
 export const AO_MIN = 0.3;
 
+// Cavity of an AO value (knit/shader.js) and the occlusion core/surface.js
+// draws from it (no water film).
+export const cavityOf = ( ao ) => Math.min( 1, Math.max( 0, ( 1 - ao ) / 0.7 ) );
+export const cavityAO = ( ao ) => 1 - 0.5 * cavityOf( ao );
+
 // AO of the winning leg height z. Mirrors stitchAO() in shader.js.
 export function stitchAOCPU( z, R ) {
 
@@ -20,15 +25,18 @@ export function stitchAOCPU( z, R ) {
 }
 
 // Mean AO and mean squared tangent-plane normal (slope proxy) over one stitch.
-// meanAO is weighted by the light a tilted normal loses: a resolved yarn
-// tilts its normals, which lowers the diffuse light. Under a sky-like
-// environment the irradiance goes as (1 + n_z) / 2. The far view (flat
-// normal) must carry that loss or it reads too bright once sheen is lowered.
-// (Full n_z weighting overshot by 5 % in the gate: the light is mostly sky.)
+// The light the tilted normals lose is not in meanAO: it depends on the sky,
+// so core/slopelight.js measures it in the real light from slopeVar. meanAO
+// only keeps how AO and tilt go together (the yarn tops are bright and flat,
+// the sides dark and tilted): AO weighted by a sky-like light (1 + n_z) / 2,
+// then divided by the mean of that weight.
+// meanCavityAO: the mean of AO times the cavity occlusion of
+// core/surface.js, over meanAO. The product of two means is darker than the
+// mean of the product, so the far view needs it (cavityAO below).
 export function stitchStats( { aspect, spread, R }, n = 48 ) {
 
 	const shapes = { '-1': legShape( - 1, aspect, spread ), '1': legShape( 1, aspect, spread ) };
-	let aoSum = 0, s2Sum = 0;
+	let aoSum = 0, wSum = 0, cavSum = 0, s2Sum = 0;
 
 	for ( let i = 0; i < n; i ++ ) {
 
@@ -45,7 +53,10 @@ export function stitchStats( { aspect, spread, R }, n = 48 ) {
 			}
 
 			const nz = best.z < - 1 ? 1 : Math.sqrt( Math.max( 0, 1 - Math.min( 1, best.rn * best.rn ) ) );
-			aoSum += stitchAOCPU( best.z, R ) * ( 1 + nz ) / 2;
+			const ao = stitchAOCPU( best.z, R ), w = ( 1 + nz ) / 2;
+			aoSum += ao * w;
+			wSum += w;
+			cavSum += ao * cavityAO( ao ) * w;
 			// normal = (perp * rn, core): squared tangent part = rn^2 (clamped)
 			s2Sum += best.z < - 1 ? 0 : Math.min( 1, best.rn * best.rn );
 
@@ -53,6 +64,6 @@ export function stitchStats( { aspect, spread, R }, n = 48 ) {
 
 	}
 
-	return { meanAO: aoSum / ( n * n ), slopeVar: s2Sum / ( n * n ) };
+	return { meanAO: aoSum / wSum, meanCavityAO: cavSum / aoSum, slopeVar: s2Sum / ( n * n ) };
 
 }

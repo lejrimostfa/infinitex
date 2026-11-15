@@ -6,7 +6,7 @@
 
 import { CANDIDATES, LEG, legShape } from './legs.js';
 import { PURL, CROCHET, shapeCPU } from './elements.js';
-import { stitchAOCPU } from './stats.js';
+import { stitchAOCPU, cavityAO } from './stats.js';
 
 const SPREAD = 0.36;
 
@@ -68,7 +68,7 @@ export function patternStats( g, { aspect, R }, relief, n = 16 ) {
 	const purl = PURL.map( ( e ) => ( { e, sh: shapeCPU( e, aspect ) } ) );
 	const cro = [ 0, 1 ].map( ( m ) => CROCHET.map( ( e ) => ( { e, sh: shapeCPU( e, aspect, m ) } ) ) );
 	const [ nc, nr ] = repeatOf( g );
-	let aoSum = 0, s2Sum = 0, count = 0;
+	let aoSum = 0, wSum = 0, cavSum = 0, s2Sum = 0, count = 0;
 	for ( let cr = 0; cr < nr; cr ++ ) for ( let cc = 0; cc < nc; cc ++ ) {
 
 		for ( let i = 0; i < n; i ++ ) for ( let j = 0; j < n; j ++ ) {
@@ -103,7 +103,10 @@ export function patternStats( g, { aspect, R }, relief, n = 16 ) {
 
 			const zl = best ? best.z : - 10;
 			const nz = best ? Math.sqrt( Math.max( 0, 1 - Math.min( 1, best.rn * best.rn ) ) ) : 1;
-			aoSum += stitchAOCPU( zl, R ) * ( 1 + nz ) / 2;
+			const ao = stitchAOCPU( zl, R ), w = ( 1 + nz ) / 2; // weights: stats.js
+			aoSum += ao * w;
+			wSum += w;
+			cavSum += ao * cavityAO( ao ) * w;
 			s2Sum += best ? Math.min( 1, best.rn * best.rn ) : 0;
 			count ++;
 
@@ -111,6 +114,6 @@ export function patternStats( g, { aspect, R }, relief, n = 16 ) {
 
 	}
 
-	return { meanAO: aoSum / count, slopeVar: s2Sum / count };
+	return { meanAO: aoSum / wSum, meanCavityAO: cavSum / aoSum, slopeVar: s2Sum / count };
 
 }

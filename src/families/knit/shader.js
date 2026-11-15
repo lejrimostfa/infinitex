@@ -55,16 +55,22 @@ export function buildKnitNodes( u, opts = {} ) {
 		.mul( hStitch.mul( 2 ).sub( 1 ).mul( u.stitchVar ).mul( w1 ).mul( edgeFade ).add( 1 ) )
 		.mul( hFiber.mul( 2 ).sub( 1 ).mul( u.fiberVar ).mul( w3 ).mul( fiberEdge ).add( 1 ) );
 
-	const ao1 = mix( u.meanAO, mix( u.meanAO, stitchAO( s.local ?? bz, u.R, u.arch ), edgeFade ), w1 );
+	// Stitch AO and cavity fade to their means (stats.js). The cavity is
+	// not computed from the mean AO: its occlusion multiplies the AO, and the
+	// product of the means is darker than the mean of the product.
+	const wStitch = w1.mul( edgeFade );
+	const aoNear = stitchAO( s.local ?? bz, u.R, u.arch );
+	const ao1 = mix( u.meanAO, aoNear, wStitch );
+	const cavity = mix( u.meanCavity, float( 1 ).sub( aoNear ).div( 0.7 ).clamp( 0, 1 ), wStitch );
 	const aoPly = mix( float( 0.6 + 0.4 * 2 / Math.PI ), sin( v.mul( Math.PI ) ).mul( 0.4 ).add( 0.6 ), w2 );
 	// Gap darkening scales with fiber depth. Its mean is analytic (yarn.js).
 	const aoFiber = mix( float( AO_FIBER_MEAN ), float( 1 ).sub( fDepth.mul( 0.3 ).mul( float( 1 ).sub( profile ) ) ), w3 );
-	// Faded ply relief still costs diffuse light: under sky light a normal
-	// with slope t gets (1 + n_z) / 2, about 1 - t^2 / 4 on average.
-	// The stitch level carries the same loss inside meanAO (stats.js). For
+	// Faded stitch and ply relief still tilt the normals, which changes the
+	// light they get. That change depends on the sky, so the lighting
+	// measures it (core/slopelight.js) from the faded slope variance. For
 	// fibers the gate showed no gain: their slopes are small once averaged.
-	const diffuseLoss = float( 1 ).sub( float( 1 ).sub( w2 ).mul( s2Ply ).mul( 0.25 ) );
-	let albedo = baseCol.mul( ao1 ).mul( aoPly ).mul( aoFiber ).mul( diffuseLoss );
+	const slopeLight = float( 1 ).sub( w1 ).mul( u.stitchSlopeVar ).add( float( 1 ).sub( w2 ).mul( s2Ply ) );
+	let albedo = baseCol.mul( ao1 ).mul( aoPly ).mul( aoFiber );
 	if ( s.macro ) albedo = albedo.mul( s.macro.ao );
 	// Lace: the backing shows through the eyelets and the gaps. Far away a
 	// soft disc per eyelet stands in for the hole.
@@ -101,8 +107,9 @@ export function buildKnitNodes( u, opts = {} ) {
 	};
 	if ( holeMix ) nodes.sheenNode = nodes.sheenNode.mul( float( 1 ).sub( holeMix ) );
 	// Surface states. Cavity: the stitch AO (0 on the yarn tops).
-	applySurface( nodes, u.surface, { cavity: float( 1 ).sub( ao1 ).div( 0.7 ).clamp( 0, 1 ), flatNormal: flat, porosity: 1 } );
-	applyStates( nodes, u.states, { cavity: float( 1 ).sub( ao1 ).div( 0.7 ).clamp( 0, 1 ), flatNormal: flat, coords: uvm, fp } );
+	applySurface( nodes, u.surface, { cavity, flatNormal: flat, porosity: 1 } );
+	applyStates( nodes, u.states, { cavity, flatNormal: flat, coords: uvm, fp } );
+	nodes.slopeLight = slopeLight;
 	nodes.debug = { fp, w1, w2, w3, covered };
 	return nodes;
 

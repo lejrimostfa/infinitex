@@ -72,6 +72,7 @@ import { buildRelief } from './core/relief.js';
 import { applyUnderwater } from './core/underwater.js';
 import { applyMicro } from './core/micro.js';
 import { addMicroShadow } from './core/microshadow.js';
+import { addSlopeLight } from './core/slopelight.js';
 import { footprint } from './core/lod.js';
 export { setTime, ixTime } from './core/clock.js';
 
@@ -161,7 +162,9 @@ export class InfinitexMaterial extends EventTarget {
 		}
 
 		this.debug = nodes.debug;
+		const slopeLight = nodes.slopeLight;
 		delete nodes.debug;
+		delete nodes.slopeLight;
 		if ( options.base && options.mask ) blendWithBase( nodes, options.base, options.mask );
 		// preset.underwater: caustics and absorption below the scene's water (core/underwater.js).
 		if ( preset.underwater ) applyUnderwater( nodes );
@@ -172,6 +175,7 @@ export class InfinitexMaterial extends EventTarget {
 		this.material = kind === 'sss' ? new MeshSSSNodeMaterial() : new MeshPhysicalNodeMaterial();
 		Object.assign( this.material, nodes );
 		addMicroShadow( this.material ); // pores and cracks shadow the key light (core/microshadow.js)
+		addSlopeLight( this.material, slopeLight ); // faded slopes get the light of their normals (core/slopelight.js)
 
 		queueMicrotask( () => this.#emit( 'materialReady' ) );
 

@@ -95,7 +95,7 @@ export function createKnitUniforms() {
 		stitchVar: uniform( 0.06 ), fiberVar: uniform( 0.3 ), seed: uniform( 1 ),
 		roughness: uniform( 0.6 ), specVarScale: uniform( 0.3 ),
 		sheen: uniform( 0.7 ), sheenColor: uniform( new Color() ), sheenRoughness: uniform( 0.6 ),
-		meanAO: uniform( 0.7 ), stitchSlopeVar: uniform( 0.3 ),
+		meanAO: uniform( 0.7 ), meanCavity: uniform( 0.4 ), stitchSlopeVar: uniform( 0.3 ),
 		sheenKeep: uniform( 1 ), fuzzOn: false, surface: createSurfaceUniforms(), states: createStatesUniforms(), irregular: uniform( 1 ), parallax: uniform( 1 ),
 		fuzzLength: uniform( 0.0016 ), fuzzCell: uniform( 5e-4 ), fuzzLean: uniform( 1.3 ), fuzzCurl: uniform( 0.6 ),
 		fuzzRadius: uniform( 10e-6 ), fuzzLayers: uniform( 12 ), fuzzOpacity: uniform( 1 ), fuzzColor: uniform( new Color() ), fuzzFlowM: uniform( 0.004 ),
@@ -175,6 +175,8 @@ export function applyKnitPreset( u, preset ) {
 	const counted = [ 'rib', 'garter', 'seed', 'cable', 'crochet' ].includes( p.stitch );
 	const stats = counted ? patternStats( u.pattern, { aspect, R }, p.relief ) : stitchStats( { aspect, spread: SPREAD, R } );
 	u.meanAO.value = stats.meanAO;
+	// Far cavity whose occlusion (core/surface.js) is the mean one.
+	u.meanCavity.value = 2 * ( 1 - stats.meanCavityAO );
 	u.stitchSlopeVar.value = stats.slopeVar;
 	return { preset: p, stats, derived: { stitchW, aspect, R } };
 

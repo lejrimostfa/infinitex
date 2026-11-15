@@ -135,6 +135,7 @@ Rules:
 | 1 Core + knit pilot | core LOD module, L0 to L3 knit levels, zoom demo from 1 m to the fiber | done: meanShift 2.7 % max, shimmer 1.52 max, 3.6 ms at 1080p |
 | 2 Fuzz + look | L4 shells on a skinned mannequin, tapered fibers with cuticle scales, zoom film recorder | done: sheen ratio 0.99 to 1.00, meanShift 2.8 % max, shimmer 1.38 max, both backends. Fins skipped: slab shells already hold at silhouettes |
 | 2b Look + game texture | organic knit, yarn parallax, anchored fuzz, SSAO, stats panel; knit from a game character's atlas (riveraine) | done: gate passes, stretch within 10 % after relaxation |
+| 2c Far light in any sky | the HDRI sky and the cavity occlusion (2026-11-15) broke the far wool: the light of faded slopes was a constant tuned for one sky. Now measured in the real light (`core/slopelight.js`), cavity faded to its own mean | done 2026-11-15: meanShift 2.0 % max on both backends, 3.1 % max in the room sky |
 | 3 Granular | soil to pebbles to sand grains, glints | same gate |
 | 4 Depth paint | refracted flake layers, glints, thin film, holo foil | same gate |
 | 5 Authoring | schemas, prompt-to-preset CLI, photo stats, CMA-ES fit | a prompt gives a usable preset |
