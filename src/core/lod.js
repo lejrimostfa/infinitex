@@ -7,7 +7,7 @@
 // view keeps the average look of the near view (Toksvig / LEAN idea).
 
 import {
-	float, vec2, vec3, dFdx, dFdy, smoothstep, step, max, min, sqrt, clamp, mix, normalView,
+	float, vec2, vec3, vec4, mat4, int, dFdx, dFdy, smoothstep, step, max, min, sqrt, clamp, mix, normalView, Fn, If,
 } from 'three/tsl';
 
 // Build-time override (core/pixel.js): while a family graph is built on
@@ -42,6 +42,96 @@ export function footprint( surfaceMeters ) {
 export function fadeIn( periodMeters, fp, lo = 2.0, hi = 6.0 ) {
 
 	return smoothstep( float( lo ), float( hi ), float( periodMeters ).div( fp ) );
+
+}
+
+// True while a detail level of period `periodMeters` has a non-zero
+// fadeIn( periodMeters, fp, lo ): the condition of its gate().
+export function fadeOn( periodMeters, fp, lo = 2.0 ) {
+
+	return float( periodMeters ).div( fp ).greaterThan( lo );
+
+}
+
+// Real branch around a detail level. A faded level used to be computed and
+// then weighted by zero; inside gate() the GPU skips it. Measured on the
+// soil ground (M1 Max, 1080p): 7.6 ms to 1.6 ms at 10 m, same image.
+//
+//   on      bool node, usually fadeOn() of the level's widest fade
+//   spec    { name: value when the level is off }. A value is a number, a
+//           scalar node, an array of 2 to 4 numbers or scalar nodes, or
+//           { node, size } for a vector node. At most 16 floats in all.
+//   build   () => { name: node }, the level itself. Runs inside the branch.
+//   shared  nodes that build() reads and that are also read outside (the
+//           coordinates, the footprint, a warped position). They are
+//           evaluated before the branch. Without this, a node first met
+//           inside the branch would be assigned only when it is taken.
+//
+// Returns { name: node }. No derivative (dFdx, dFdy, a texture sample with
+// implicit mips) may sit inside build(): take them before, like footprint().
+// setLodBranches( false ) builds every level unconditionally (the
+// reference of tests/lod_branches.mjs).
+let BRANCHES = true;
+export function setLodBranches( on ) { BRANCHES = !! on; }
+
+const isNode = ( v ) => v && v.isNode === true;
+const specSize = ( v ) => typeof v === 'number' || isNode( v ) ? 1 : Array.isArray( v ) ? v.length : v.size;
+const specParts = ( v ) => typeof v === 'number' ? [ float( v ) ] : isNode( v ) ? [ v ] : Array.isArray( v ) ? v.map( ( x ) => float( x ) ) : [ v.node ];
+
+export function gate( on, spec, build, shared = [] ) {
+
+	if ( ! BRANCHES ) return build();
+	// Lay the outputs out in up to four vec4 columns, first fit.
+	const cols = [], where = {};
+	for ( const [ k, v ] of Object.entries( spec ) ) {
+
+		const n = specSize( v );
+		let c = cols.findIndex( ( used ) => used + n <= 4 );
+		if ( c < 0 ) { c = cols.length; cols.push( 0 ); }
+		where[ k ] = { c, off: cols[ c ], n };
+		cols[ c ] += n;
+
+	}
+
+	if ( cols.length > 4 ) throw new Error( 'infinitex gate: more than 16 floats, split the level in two gates' );
+	const pack = ( parts ) => {
+
+		const v = cols.map( ( used, c ) => {
+
+			const a = [];
+			for ( const k of Object.keys( spec ) ) if ( where[ k ].c === c ) a.push( ...parts( k ) );
+			for ( let i = used; i < 4; i ++ ) a.push( float( 0 ) );
+			return vec4( ...a );
+
+		} );
+		if ( v.length === 1 ) return v[ 0 ];
+		while ( v.length < 4 ) v.push( vec4( 0 ) );
+		return mat4( ...v );
+
+	};
+
+	const M = Fn( () => {
+
+		for ( const s of shared ) s.toVar();
+		const o = pack( ( k ) => specParts( spec[ k ] ) ).toVar();
+		If( on, () => {
+
+			const r = build();
+			o.assign( pack( ( k ) => [ typeof r[ k ] === 'number' ? float( r[ k ] ) : r[ k ] ] ) );
+
+		} );
+		return o;
+
+	} )().toVar();
+	const out = {};
+	for ( const [ k, { c, off, n } ] of Object.entries( where ) ) {
+
+		const col = cols.length === 1 ? M : M.element( int( c ) );
+		out[ k ] = n === 4 ? col : col[ 'xyzw'.slice( off, off + n ) ];
+
+	}
+
+	return out;
 
 }
 
