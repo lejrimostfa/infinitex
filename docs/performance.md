@@ -255,3 +255,10 @@ On a phone, a playable version would need baked distance, a single Infinitex mat
 ## TLDR
 
 On an M1 Max, a game scene entirely in Infinitex (13 materials) costs about 10 ms per frame at 1080p, against 3 ms with classic textures. That is about 100 fps on this machine, 40 on a recent MacBook Air, 25 on a base M1, and nothing playable on a phone as is. In memory, Infinitex has no textures, but its compiled shaders and its JavaScript weigh about 245 MB. That is as much as a set of compressed 2K textures, 3.5 times less than compressed 4K and 14 times less than raw 4K. For a game, keep Infinitex for the near view, bake the distance into textures, skip the faded levels instead of weighting them by zero, and fix the CPU ray of the 3D hair on skinned characters (6 to 22 ms).
+
+## 5. Demo frame rate on a Retina screen **[M]**
+
+15 November 2026, same machine, viewport 1440x900.
+
+- **Pixel ratio.** The demos rendered at pixel ratio 2, so 4 times the pixels of 1x. Zooming onto the cable knit cube (8 fuzz shells) took 110 to 220 ms per frame from 45 cm down to 1 cm. At pixel ratio 1: 8 ms median, 25 ms at the 95th percentile. `demo/adaptive.js` now lowers the ratio by steps of 0.25 while the mean frame stays above 40 ms, and raises it when the next step is predicted under 25 ms. Same zoom with it: 8 to 33 ms median, under 60 ms at the 95th percentile.
+- **Aquarium.** It ran at 1 fps whatever the resolution: about 1 s of CPU per frame. The mirrors swapped the tank's clipping planes between `[]` and `[ plane ]` around each pass. three rebuilds the TSL graph of every clipped object when the plane count changes, so the whole tank recompiled its node graphs 4 times a frame. The group now keeps one plane, parked 1e9 m away outside a mirror pass (`src/core/mirror.js`). CPU per frame: 0.6 to 0.9 ms. Images identical to the pixel. Live at pixel ratio 2 with adaptive resolution: 38 to 55 fps.

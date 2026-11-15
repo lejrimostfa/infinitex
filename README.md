@@ -187,6 +187,8 @@ Infinitex trades memory for computation: it stores no images, so the GPU recompu
 | One matter filling the screen, median of the catalogue | 2 to 3.5 ms | under 1 ms |
 | Texture memory for those 13 matters | 0 MB (plus about 185 MB of compiled shaders) | 870 MB at 2K (220 MB compressed) |
 
+The demos lower their pixel ratio while frames are slow (Retina screens shade 4 times more pixels) and raise it back when they are fast; `?fullres` turns that off. A stats panel at the top left gives fps, frame and GPU time, triangles and draw calls.
+
 Estimates for other machines: about 40 fps on a recent MacBook Air, 100 to 140 fps on a PC with an RTX 3060. Phones are not playable yet. The practical recipe for a game: Infinitex on what is close (the hero, the ground at their feet, the object being inspected), and a texture baked from the same material for the distance.
 
 ## Browser support

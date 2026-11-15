@@ -5,7 +5,7 @@
 //   fps and frame time       from requestAnimationFrame timing
 //   GPU time                 WebGPU timestamp queries, when available
 //   draw calls, triangles    renderer.info, reset by hand once per frame
-//   resolution, pixel ratio  the canvas size actually shaded
+//   resolution, pixel ratio  the canvas size actually shaded (auto: demo/adaptive.js)
 //   distance, pixel size     camera to the orbit target, one pixel in meters
 //   detail levels            knit only (opts.levels): pixels per period
 //
@@ -35,7 +35,7 @@ const KEY = 'ix-stats-closed';
 const load = () => { try { return localStorage.getItem( KEY ) === '1'; } catch { return false; } };
 const save = ( v ) => { try { localStorage.setItem( KEY, v ? '1' : '0' ); } catch { /* private window: no memory */ } };
 
-export function createStats( { renderer, camera, ix = null, fuzz = [], meshes = [], post = null, backend, levels = true } ) {
+export function createStats( { renderer, camera, ix = null, fuzz = [], meshes = [], post = null, adaptive = null, backend, levels = true } ) {
 
 	const el = document.getElementById( 'stats' );
 	el.style.display = '';
@@ -104,7 +104,7 @@ export function createStats( { renderer, camera, ix = null, fuzz = [], meshes = 
 			<div class="dim">slowest frame (0.25 s) ${ slowest.toFixed( 0 ) } ms</div>
 			<div>triangles ${ fmtN( info.triangles ) }, draw calls ${ info.drawCalls }</div>
 			${ meshTris ? `<div class="dim">Infinitex meshes ${ fmtN( meshTris ) }${ fuzzTris ? ` + fuzz shells ${ fmtN( fuzzTris ) }` : '' }</div>` : '' }
-			<div class="dim">${ w } x ${ h } (pixel ratio ${ pr }), ${ backend }${ post ? `, SSAO ${ post.enabled ? 'on' : 'off' }` : '' }</div>
+			<div class="dim">${ w } x ${ h } (pixel ratio ${ pr }${ adaptive?.enabled ? ` auto, max ${ adaptive.max }` : '' }), ${ backend }${ post ? `, SSAO ${ post.enabled ? 'on' : 'off' }` : '' }</div>
 			<hr>
 			<div>distance ${ fmtLen( dist ) }, pixel ${ fmtLen( pxSize ) }</div>
 			${ knit ? level( 'stitch', derived.stitchW ) + level( 'ply&nbsp;&nbsp;&nbsp;', plyPeriod ) + level( 'fiber&nbsp;', preset.fiber_diameter_um * 1e-6 ) + level( 'scales', preset.fiber_diameter_um * 0.43e-6 ) : '' }`;

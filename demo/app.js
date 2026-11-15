@@ -8,6 +8,7 @@ import { buildPanel } from './panel.js';
 import { createPost } from './post.js';
 import { setTime } from '../src/core/clock.js';
 import { createStats } from './stats.js';
+import { createAdaptiveResolution } from './adaptive.js';
 
 const { vec3 } = TSL;
 
@@ -48,7 +49,9 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 
 	// SSAO post pass and the stats panel (top left).
 	const post = createPost( renderer, scene, camera );
-	const stats = createStats( { renderer, camera, ix, fuzz, meshes, post, backend: forceWebGL ? 'WebGL2' : 'WebGPU', levels: statsLevels } );
+	// Lower the pixel ratio while frames are slow (demo/adaptive.js).
+	const adaptive = createAdaptiveResolution( renderer, { enabled: ! filmMode && ! params.has( 'fullres' ) } );
+	const stats = createStats( { renderer, camera, ix, fuzz, meshes, post, adaptive, backend: forceWebGL ? 'WebGL2' : 'WebGPU', levels: statsLevels } );
 	const aoBtn = document.getElementById( 'ssao' );
 	const aoLabel = () => { aoBtn.textContent = post.enabled ? 'SSAO off' : 'SSAO on'; };
 	aoBtn.onclick = () => { post.enabled = ! post.enabled; aoLabel(); };
@@ -61,7 +64,7 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 
 	// Test and film hooks for Playwright (tests/).
 	window.__ix = {
-		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate,
+		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate, adaptive,
 		ready: true,
 		async runGate( heights ) {
 
@@ -141,6 +144,7 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 		post.update( dist );
 		post.render();
 		stats.endFrame( dist );
+		adaptive.frame();
 
 	};
 	if ( ! filmMode ) renderer.setAnimationLoop( loop );
