@@ -14,7 +14,8 @@
 //   translucency  light from behind goes through the fibres (TT lobe of
 //              Marschner's fibre model, tinted by the fibre)
 //   second highlight  light reflected inside the fibre (TRT): a broad
-//              coloured highlight along the strand (Kajiya-Kay)
+//              coloured highlight along the strand (Marschner 2003;
+//              shifted twin highlights after Scheuermann 2004)
 //
 // Event bus: none.
 

@@ -1,5 +1,5 @@
 // Shared demo shell: panel, buttons, SSAO, stats, film and test hooks, and
-// the render loop. Used by main.js (mannequin) and character.js (riveraine).
+// the render loop. Used by main.js (mannequin) and by the character demos.
 // UI wiring goes through the material's events:
 //   sliders -> ix.set() -> 'paramsChanged' -> panel and stats refresh.
 

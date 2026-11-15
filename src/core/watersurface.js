@@ -7,7 +7,8 @@
 //              with the scene below, read from the screen and pushed by the
 //              slope (refraction)
 //   below      Snell's window: light from the air reaches the eye only
-//              inside a cone of 97 degrees (48.6 each side of vertical).
+//              inside a cone of about 97.5 degrees (48.75 each side of
+//              vertical, for n = 1.33).
 //              Inside it, the sky and the shore, wobbling (read from the
 //              screen behind the surface: not squeezed into the cone, a
 //              cheap stand-in); outside, total internal reflection: a

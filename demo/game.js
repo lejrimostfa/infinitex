@@ -287,12 +287,12 @@ async function skinnedRaycast() {
 		scene.add( gltf.scene );
 		gltf.scene.position.set( 20, 0, 0 );
 		const b = new THREE.Box3().setFromObject( body );
-		out.riveraineBody = timeHit( body, b.getCenter( new THREE.Vector3() ) );
+		out.characterBody = timeHit( body, b.getCenter( new THREE.Vector3() ) );
 		scene.remove( gltf.scene );
 
 	} catch ( e ) {
 
-		out.riveraineBody = `not measured: ${ e.message }`;
+		out.characterBody = `not measured: ${ e.message }`;
 
 	}
 

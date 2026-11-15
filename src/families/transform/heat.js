@@ -1,5 +1,5 @@
-// Light from a hot matter: the colour of a black body at K kelvin (fit by
-// T. Helland of the Planck curve, 1000 to 4000 K, scaled to 0..1) and its
+// Light from a hot matter: the colour of a black body at K kelvin (T. Helland's
+// fit of Charity's blackbody colour table, 1000 to 4000 K, scaled to 0..1) and its
 // brightness. Visible radiance climbs very fast with the temperature
 // (Wien), so a cherry 800 K ember is dim and a 1100 K one bright orange.
 // Below about 700 K nothing glows. Kept moderate for ACES tone mapping.

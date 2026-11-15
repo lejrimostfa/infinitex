@@ -7,7 +7,7 @@
 // URL flags: ?webgl, ?nofuzz, ?noao, ?film, ?stop=<stop>, ?noknit (original look).
 
 import * as THREE from 'three/webgpu';
-import { attribute, uv, smoothstep } from 'three/tsl';
+import { attribute, uv, smoothstep, positionGeometry } from 'three/tsl';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createMaterial } from '../src/index.js';
 import { baseFromStandard } from '../src/core/basematerial.js';
@@ -19,8 +19,42 @@ import { createStage } from './scene.js';
 import { createFilm } from './film.js';
 import { createFlyover } from './flyover.js';
 import { startApp } from './app.js';
+import { addCharacterPicker } from './charpick.js';
+
+// Area-weighted normals shared by every vertex at one position: a noisy
+// remeshed export otherwise lights as triangle facets.
+function smoothNormals( g ) {
+
+	const P = g.attributes.position, N = g.attributes.normal, idx = g.index.array;
+	const key = ( i ) => `${ P.getX( i ).toFixed( 4 ) },${ P.getY( i ).toFixed( 4 ) },${ P.getZ( i ).toFixed( 4 ) }`;
+	const sum = new Map(), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+	for ( let t = 0; t < idx.length; t += 3 ) {
+
+		a.fromBufferAttribute( P, idx[ t ] ); b.fromBufferAttribute( P, idx[ t + 1 ] ); c.fromBufferAttribute( P, idx[ t + 2 ] );
+		const n = c.sub( b ).cross( a.sub( b ) ); // length = twice the area
+		for ( let k = 0; k < 3; k ++ ) {
+
+			const s = key( idx[ t + k ] );
+			if ( ! sum.has( s ) ) sum.set( s, new THREE.Vector3() );
+			sum.get( s ).add( n );
+
+		}
+
+	}
+
+	for ( let i = 0; i < P.count; i ++ ) {
+
+		const n = sum.get( key( i ) );
+		if ( n ) { n.normalize(); N.setXYZ( i, n.x, n.y, n.z ); }
+
+	}
+
+	N.needsUpdate = true;
+
+}
 
 const params = new URLSearchParams( location.search );
+addCharacterPicker( params.get( 'c' ) ?? 'riveraine' );
 const cfg = ( await import( `./characters/${ params.get( 'c' ) ?? 'riveraine' }.js` ) ).default;
 const original = params.has( 'noknit' );
 document.body.classList.toggle( 'film', params.has( 'film' ) );
@@ -38,12 +72,16 @@ mixer.clipAction( clip ).play();
 let body = null;
 gltf.scene.traverse( ( o ) => { if ( ! body && cfg.body( o ) ) body = o; } );
 const base = body.material;
+// A broken export (UVs squeezed into a strip) has a normal map that only
+// draws triangle facets: the config can drop it.
+if ( cfg.dropNormalMap ) base.normalMap = null;
+if ( cfg.smoothNormals ) smoothNormals( body.geometry );
 const V = ( x, y, z ) => new THREE.Vector3( x, y, z );
 const C = ( ...n ) => partCentroid( body, n );
 
 const zones = atlasZones( base.map.image, cfg.zones );
 if ( ! original ) projectKnitCoords( body, { regions: cfg.regions( C, V ), garment: zones.union } );
-const zoneTris = original ? cfg.zones.map( () => new Uint8Array( 0 ) ) : groupByZone( body.geometry, zones.masks );
+const zoneTris = original ? cfg.zones.map( () => new Uint8Array( 0 ) ) : groupByZone( body.geometry, zones.masks, { where: cfg.zones.map( ( z ) => z.where ) } );
 
 // WebGPU allows 8 vertex buffers per pipeline. Skinning, normal, tangent,
 // uv and the atlas rotation already take 7: pack the knit coordinates and
@@ -67,11 +105,26 @@ if ( ! original ) {
 
 const pack = attribute( 'ixPack', 'vec4' );
 const baseNodes = baseFromStandard( base, original ? {} : { atlasRot: attribute( 'ixAtlasRot', 'vec3' ) } );
+// zone.inner: a second matter inside the zone, drawn per pixel where
+// inner.mask( positionGeometry ) is 1 (leather edging on a coat, cut on
+// the rest shape so its borders are straight, not the mesh triangles).
+// It becomes the base the zone's family blends over.
+// The zone's own soft border (a fade to the game look) is dropped then:
+// its triangles draw the two matters only.
+const inner = ( z, m ) => z.inner ? float( 1 ).sub( z.inner.mask( positionGeometry ) ) : m;
+const innerBase = ( spec ) => {
+
+	const n = createMaterial( spec.preset, { coords: pack.xy } ).material;
+	return { color: n.colorNode, normal: n.normalNode, roughness: n.roughnessNode, metalness: n.metalnessNode ?? float( 0 ), under: false };
+
+};
 const materials = cfg.zones.map( ( z, k ) => createMaterial( z.preset, {
 	coords: pack.xy,
-	colorMap: { map: base.map, uv: uv() },
-	mask: smoothstep( 0.25, 0.75, k === 0 ? pack.z : pack.w ),
-	base: baseNodes,
+	// ownColor: the zone keeps its preset colours (a broken atlas only
+	// gives flat triangles of colour).
+	colorMap: z.ownColor ? null : { map: base.map, uv: uv() },
+	mask: inner( z, smoothstep( 0.25, 0.75, k === 0 ? pack.z : pack.w ) ),
+	base: z.inner ? innerBase( z.inner ) : baseNodes,
 } ) );
 // Everything else keeps the game look, as nodes (the knit tangents would
 // bend the original normal map).

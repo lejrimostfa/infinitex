@@ -1,2 +1,8 @@
 node_modules
 dist
+
+# Private to the author's games: kept on disk, never published.
+demo/characters/*
+!demo/characters/riveraine.js
+demo/assets/*.glb
+*.mp4

@@ -42,7 +42,7 @@ export async function createStage( { forceWebGL } ) {
 
 	} else {
 
-		const hdr = await new HDRLoader().loadAsync( '/demo/assets/hdri/kloppenheim_06_2k.hdr' );
+		const hdr = await new HDRLoader().loadAsync( new URL( './assets/hdri/kloppenheim_06_2k.hdr', import.meta.url ).href );
 		hdr.mapping = THREE.EquirectangularReflectionMapping;
 		scene.environment = hdr;
 		scene.environmentIntensity = 0.9;

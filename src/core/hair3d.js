@@ -95,7 +95,8 @@ export function createHair3D( spec, opts ) {
 	const rc = fine.add( hA.xy ).mul( s0 ).toVar();
 	const dc = rc.sub( c0 );
 	const root = P0.add( T.mul( dc.x ) ).add( B.mul( dc.y ) );
-	const edge = smoothstep( radius, radius.mul( 0.8 ), dc.length() );
+	const inBox = step( win.u.boxMin, rc ).mul( step( rc, win.u.boxMax ) );
+	const edge = smoothstep( radius, radius.mul( 0.8 ), dc.length() ).mul( inBox.x ).mul( inBox.y );
 
 	// Comb direction: preset angle, bent by the same smooth flow as the
 	// painted strands, plus a small jitter per strand.

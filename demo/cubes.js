@@ -12,12 +12,14 @@ import * as THREE from 'three/webgpu';
 import { uv } from 'three/tsl';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import './nav.js';
 import { createMaterial } from '../src/index.js';
 import { HAIR_LAYER } from '../src/core/hair3d.js';
 import { createStage } from './scene.js';
 import { createFlyover } from './flyover.js';
 import { startApp } from './app.js';
 import { CUBES } from './cubelist.js';
+import { cubeEn, rowEn } from './cubelist_en.js';
 
 const SIZE = 0.3, DX = 0.6, DZ = 1.0, PER_ROW = 12;
 const params = new URLSearchParams( location.search );
@@ -121,7 +123,7 @@ const lit = [], fuzz = [];
 let row = 0;
 for ( const fam of CUBES ) {
 
-	const title = plate( fam.title, true, 1.0 );
+	const title = plate( rowEn( fam.title ), true, 1.0 );
 	title.position.set( - 0.9, 0.002, - row * DZ );
 	title.rotation.z = Math.PI / 2;
 	scene.add( title );
@@ -142,7 +144,7 @@ for ( const fam of CUBES ) {
 			// Every skin with body hair grows it in 3D near the camera.
 			const hairy = item.hair3d || ( item.preset.family === 'skin' && ( item.preset.hair_density ?? 0.5 ) > 0 );
 			if ( hairy && ! params.has( 'nohair' ) ) ix.createHair( mesh, { metersPerUV: SIZE } );
-			lit.push( { ...item, ix, mesh, family: fam.title } );
+			lit.push( { ...item, ...cubeEn( item ), ix, mesh, family: rowEn( fam.title ) } );
 			mesh.userData.lit = true;
 			mesh.userData.ix = ix; // tests and film reach the material here
 
@@ -156,7 +158,7 @@ for ( const fam of CUBES ) {
 		mesh.name = item.name;
 		mesh.castShadow = mesh.receiveShadow = true;
 		scene.add( mesh );
-		const p = plate( item.name, !! item.preset );
+		const p = plate( cubeEn( item ).name, !! item.preset );
 		p.position.set( x, 0.002, z + SIZE / 2 + 0.09 );
 		scene.add( p );
 
@@ -182,13 +184,13 @@ function flyKeys() {
 		// One family: an aerial shot of its row, titled.
 		const last = tour[ tour.length - 1 ].mesh.position;
 		const mx = ( first.x + last.x ) / 2;
-		keys.push( { at: t, pos: [ mx, 1.6, first.z + 2.4 ], look: [ mx, 0.1, first.z - 0.3 ], caption: `${ tour[ 0 ].family } : ${ tour.length } matières` } );
+		keys.push( { at: t, pos: [ mx, 1.6, first.z + 2.4 ], look: [ mx, 0.1, first.z - 0.3 ], caption: `${ tour[ 0 ].family }: ${ tour.length } matters` } );
 		// Then glide down from above to the first cube: never between the rows.
 		keys.push( { at: t + 2.8, pos: [ first.x + 0.1, 0.75, first.z + 0.9 ], look: [ first.x, first.y, first.z ] } );
 
 	} else {
 
-		keys.push( { at: t, pos: [ center.x, 5.5, first.z + 6 ], look: [ center.x, 0, first.z - 5 ], caption: `Infinitex : ${ lit.length } matières sur ${ CUBES.reduce( ( s, f ) => s + f.items.length, 0 ) }` } );
+		keys.push( { at: t, pos: [ center.x, 5.5, first.z + 6 ], look: [ center.x, 0, first.z - 5 ], caption: `Infinitex: ${ lit.length } matters of ${ CUBES.reduce( ( s, f ) => s + f.items.length, 0 ) }` } );
 
 	}
 
@@ -235,7 +237,7 @@ function flyKeys() {
 
 		keys.push( { at: t, pos: [ center.x + 1, 2.4, lit[ lit.length - 1 ].mesh.position.z + 3.5 ], look: [ center.x, 0, lit[ lit.length - 1 ].mesh.position.z - 2 ] } );
 		t += 5;
-		keys.push( { at: t, pos: [ center.x, 9, 7 ], look: [ center.x, 0, center.z + 3 ], caption: 'Une ligne de cubes s’allume à chaque nouvelle famille' } );
+		keys.push( { at: t, pos: [ center.x, 9, 7 ], look: [ center.x, 0, center.z + 3 ], caption: 'A row of cubes lights up with each new family' } );
 
 	}
 

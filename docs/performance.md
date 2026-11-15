@@ -1,41 +1,41 @@
-# Performance d'Infinitex dans un jeu
+# Infinitex performance in a game
 
-Question : si un jeu habillait **tout** son personnage et son décor avec Infinitex, combien coûteraient la mémoire, le temps GPU et le temps CPU ? Et sur quelles machines peut-on viser quel nombre d'images par seconde ?
+Question: if a game dressed **all** of its character and scenery with Infinitex, how much would it cost in memory, GPU time and CPU time? And on which machines can you aim for which frame rate?
 
-Légende : **[M]** mesuré sur la machine de test, **[E]** estimé (hypothèse écrite à côté).
+Legend: **[M]** measured on the test machine, **[E]** estimated (the assumption is written next to it).
 
-## En bref (pour un non-spécialiste)
+## In short (for a non-specialist)
 
-Une texture classique est une photo collée sur l'objet. Elle prend de la mémoire. Mais l'afficher coûte peu : la carte graphique lit la photo.
+A classic texture is a photo glued on the object. It takes memory. But drawing it is cheap: the graphics card reads the photo.
 
-Infinitex ne stocke pas de photo. La carte graphique recalcule la matière à chaque image, pour chaque pixel. Donc presque pas de mémoire d'images, mais beaucoup de calcul.
+Infinitex stores no photo. The graphics card recomputes the material every frame, for every pixel. So there is almost no image memory, but a lot of computation.
 
-Ce qu'on a mesuré sur un MacBook Pro M1 Max, avec une petite scène de jeu (un personnage en 5 matières, un décor en 8 matières) :
+What we measured on a MacBook Pro M1 Max, with a small game scene (a character with 5 materials, scenery with 8 materials):
 
-- **Temps par image en 1080p** : environ 10 ms avec Infinitex partout, contre 3 ms avec des textures classiques. Cette machine tient donc environ 100 images par seconde. Les matières font les trois quarts du travail. **[M]**
-- **Gros plan** (un pull qui remplit l'écran) : environ 14 ms, soit 70 images par seconde. **[M]**
-- **Mémoire** : des textures classiques 2K pour ces 13 matières prennent 870 Mo (220 Mo compressées). En 4K : 3,5 Go (870 Mo compressées). Infinitex : 0 Mo d'images, mais environ 185 Mo de shaders compilés et 60 Mo de JavaScript. **[M]** pour Infinitex et la 2K, **[E]** pour le reste.
-- **Autres machines** : environ 40 images/s sur un MacBook Air récent, 25 sur un Mac M1 de base, 100 à 140 sur un PC avec une RTX 3060, 20 sur un portable à puce graphique intégrée. Sur téléphone, ce n'est pas jouable en l'état. **[E]**
+- **Time per frame at 1080p**: about 10 ms with Infinitex everywhere, against 3 ms with classic textures. This machine therefore holds about 100 frames per second. Materials do three quarters of the work. **[M]**
+- **Close-up** (a sweater filling the screen): about 14 ms, or 70 frames per second. **[M]**
+- **Memory**: classic 2K textures for these 13 materials take 870 MB (220 MB compressed). In 4K: 3.5 GB (870 MB compressed). Infinitex: 0 MB of images, but about 185 MB of compiled shaders and 60 MB of JavaScript. **[M]** for Infinitex and 2K, **[E]** for the rest.
+- **Other machines**: about 40 frames/s on a recent MacBook Air, 25 on a base M1 Mac, 100 to 140 on a PC with an RTX 3060, 20 on a laptop with integrated graphics. On a phone, it is not playable as is. **[E]**
 
-Pour un vrai jeu, la bonne recette est mixte. Infinitex sert pour ce qui est proche : le héros, le sol à ses pieds, l'objet qu'on inspecte. Le lointain reçoit une version figée de la même matière, cuite en texture.
+For a real game, the right recipe is mixed. Infinitex serves what is close: the hero, the ground at their feet, the object being inspected. The distance gets a frozen version of the same material, baked into a texture.
 
-## 1. Conditions de mesure
+## 1. Measurement conditions
 
 | | |
 |---|---|
-| Machine | Apple M1 Max, GPU 32 cœurs (10,4 TFLOPS FP32), 32 Go de mémoire unifiée, macOS 26 |
-| Navigateur | Chrome for Testing (Playwright, build 1234), headless, WebGPU sur Metal |
-| Moteur | three.js r187, `WebGPURenderer`, matériaux TSL |
-| Catalogue | 204 matières, 21 familles (`demo/cubelist.js`) |
-| Date | 14 novembre 2026 |
+| Machine | Apple M1 Max, 32-core GPU (10.4 TFLOPS FP32), 32 GB unified memory, macOS 26 |
+| Browser | Chrome for Testing (Playwright, build 1234), headless, WebGPU on Metal |
+| Engine | three.js r187, `WebGPURenderer`, TSL materials |
+| Catalogue | 204 materials, 21 families (`demo/cubelist.js`) |
+| Date | 14 November 2026 |
 
-**Contention.** D'autres agents utilisaient le GPU en même temps (ports 5211, 5234 à 5236). L'occupation du GPU, relevée toutes les 5 s, avait une médiane de 89 % pendant le banc des matières et de 100 % pendant celui de la scène (`docs/perf/gpu_util_*.log`). Elle était à 75 % avant le lancement de nos bancs. Chaque banc a donc tourné 3 fois. Les tableaux donnent le **minimum sur les runs**, la meilleure estimation du coût réel : la contention ne fait qu'ajouter du temps. La médiane suit entre parenthèses quand elle compte. L'écart entre runs est grand : ±50 % sur une même matière (écart relatif médian). Lisez donc chaque chiffre comme un ordre de grandeur.
+**Contention.** Other agents were using the GPU at the same time (ports 5211, 5234 to 5236). GPU occupancy, sampled every 5 s, had a median of 89% during the materials bench and 100% during the scene bench (`docs/perf/gpu_util_*.log`). It was 75% before our benches started. So each bench ran 3 times. The tables give the **minimum over the runs**, the best estimate of the real cost: contention only adds time. The median follows in parentheses when it matters. The spread between runs is large: ±50% on a single material (median relative spread). Read each number as an order of magnitude.
 
-**Deux chronos.**
-- Matières seules : requêtes de timestamp GPU sur une passe unique, comme `tests/bench.mjs`.
-- Scène de jeu : temps mural entre l'envoi de l'image et la fin du travail GPU (`queue.onSubmittedWorkDone`), images en série. C'est une borne haute du temps GPU. La latence fixe vaut 0,4 à 0,7 ms (image vide). Les timestamps ne sont pas fiables sur une image à plusieurs passes sur ce Mac en headless : la plupart reviennent cassés, et leur somme dépasse le temps mural.
+**Two timers.**
+- Materials alone: GPU timestamp queries on a single pass, as in `tests/bench.mjs`.
+- Game scene: wall-clock time between submitting the frame and the end of the GPU work (`queue.onSubmittedWorkDone`), frames in series. This is an upper bound of the GPU time. The fixed latency is 0.4 to 0.7 ms (empty frame). Timestamps are not reliable on a multi-pass frame on this Mac in headless mode: most come back broken, and their sum exceeds the wall-clock time.
 
-**Reproduire.** Serveur de dev lancé, puis :
+**Reproduce.** With the dev server running, then:
 
 ```bash
 IX_URL=http://localhost:5211/cubes.html node tests/perf_matters.mjs docs/perf/perf_matters.json 3 20
@@ -44,214 +44,214 @@ IX_URL=http://localhost:5211/game.html node tests/perf_game_parts.mjs docs/perf/
 IX_URL=http://localhost:5211/game.html node tests/perf_game_sizes.mjs docs/perf/perf_game_sizes.json 4
 ```
 
-Les données brutes sont dans `docs/perf/`. La scène de jeu est `game.html` (`demo/game.js`).
+The raw data is in `docs/perf/`. The game scene is `game.html` (`demo/game.js`). It needs a game model, so it is not in the public repository.
 
-## 2. Coût GPU par matière **[M]**
+## 2. GPU cost per material **[M]**
 
-Chaque matière remplit une image 1920x1080, vue de face à 30 cm (la face entière), 2 cm et 1,5 mm. Coût en ms au-dessus d'un cube gris dans la même vue. Fuzz et poils 3D compris quand la matière en a. Pas de post-traitement.
+Each material fills a 1920x1080 frame, seen face on at 30 cm (the whole face), 2 cm and 1.5 mm. Cost in ms above a gray cube in the same view. Fuzz and 3D hair included when the material has them. No post-processing.
 
-| Distance | médiane | 75 % | 90 % | pire |
+| Distance | median | 75% | 90% | worst |
 |---|---|---|---|---|
-| 30 cm | 1,9 | 4,0 | 7,8 | 22,7 |
-| 2 cm | 3,4 | 6,2 | 12,5 | 31,7 |
-| 1,5 mm | 3,3 | 5,9 | 11,8 | 31,6 |
+| 30 cm | 1.9 | 4.0 | 7.8 | 22.7 |
+| 2 cm | 3.4 | 6.2 | 12.5 | 31.7 |
+| 1.5 mm | 3.3 | 5.9 | 11.8 | 31.6 |
 
-À la pire des trois distances, 28 % des matières coûtent moins de 2 ms, 57 % moins de 4 ms, 81 % moins de 8 ms, 92 % moins de 16 ms.
+At the worst of the three distances, 28% of materials cost less than 2 ms, 57% less than 4 ms, 81% less than 8 ms, 92% less than 16 ms.
 
-Les 10 plus chères (2 cm) : Cactus 31,7. Rouille 31,4. Torsades 28,7. Feutre de laine 27,6. Laine bouillie 23,2. Daim 22,9. Papier mâché 22,9. Papier 22,8. Feutre synthétique 22,7. Carton ondulé 22,6.
+The 10 most expensive (2 cm): Cactus 31.7. Rust 31.4. Cable knit 28.7. Wool felt 27.6. Boiled wool 23.2. Suede 22.9. Papier-mache 22.9. Paper 22.8. Synthetic felt 22.7. Corrugated cardboard 22.6.
 
-Les moins chères : Écran, Hologramme, Verni (corde), Nylon, sous 1 ms.
+The cheapest: Screen, Hologram, Varnished (rope), Nylon, under 1 ms.
 
-### Par famille (médiane des matières de la famille, ms, plein écran 1080p)
+### Per family (median of the family's materials, ms, full screen 1080p)
 
-| Famille | n | 30 cm | 2 cm | 1,5 mm | pire matière |
+| Family | n | 30 cm | 2 cm | 1.5 mm | worst material |
 |---|---|---|---|---|---|
-| fibermat | 8 | 15,8 | 22,8 | 22,9 | Feutre de laine, 27,9 |
-| knit (avec fuzz) | 11 | 8,8 | 15,2 | 15,2 | Torsades, 29,4 |
-| metal | 10 | 5,7 | 9,2 | 8,8 | Rouille, 31,4 |
-| skin (avec poils 3D) | 20 | 3,7 | 6,2 | 6,0 | Sueur, 9,0 |
-| interlace | 3 | 2,3 | 4,3 | 3,8 | Cannage, 4,9 |
-| stone | 7 | 2,3 | 4,1 | 4,0 | Granit, 9,1 |
-| leather | 8 | 1,9 | 3,8 | 3,6 | Boue, 15,6 |
-| ground | 9 | 3,0 | 3,7 | 3,3 | Poussière, 12,0 |
-| woven | 18 | 1,8 | 3,3 | 3,1 | Brûlé, 11,8 |
-| rope | 2 | 2,0 | 3,3 | 3,1 | Corde de chanvre, 6,3 |
-| plant | 6 | 1,8 | 3,0 | 3,2 | Mousse, lichen, 4,7 |
-| ceramic | 6 | 1,6 | 3,1 | 3,1 | Verre soufflé, 4,4 |
-| organic | 36 | 1,2 | 2,4 | 2,7 | Cactus, 31,7 |
-| plastic | 10 | 1,0 | 2,4 | 2,4 | Plastique mat, 8,5 |
-| pile | 7 | 2,3 | 1,8 | 1,0 | Moquette coupée, 5,4 |
-| strands | 3 | 1,2 | 2,5 | 0,9 | Toison brute, 3,0 |
-| scales | 18 | 0,8 | 1,6 | 1,3 | Plumes, 12,5 |
-| decor | 4 | 0,0 | 1,3 | 1,4 | Peinture à l'huile, 5,9 |
-| wood | 10 | 0,7 | 1,3 | 1,3 | Poussière, 19,3 |
-| scifi | 7 | 0,0 | 1,2 | 1,3 | Feuille irisée, 3,4 |
+| fibermat | 8 | 15.8 | 22.8 | 22.9 | Wool felt, 27.9 |
+| knit (with fuzz) | 11 | 8.8 | 15.2 | 15.2 | Cable knit, 29.4 |
+| metal | 10 | 5.7 | 9.2 | 8.8 | Rust, 31.4 |
+| skin (with 3D hair) | 20 | 3.7 | 6.2 | 6.0 | Sweat, 9.0 |
+| interlace | 3 | 2.3 | 4.3 | 3.8 | Caning, 4.9 |
+| stone | 7 | 2.3 | 4.1 | 4.0 | Granite, 9.1 |
+| leather | 8 | 1.9 | 3.8 | 3.6 | Mud, 15.6 |
+| ground | 9 | 3.0 | 3.7 | 3.3 | Dust, 12.0 |
+| woven | 18 | 1.8 | 3.3 | 3.1 | Burnt, 11.8 |
+| rope | 2 | 2.0 | 3.3 | 3.1 | Hemp rope, 6.3 |
+| plant | 6 | 1.8 | 3.0 | 3.2 | Moss, lichen, 4.7 |
+| ceramic | 6 | 1.6 | 3.1 | 3.1 | Blown glass, 4.4 |
+| organic | 36 | 1.2 | 2.4 | 2.7 | Cactus, 31.7 |
+| plastic | 10 | 1.0 | 2.4 | 2.4 | Matte plastic, 8.5 |
+| pile | 7 | 2.3 | 1.8 | 1.0 | Cut pile carpet, 5.4 |
+| strands | 3 | 1.2 | 2.5 | 0.9 | Raw fleece, 3.0 |
+| scales | 18 | 0.8 | 1.6 | 1.3 | Feathers, 12.5 |
+| decor | 4 | 0.0 | 1.3 | 1.4 | Oil paint, 5.9 |
+| wood | 10 | 0.7 | 1.3 | 1.3 | Dust, 19.3 |
+| scifi | 7 | 0.0 | 1.2 | 1.3 | Iridescent sheet, 3.4 |
 
-Ce qu'il faut retenir :
-- **Les états de surface sont le coût caché.** Le bois nu coûte 1,3 ms, le bois poussiéreux 19 ms. Le métal médian coûte 9 ms, le métal rouillé 31 ms. Même chose pour le cuir boueux (16 ms) et le tissu brûlé (12 ms).
-- **La vue lointaine n'est pas gratuite.** À 30 cm, une matière coûte encore 55 % de son coût à 2 cm. Les niveaux de détail effacés sont calculés, puis pondérés par zéro (`core/lod.js` fait un fondu, pas un saut).
-- **Fibermat et knit sont les familles lourdes.** Elles empilent plusieurs échelles de fibres. Le knit paie en plus ses 8 coques de fuzz transparentes.
+What to keep in mind:
+- **Surface states are the hidden cost.** Bare wood costs 1.3 ms, dusty wood 19 ms. Median metal costs 9 ms, rusty metal 31 ms. Same for muddy leather (16 ms) and burnt cloth (12 ms).
+- **The distant view is not free.** At 30 cm, a material still costs 55% of its cost at 2 cm. Faded detail levels are computed, then weighted by zero (`core/lod.js` does a fade, not a jump).
+- **Fibermat and knit are the heavy families.** They stack several fiber scales. Knit also pays for its 8 transparent fuzz shells.
 
-## 3. Scène de jeu **[M]**
+## 3. Game scene **[M]**
 
-`game.html` : un personnage d'environ 1,8 m et un décor. Ombre du soleil (2048²), GTAO à demi-résolution, passe des poils 3D (`demo/post.js`). 25 à 29 appels de dessin, 28 000 triangles (2,1 millions quand les poils 3D s'affichent).
+`game.html`: a character about 1.8 m tall and a scenery. Sun shadow (2048²), half-resolution GTAO, 3D hair pass (`demo/post.js`). 25 to 29 draw calls, 28,000 triangles (2.1 million when the 3D hair is displayed).
 
-| Partie | Matière | Extra |
+| Part | Material | Extra |
 |---|---|---|
-| tête | Visage (skin) | poils 3D |
-| avant-bras, cou | Peau mate (skin) | poils 3D |
-| pull | Jersey (knit) | fuzz, 8 coques |
-| pantalon, bottes | Cuir pleine fleur | |
-| ceinture, épaulière, bracelet | Acier brossé | |
-| sol 30 x 30 m | Terre (ground) | |
-| mur | Brique et mortier | |
-| allée | Béton | |
-| caisses | Bois brut | |
-| tonneau | Fer rouillé | |
-| poubelle | Plastique usé, jauni | |
-| pot | Terre cuite | |
-| rocher | Granit | |
+| head | Face (skin) | 3D hair |
+| forearm, neck | Matte skin (skin) | 3D hair |
+| sweater | Jersey (knit) | fuzz, 8 shells |
+| trousers, boots | Full-grain leather | |
+| belt, shoulder pad, bracelet | Brushed steel | |
+| ground 30 x 30 m | Earth (ground) | |
+| wall | Brick and mortar | |
+| path | Concrete | |
+| crates | Raw wood | |
+| barrel | Rusted iron | |
+| trash can | Worn, yellowed plastic | |
+| pot | Terracotta | |
+| rock | Granite | |
 
-Trois modes pour le même cadre : **Infinitex**, **uni** (une couleur par matériau, aucune texture : c'est « le reste de l'image »), **PBR 2K** (albedo, normal et ORM en 2048², RGBA8, mipmaps, anisotropie 8 : un jeu classique).
+Three modes for the same frame: **Infinitex**, **flat** (one color per material, no texture: this is "the rest of the image"), **PBR 2K** (albedo, normal and ORM at 2048², RGBA8, mipmaps, anisotropy 8: a classic game).
 
-### 1080p (1920x1080), post-traitement compris
+### 1080p (1920x1080), post-processing included
 
-Temps par image en ms. Minimum des 3 runs, médiane entre parenthèses.
+Time per frame in ms. Minimum of the 3 runs, median in parentheses.
 
-| Vue | Infinitex | uni | PBR 2K | coût des matières | part des matières |
+| View | Infinitex | flat | PBR 2K | material cost | material share |
 |---|---|---|---|---|---|
-| 10 m, plan large | 8,3 (12,3) | 1,7 (2,9) | 1,9 (3,3) | 6,6 | 84 % |
-| 5 m | 9,1 (13,5) | 2,6 (3,8) | 2,9 (4,4) | 6,5 | 75 % |
-| 2,8 m, troisième personne | 9,7 (14,1) | 2,9 (4,6) | 3,2 (5,2) | 6,8 | 73 % |
-| visage à 37 cm | 7,7 (10,5) | 3,6 (4,3) | 4,6 (4,6) | 4,1 | 56 % |
-| pull à 6 cm, plein écran | 13,7 (20,3) | 4,2 (7,7) | 4,4 (7,8) | 9,5 | 71 % |
-| avant-bras à 4 cm, poils 3D | 10,5 (15,5) | 4,3 (7,6) | 4,9 (7,5) | 6,2 | 61 % |
+| 10 m, wide shot | 8.3 (12.3) | 1.7 (2.9) | 1.9 (3.3) | 6.6 | 84% |
+| 5 m | 9.1 (13.5) | 2.6 (3.8) | 2.9 (4.4) | 6.5 | 75% |
+| 2.8 m, third person | 9.7 (14.1) | 2.9 (4.6) | 3.2 (5.2) | 6.8 | 73% |
+| face at 37 cm | 7.7 (10.5) | 3.6 (4.3) | 4.6 (4.6) | 4.1 | 56% |
+| sweater at 6 cm, full screen | 13.7 (20.3) | 4.2 (7.7) | 4.4 (7.8) | 9.5 | 71% |
+| forearm at 4 cm, 3D hair | 10.5 (15.5) | 4.3 (7.6) | 4.9 (7.5) | 6.2 | 61% |
 
-Sans post-traitement, en troisième personne : Infinitex 10,0 ms, uni 1,2 ms. Le post-traitement (GTAO et passe des poils) coûte donc environ 1,7 ms.
+Without post-processing, in third person: Infinitex 10.0 ms, flat 1.2 ms. So post-processing (GTAO and hair pass) costs about 1.7 ms.
 
-**Qui coûte quoi.** On n'allume qu'une partie à la fois en Infinitex, le reste en uni (`tests/perf_game_parts.mjs`). Le sol en Terre domine : +5,1 ms à 2,8 m et +8,5 ms à 10 m, à lui seul. Il couvre la moitié de l'écran, vu en rasant. Il coûte alors plus que vu de face, plein écran (3,3 à 3,7 ms). À 10 m, le mur, l'allée et le rocher ajoutent chacun 1,7 à 2,7 ms. Les cinq matières du personnage ajoutent chacune moins de 1 ms, sous le bruit de mesure. Elles couvrent peu de pixels à ces distances.
+**Who costs what.** We switch on one part at a time in Infinitex, the rest flat (`tests/perf_game_parts.mjs`). The Earth ground dominates: +5.1 ms at 2.8 m and +8.5 ms at 10 m, on its own. It covers half the screen, seen at a grazing angle. It then costs more than seen face on, full screen (3.3 to 3.7 ms). At 10 m, the wall, the path and the rock each add 1.7 to 2.7 ms. The character's five materials each add less than 1 ms, under the measurement noise. They cover few pixels at these distances.
 
 ### 1440p (2560x1440)
 
-Le passage complet à 1440p a tourné sous 100 % d'occupation GPU par d'autres agents : même le mode uni y était 2,5 à 3,8 fois plus lent qu'en 1080p. Un second banc alterne 1080p et 1440p dans la même page, pour que la contention touche les deux tailles pareil (`tests/perf_game_sizes.mjs`). Le rapport 1440p sur 1080p y vaut 1,6 à 2,0 pour Infinitex. C'est le rapport des pixels (1,78). Le coût suit donc le nombre de pixels. Estimation 1440p = 1080p x 1,78 **[E]** :
+The full 1440p run happened under 100% GPU occupancy by other agents: even the flat mode was 2.5 to 3.8 times slower there than at 1080p. A second bench alternates 1080p and 1440p in the same page, so contention hits both sizes the same way (`tests/perf_game_sizes.mjs`). The 1440p to 1080p ratio there is 1.6 to 2.0 for Infinitex. This is the pixel ratio (1.78). So the cost follows the number of pixels. Estimate 1440p = 1080p x 1.78 **[E]**:
 
-| Vue | Infinitex | uni | PBR 2K |
+| View | Infinitex | flat | PBR 2K |
 |---|---|---|---|
-| 2,8 m | 17 | 5 | 6 |
-| pull plein écran | 24 | 7,5 | 8 |
+| 2.8 m | 17 | 5 | 6 |
+| sweater full screen | 24 | 7.5 | 8 |
 
-## 4. Mémoire
+## 4. Memory
 
-### Ce que la scène alloue **[M]**
+### What the scene allocates **[M]**
 
-Compteurs de three.js (`renderer.info.memory`), empreinte du processus GPU de Chrome (`footprint` de macOS), tas JavaScript (CDP `Performance.getMetrics`). Page à 1080p, chaque vue dessinée une fois.
+three.js counters (`renderer.info.memory`), footprint of Chrome's GPU process (macOS `footprint`), JavaScript heap (CDP `Performance.getMetrics`). Page at 1080p, each view drawn once.
 
-| | sans Infinitex (`?noix`) | 13 matières Infinitex | avec PBR 2K en plus |
+| | without Infinitex (`?noix`) | 13 Infinitex materials | with PBR 2K added |
 |---|---|---|---|
-| Textures (three.js) | 130 Mo | 130 Mo | 1 002 Mo |
-| Tampons de géométrie | 0,2 Mo | 5,0 Mo | 5,0 Mo |
-| Programmes WGSL (texte) | 21, 0,08 Mo | 71, 3,4 Mo | 79, 3,4 Mo |
-| Processus GPU (empreinte) | 538 Mo | 723 Mo | 2 182 Mo |
-| Tas JavaScript | 25 Mo | 83 Mo | |
+| Textures (three.js) | 130 MB | 130 MB | 1,002 MB |
+| Geometry buffers | 0.2 MB | 5.0 MB | 5.0 MB |
+| WGSL programs (text) | 21, 0.08 MB | 71, 3.4 MB | 79, 3.4 MB |
+| GPU process (footprint) | 538 MB | 723 MB | 2,182 MB |
+| JavaScript heap | 25 MB | 83 MB | |
 
-Détail :
-- **Textures.** Les 130 Mo sont les cibles de rendu : la passe de scène (couleur et normales en demi-flottant, profondeur), la passe des poils, le GTAO à demi-résolution, la carte d'ombre, l'environnement. Infinitex n'en ajoute aucune. Seules des entrées optionnelles en ajoutent (une image de jacquard ou de tatouage). En 1440p, les cibles montent à 201 Mo.
-- **Tampons.** Les 5 Mo viennent surtout des poils 3D : chaque hôte poilu crée deux `InstancedMesh` de 128 x 128 instances (brins et ombres). Leurs matrices d'instance (2 x 1 Mo par hôte) ne servent à rien : la position de chaque brin est calculée depuis `instanceIndex`. Le fuzz du pull ajoute 8 copies de sa géométrie.
-- **Shaders compilés.** +185 Mo dans le processus GPU pour 13 matières, soit environ 14 Mo par matière avec son fuzz et ses poils. C'est le vrai coût mémoire d'Infinitex.
-- **JavaScript.** +58 Mo pour 13 matières : les graphes de nœuds TSL et l'état du compilateur de nœuds. Le mur des 204 matières tient en 158 Mo, car beaucoup de préréglages d'une même famille partagent le même programme.
+Details:
+- **Textures.** The 130 MB are render targets: the scene pass (color and normals in half-float, depth), the hair pass, the half-resolution GTAO, the shadow map, the environment. Infinitex adds none. Only optional inputs add some (a jacquard or tattoo image). At 1440p, the targets rise to 201 MB.
+- **Buffers.** The 5 MB come mostly from the 3D hair: each hairy host creates two `InstancedMesh` of 128 x 128 instances (strands and shadows). Their instance matrices (2 x 1 MB per host) are useless: the position of each strand is computed from `instanceIndex`. The sweater's fuzz adds 8 copies of its geometry.
+- **Compiled shaders.** +185 MB in the GPU process for 13 materials, or about 14 MB per material with its fuzz and hair. This is the real memory cost of Infinitex.
+- **JavaScript.** +58 MB for 13 materials: the TSL node graphs and the node compiler state. The wall of 204 materials fits in 158 MB, because many presets of the same family share the same program.
 
-### Comparaison avec des textures classiques
+### Comparison with classic textures
 
-Jeu de 3 textures par matière (albedo, normal, ORM), mipmaps comprises, pour 13 matières. Mo = 10⁶ octets.
+Set of 3 textures per material (albedo, normal, ORM), mipmaps included, for 13 materials. MB = 10⁶ bytes.
 
-| Format | par texture 2K | 13 matières en 2K | par texture 4K | 13 matières en 4K |
+| Format | per 2K texture | 13 materials in 2K | per 4K texture | 13 materials in 4K |
 |---|---|---|---|---|
-| RGBA8, non compressé | 22 Mo | 872 Mo **[M]** | 89 Mo | 3,5 Go **[E]** |
-| BC7 (PC) ou ASTC 4x4 (Apple, mobile) | 5,6 Mo | 218 Mo **[E]** | 22 Mo | 872 Mo **[E]** |
-| ASTC 6x6 (mobile) | 2,5 Mo | 97 Mo **[E]** | 9,9 Mo | 388 Mo **[E]** |
-| Infinitex | 0 | 0 Mo de textures, +185 Mo de shaders, +58 Mo de JS **[M]** | 0 | idem |
+| RGBA8, uncompressed | 22 MB | 872 MB **[M]** | 89 MB | 3.5 GB **[E]** |
+| BC7 (PC) or ASTC 4x4 (Apple, mobile) | 5.6 MB | 218 MB **[E]** | 22 MB | 872 MB **[E]** |
+| ASTC 6x6 (mobile) | 2.5 MB | 97 MB **[E]** | 9.9 MB | 388 MB **[E]** |
+| Infinitex | 0 | 0 MB of textures, +185 MB of shaders, +58 MB of JS **[M]** | 0 | same |
 
-Le PBR 2K mesuré coûte +1,46 Go d'empreinte dans le processus GPU pour 872 Mo de texels : Chrome garde des copies de transfert. Infinitex gagne nettement contre les textures non compressées et contre la 4K. Contre une 2K compressée en BC7, les deux se valent (environ 220 Mo contre 245 Mo). L'avantage d'Infinitex n'est pas là : c'est un détail sans limite au zoom pour le même prix mémoire. Une texture 2K, vue à 6 cm, n'a plus que 0,5 mm par texel.
+The measured PBR 2K costs +1.46 GB of footprint in the GPU process for 872 MB of texels: Chrome keeps transfer copies. Infinitex wins clearly against uncompressed textures and against 4K. Against a 2K texture compressed in BC7, the two are about equal (about 220 MB against 245 MB). Infinitex's advantage is not there: it is unlimited detail when zooming, for the same memory price. A 2K texture, seen at 6 cm, has only 0.5 mm per texel left.
 
-### Chargement et compilation **[M]**
+### Loading and compilation **[M]**
 
 | | |
 |---|---|
-| Compilation d'une matière (pipeline WebGPU) | médiane 0,53 s, 90 % sous 0,96 s, pire 2,6 s (Plastique usé, Rouille) |
-| Taille du fragment shader WGSL | médiane 103 Ko (1 215 lignes), pire 365 Ko (3 768 lignes, Rouille) |
-| Les 204 matières | 96 s de compilation, 298 programmes (vertex et fragment) |
-| Scène de jeu, première image | 7,0 s à froid, 1,5 s quand Chrome a déjà les shaders en cache |
+| Compiling one material (WebGPU pipeline) | median 0.53 s, 90% under 0.96 s, worst 2.6 s (Worn plastic, Rust) |
+| Size of the WGSL fragment shader | median 103 KB (1,215 lines), worst 365 KB (3,768 lines, Rust) |
+| All 204 materials | 96 s of compilation, 298 programs (vertex and fragment) |
+| Game scene, first frame | 7.0 s cold, 1.5 s when Chrome already has the shaders in cache |
 
-Les préréglages d'une même famille qui ne diffèrent que par des uniformes partagent un seul programme. Changer un paramètre (`ix.set()`) ne recompile rien. Le cache de shaders de Metal peut être chaud d'une session à l'autre. Un tout premier lancement sur une machine neuve peut donc être plus lent.
+Presets of the same family that differ only by uniforms share a single program. Changing a parameter (`ix.set()`) recompiles nothing. The Metal shader cache can stay warm from one session to the next. So the very first launch on a new machine can be slower.
 
-## 5. CPU par image **[M]**
+## 5. CPU per frame **[M]**
 
-| Mesure | ms par image |
+| Measure | ms per frame |
 |---|---|
-| Scène de jeu, envoi de l'image, Infinitex | 0,65 à 1,1 |
-| Même scène, matériaux unis | 0,45 à 0,8 |
-| Mur des 204 cubes visibles, Infinitex, 20 hôtes poilus, fuzz | 3,4 |
-| Même mur, cubes gris (343 appels de dessin) | 1,5 |
-| Fenêtre des poils 3D, hôte statique (960 triangles) | 0,10 par hôte visé |
-| Idem dans le mur (parcourt aussi 600 objets pour trouver le soleil) | 0,25 par hôte visé |
-| **Fenêtre des poils 3D, hôte skinné, riveraine (11 135 triangles)** | **6,1 par hôte visé** |
-| **Idem, torse du mannequin skinné (57 600 triangles)** | **22 par hôte visé** |
+| Game scene, frame submit, Infinitex | 0.65 to 1.1 |
+| Same scene, flat materials | 0.45 to 0.8 |
+| Wall of 204 visible cubes, Infinitex, 20 hairy hosts, fuzz | 3.4 |
+| Same wall, gray cubes (343 draw calls) | 1.5 |
+| 3D hair window, static host (960 triangles) | 0.10 per targeted host |
+| Same in the wall (also walks 600 objects to find the sun) | 0.25 per targeted host |
+| **3D hair window, skinned host, a game character (11,135 triangles)** | **6.1 per targeted host** |
+| **Same, torso of the skinned mannequin (57,600 triangles)** | **22 per targeted host** |
 
-Le coût CPU des matières est faible : environ 9 µs par matière et par image. Cela comprend la mise à jour des nœuds et des uniformes. Sauf un point. Chaque hôte poilu lance chaque image un rayon depuis la caméra (`core/hair3d_window.js`). Sur un mesh skinné, three.js skinne chaque sommet testé sur le CPU, sans structure d'accélération. Un personnage de jeu animé avec des poils 3D coûte donc 6 à 22 ms de CPU par image, dès que la caméra bouge en le visant. C'est le principal risque CPU (piège 15 du README, en plus grand).
+The CPU cost of materials is low: about 9 µs per material per frame. This includes updating nodes and uniforms. Except for one point. Each hairy host casts a ray from the camera every frame (`core/hair3d_window.js`). On a skinned mesh, three.js skins every tested vertex on the CPU, with no acceleration structure. So an animated game character with 3D hair costs 6 to 22 ms of CPU per frame, as soon as the camera moves while aiming at it. This is the main CPU risk (trap 15 in the README, in larger scale).
 
-## 6. Pourquoi : le compromis
+## 6. Why: the trade-off
 
-**Calcul contre bande passante.** Une texture coûte de la mémoire et de la bande passante : quelques lectures par pixel, servies par le cache. Infinitex coûte du calcul (ALU) : des centaines d'opérations par pixel (bruits, recherches de cellules 3x3, plusieurs échelles de fibres). Sur un GPU moderne, le calcul abonde et la bande passante est rare. Mais nos shaders sont si longs que le calcul domine : 3 à 4 fois le coût d'une image PBR classique.
+**Compute against bandwidth.** A texture costs memory and bandwidth: a few reads per pixel, served by the cache. Infinitex costs compute (ALU): hundreds of operations per pixel (noises, 3x3 cell lookups, several fiber scales). On a modern GPU, compute is plentiful and bandwidth is scarce. But our shaders are so long that compute dominates: 3 to 4 times the cost of a classic PBR frame.
 
-**Le coût suit les pixels couverts.** Un objet qui couvre 1 % de l'écran coûte 1 % de son coût plein écran. 200 cubes lointains coûtent moins qu'une face qui remplit l'écran. Le personnage, petit à l'écran, coûte peu. Le sol, qui couvre la moitié de l'image, coûte le plus.
+**The cost follows covered pixels.** An object that covers 1% of the screen costs 1% of its full-screen cost. 200 distant cubes cost less than one face filling the screen. The character, small on screen, costs little. The ground, which covers half the image, costs the most.
 
-**Le coût suit le niveau le plus fin visible, mais pas assez.** `core/lod.js` fait apparaître chaque niveau en fondu selon la taille du pixel. Les niveaux effacés sont pourtant toujours calculés. Le lointain ne coûte donc que 45 % de moins que le proche.
+**The cost follows the finest visible level, but not enough.** `core/lod.js` fades each level in according to pixel size. Faded levels are still computed. So the distance costs only 45% less than the near view.
 
-**Surdessin.** Le fuzz ajoute 8 coques transparentes au-dessus du tricot. Les poils 3D ajoutent jusqu'à 2 millions de triangles fins dans une passe à part. Chaque pixel couvert plusieurs fois paie plusieurs fois.
+**Overdraw.** Fuzz adds 8 transparent shells on top of the knit. 3D hair adds up to 2 million thin triangles in a separate pass. Each pixel covered several times pays several times.
 
-**WebGPU contre natif.** Côté GPU, le WGSL est traduit en MSL, HLSL ou SPIR-V. Le shader final ressemble à un shader natif. On estime l'écart à 10 à 20 % **[E]** : pas de demi-précision (fp16) par défaut, pas d'opérations de sous-groupe, accès mémoire vérifiés. Côté CPU, un appel de dessin WebGPU coûte plusieurs fois plus qu'en natif. Ici cela ne compte pas : 25 à 30 appels par image. La compilation, elle, se fait au chargement dans le navigateur. Un moteur natif précompile ses shaders hors ligne.
+**WebGPU against native.** On the GPU side, WGSL is translated to MSL, HLSL or SPIR-V. The final shader looks like a native shader. We estimate the gap at 10 to 20% **[E]**: no half precision (fp16) by default, no subgroup operations, checked memory accesses. On the CPU side, a WebGPU draw call costs several times more than in native. Here it does not matter: 25 to 30 calls per frame. Compilation, for its part, happens at load time in the browser. A native engine precompiles its shaders offline.
 
-## 7. Comment réduire le coût
+## 7. How to reduce the cost
 
-Gains estimés **[E]**, à valider par mesure.
+Estimated gains **[E]**, to be validated by measurement.
 
-| Levier | Effet attendu |
+| Lever | Expected effect |
 |---|---|
-| Vraies branches sur l'empreinte du pixel, au lieu de fondus pondérés par zéro | Le lointain retombe au coût du niveau grossier. Le sol à 10 m passerait de +8,5 ms à 1 ou 2 ms. Plus gros gain pour une scène de jeu. |
-| Cuire le lointain : la même matière rendue une fois en texture (512² à 1K, BC7) au chargement, Infinitex seulement dans un rayon autour de la caméra | Coût d'une scène PBR (environ 3 ms) au-delà de 2 à 3 m. 1,4 Mo par texture 1K BC7. |
-| Paliers du graphe (proche, moyen, loin) : 2 ou 3 variantes compilées par matière, choisies par taille à l'écran | Coût lointain divisé par 2 à 5. Compilation et mémoire des shaders multipliées par 2 ou 3. |
-| États de surface (rouille, poussière, boue, brûlé) cuits, ou réservés au proche | Jusqu'à -20 ms sur les matières concernées. |
-| Résolution dynamique ou rendu à 75 % et mise à l'échelle | -44 % sur tout ce qui suit les pixels. |
-| Poils 3D réservés au héros et aux gros plans. Rayon sur un proxy basse résolution, ou BVH (`three-mesh-bvh`), ou fenêtre mise à jour toutes les 2 à 4 images | De 6 à 22 ms CPU à moins de 0,2 ms. |
-| Supprimer les matrices d'instance inutiles des poils 3D | -2 Mo par hôte poilu. |
-| Fuzz : moins de coques au loin, aucune sous quelques pixels | Moins de surdessin sur les tricots. |
-| Précompiler au chargement (`renderer.compileAsync`) | Pas d'à-coups en jeu. 0,5 à 1 s par matière distincte sur M1 Max, sous un écran de chargement. |
-| Demi-précision (`shader-f16`) sur les calculs qui la tolèrent | Jusqu'à 2x d'ALU sur Apple et mobile. Pas sur les coordonnées (piège 8 du README). |
+| Real branches on the pixel footprint, instead of fades weighted by zero | Distance falls back to the cost of the coarse level. The ground at 10 m would go from +8.5 ms to 1 or 2 ms. Biggest gain for a game scene. |
+| Bake the distance: the same material rendered once into a texture (512² to 1K, BC7) at load time, Infinitex only within a radius around the camera | Cost of a PBR scene (about 3 ms) beyond 2 to 3 m. 1.4 MB per 1K BC7 texture. |
+| Graph tiers (near, mid, far): 2 or 3 compiled variants per material, chosen by size on screen | Distant cost divided by 2 to 5. Shader compilation and memory multiplied by 2 or 3. |
+| Surface states (rust, dust, mud, burnt) baked, or reserved for the near view | Up to -20 ms on the affected materials. |
+| Dynamic resolution, or rendering at 75% and upscaling | -44% on everything that follows pixels. |
+| 3D hair reserved for the hero and close-ups. Ray on a low-resolution proxy, or BVH (`three-mesh-bvh`), or window updated every 2 to 4 frames | From 6 to 22 ms of CPU down to under 0.2 ms. |
+| Remove the useless instance matrices of the 3D hair | -2 MB per hairy host. |
+| Fuzz: fewer shells in the distance, none under a few pixels | Less overdraw on knits. |
+| Precompile at load (`renderer.compileAsync`) | No hitches in game. 0.5 to 1 s per distinct material on M1 Max, behind a loading screen. |
+| Half precision (`shader-f16`) on the computations that tolerate it | Up to 2x ALU on Apple and mobile. Not on coordinates (trap 8 in the README). |
 
-## 8. Machines cibles **[E]**
+## 8. Target machines **[E]**
 
-**Hypothèse.** La scène est limitée par le calcul du GPU. Le temps GPU varie donc à l'inverse du débit FP32 effectif. Référence mesurée : M1 Max, 10,4 TFLOPS. Scène de jeu 1080p : 9,2 ms en troisième personne et 13,2 ms pour le pull plein écran, latence retirée. Les débits sont les valeurs publiques des fabricants, corrigées quand le chiffre affiché compte un double débit que nos shaders n'exploitent pas (Ampere, RDNA 3). Incertitude : ±50 %.
+**Assumption.** The scene is limited by GPU compute. So GPU time varies inversely with the effective FP32 throughput. Measured reference: M1 Max, 10.4 TFLOPS. Game scene at 1080p: 9.2 ms in third person and 13.2 ms for the full-screen sweater, latency removed. The throughputs are the manufacturers' public values, corrected when the advertised figure counts a double rate that our shaders do not use (Ampere, RDNA 3). Uncertainty: ±50%.
 
-| Machine | débit relatif | 1080p, 3e personne | 1080p, gros plan | Réglage conseillé |
+| Machine | relative throughput | 1080p, 3rd person | 1080p, close-up | Suggested setting |
 |---|---|---|---|---|
-| Apple M1, GPU 8 cœurs | 0,25 | 37 ms, 27 im/s | 53 ms, 19 im/s | 720p, lointain cuit |
-| Apple M2, GPU 10 cœurs | 0,35 | 26 ms, 38 im/s | 38 ms, 26 im/s | 900p, lointain cuit |
-| Apple M3 ou M4, GPU 10 cœurs | 0,4 à 0,45 | 21 ms, 45 im/s | 30 ms, 33 im/s | lointain cuit pour 60 im/s |
-| Apple M1 Pro ou M2 Pro | 0,5 à 0,65 | 14 à 18 ms, 55 à 70 im/s | 20 à 26 ms | 1080p |
-| **Apple M1 Max (mesuré)** | **1** | **9,2 ms, environ 100 im/s** | **13,2 ms, 75 im/s** | 1080p ou 1440p |
-| Apple M3 Max ou M4 Max, 40 cœurs | 1,5 à 1,7 | 5,5 à 6 ms | 8 à 9 ms | 1440p |
-| PC, RTX 3060 (bureau) | 1,0 à 1,3 | 7 à 9 ms, 110 à 140 im/s | 10 à 13 ms | 1080p. 1440p à 60 im/s |
-| PC, RTX 4070 | environ 2 | 4,6 ms | 6,6 ms | 1440p |
-| Portable, Intel Iris Xe (96 EU) | 0,2 | 46 ms, 22 im/s | 66 ms | 720p, lointain cuit, pas de poils 3D |
-| Portable, AMD Radeon 780M | 0,4 | 23 ms, 43 im/s | 33 ms | 900p, lointain cuit |
-| iPhone 15 Pro ou 16 Pro (WebGPU dans Safari 26) | 0,12 en charge soutenue | 77 ms à 2 Mpx, 38 ms à 1 Mpx | | pas jouable en l'état |
-| Android haut de gamme (Adreno 750) | 0,15 à 0,2 | 46 à 61 ms à 2 Mpx | | pas jouable en l'état |
-| Téléphone milieu de gamme | moins de 0,05 | | | non |
+| Apple M1, 8-core GPU | 0.25 | 37 ms, 27 fps | 53 ms, 19 fps | 720p, baked distance |
+| Apple M2, 10-core GPU | 0.35 | 26 ms, 38 fps | 38 ms, 26 fps | 900p, baked distance |
+| Apple M3 or M4, 10-core GPU | 0.4 to 0.45 | 21 ms, 45 fps | 30 ms, 33 fps | baked distance for 60 fps |
+| Apple M1 Pro or M2 Pro | 0.5 to 0.65 | 14 to 18 ms, 55 to 70 fps | 20 to 26 ms | 1080p |
+| **Apple M1 Max (measured)** | **1** | **9.2 ms, about 100 fps** | **13.2 ms, 75 fps** | 1080p or 1440p |
+| Apple M3 Max or M4 Max, 40 cores | 1.5 to 1.7 | 5.5 to 6 ms | 8 to 9 ms | 1440p |
+| PC, RTX 3060 (desktop) | 1.0 to 1.3 | 7 to 9 ms, 110 to 140 fps | 10 to 13 ms | 1080p. 1440p at 60 fps |
+| PC, RTX 4070 | about 2 | 4.6 ms | 6.6 ms | 1440p |
+| Laptop, Intel Iris Xe (96 EU) | 0.2 | 46 ms, 22 fps | 66 ms | 720p, baked distance, no 3D hair |
+| Laptop, AMD Radeon 780M | 0.4 | 23 ms, 43 fps | 33 ms | 900p, baked distance |
+| iPhone 15 Pro or 16 Pro (WebGPU in Safari 26) | 0.12 under sustained load | 77 ms at 2 Mpx, 38 ms at 1 Mpx | | not playable as is |
+| High-end Android (Adreno 750) | 0.15 to 0.2 | 46 to 61 ms at 2 Mpx | | not playable as is |
+| Mid-range phone | under 0.05 | | | no |
 
-Le CPU ne limite sur aucune de ces machines : moins de 1 ms par image. Une seule exception : les poils 3D sur un personnage skinné (section 5).
+The CPU is not the limit on any of these machines: under 1 ms per frame. There is one exception: 3D hair on a skinned character (section 5).
 
-Sur téléphone, une version jouable demanderait le lointain cuit, une seule matière Infinitex à la fois (l'objet inspecté), un rendu vers 1 Mpx et la demi-précision.
+On a phone, a playable version would need baked distance, a single Infinitex material at a time (the inspected object), rendering at about 1 Mpx and half precision.
 
 ## TLDR
 
-Sur un M1 Max, une scène de jeu entièrement en Infinitex (13 matières) coûte environ 10 ms par image en 1080p, contre 3 ms avec des textures classiques. Soit environ 100 im/s sur cette machine, 40 sur un MacBook Air récent, 25 sur un M1 de base, et rien de jouable sur téléphone en l'état. En mémoire, Infinitex n'a pas de textures, mais ses shaders compilés et son JavaScript pèsent environ 245 Mo. C'est autant qu'un jeu de textures 2K compressées, 3,5 fois moins qu'en 4K compressée et 14 fois moins qu'en 4K brute. Pour un jeu, il faut garder Infinitex pour le proche, cuire le lointain en textures, faire sauter les niveaux effacés au lieu de les pondérer par zéro, et corriger le rayon CPU des poils 3D sur les personnages skinnés (6 à 22 ms).
+On an M1 Max, a game scene entirely in Infinitex (13 materials) costs about 10 ms per frame at 1080p, against 3 ms with classic textures. That is about 100 fps on this machine, 40 on a recent MacBook Air, 25 on a base M1, and nothing playable on a phone as is. In memory, Infinitex has no textures, but its compiled shaders and its JavaScript weigh about 245 MB. That is as much as a set of compressed 2K textures, 3.5 times less than compressed 4K and 14 times less than raw 4K. For a game, keep Infinitex for the near view, bake the distance into textures, skip the faded levels instead of weighting them by zero, and fix the CPU ray of the 3D hair on skinned characters (6 to 22 ms).

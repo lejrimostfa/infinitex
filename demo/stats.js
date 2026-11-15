@@ -62,7 +62,7 @@ export function createStats( { renderer, camera, ix, fuzz, meshes, post, backend
 		const w = renderer.domElement.width, h = renderer.domElement.height;
 		el.innerHTML = `
 			<div class="big">${ fps.toFixed( 0 ) } fps</div>
-			<div>CPU frame ${ cpuMs.toFixed( 1 ) } ms${ gpuMs !== null ? `, GPU ${ gpuMs.toFixed( 1 ) } ms` : '' }</div>
+			<div>CPU frame ${ cpuMs.toFixed( 1 ) } ms${ gpuMs !== null && gpuMs >= 0 && gpuMs < 1e4 ? `, GPU ${ gpuMs.toFixed( 1 ) } ms` : '' }</div>
 			<div>triangles ${ fmtN( info.triangles ) }, draw calls ${ info.drawCalls }</div>
 			<div class="dim">surface ${ fmtN( knitTris ) } + fuzz shells ${ fmtN( fuzzTris ) }</div>
 			<div class="dim">${ w } x ${ h }, ${ backend }, SSAO ${ post.enabled ? 'on' : 'off' }</div>

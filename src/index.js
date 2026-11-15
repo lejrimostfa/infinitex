@@ -144,7 +144,9 @@ export class InfinitexMaterial extends EventTarget {
 		const stitchColor = options.colorMap && coords
 			? createStitchColor( { map: options.colorMap.map, mapUV: options.colorMap.uv ?? uv(), coords } ) : null;
 		this.stitchColor = stitchColor;
-		const buildOpts = { coords, stitchColor, baseNormal: options.base?.normal ?? null };
+		// base.under === false: the base is another matter side by side, not a
+		// surface under this one, so the family does not build on its normal.
+		const buildOpts = { coords, stitchColor, baseNormal: options.base?.under === false ? null : options.base?.normal ?? null };
 		// preset.pixel: the same matter drawn as pixel art (core/pixel.js).
 		// preset.relief: real relief up close, for families with a height (core/relief.js).
 		const nodes = preset.pixel ? buildPixel( impl, this.uniforms, buildOpts, preset )

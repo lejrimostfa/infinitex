@@ -29,7 +29,7 @@ export const waterBody = {
 	level: uniform( 0.2 ), // world y of the still surface (m)
 	sizeM: uniform( 0.4 ), featureM: uniform( 0.08 ), // longest and shortest ripple
 	amount: uniform( 0.8 ), speed: uniform( 0.5 ), seed: uniform( 3 ), angle: uniform( 0.35 ),
-	absorb: uniform( new Vector3( 0.45, 0.07, 0.02 ) ), // pure water, 1/m (650, 550, 450 nm)
+	absorb: uniform( new Vector3( 0.45, 0.07, 0.02 ) ), // 1/m at 650, 550, 450 nm: above pure water (Pope and Fry 1997: about 0.34, 0.057, 0.009), as natural water with dissolved matter
 	turbidity: uniform( 0.12 ), // scattering, 1/m, all colours
 	inscatter: uniform( new Color( '#2a8f96' ) ), // colour of the light the water scatters
 	caustics: uniform( 1 ),

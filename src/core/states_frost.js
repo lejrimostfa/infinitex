@@ -6,7 +6,8 @@
 //   L1  ice plates of frosted_um (0.1 to 0.5 mm), flat hexagonal facets
 //       at random tilts that glint one by one (roughness 0.12)
 //   L2  needles and feathers between the plates, 15 to 30 um thick and
-//       up to 1 mm long, straight (ice grows along its a-axes)
+//       up to 1 mm long, straight (needles grow along the c-axis,
+//       Libbrecht 2005)
 // Ice is clear: thin crystals tint the matter blue-white, piled crystals
 // scatter white. It buries the fibre sheen.
 

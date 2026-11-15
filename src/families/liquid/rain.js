@@ -7,7 +7,7 @@
 //                  chance of each): about 400 drops per m2 per second
 //   L1  rings      the crater collapses and sends a ring of ripples out:
 //                  a packet of feature_mm capillary waves (6 mm: crests
-//                  at 30 cm/s, the packet at 45 cm/s, gravity capillary
+//                  at 30 cm/s, the packet at about 41 cm/s, gravity capillary
 //                  dispersion, waves.js). Amplitude falls as 1/sqrt(r)
 //                  and in 0.25 s, so a ring dies 7 to 10 cm out; a faster
 //                  train of shorter wavelets (2.4 mm) leads it. The

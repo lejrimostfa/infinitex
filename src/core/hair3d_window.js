@@ -29,6 +29,7 @@ export function createHairWindow( spec, { host, metersPerUV: mpu, grid: G } ) {
 		camLocal: uniform( new Vector3() ),
 		lightLocal: uniform( new Vector3( 0, 0, 1 ) ), // toward the main light
 		lightOn: uniform( 0 ), // 1 when a directional light exists
+		boxMin: uniform( new Vector2( - 1e9, - 1e9 ) ), boxMax: uniform( new Vector2( 1e9, 1e9 ) ), // roots stay in the hit region
 	};
 
 	const ray = new Raycaster();
@@ -36,6 +37,53 @@ export function createHairWindow( spec, { host, metersPerUV: mpu, grid: G } ) {
 	const e1 = new Vector3(), e2 = new Vector3();
 	const pa = new Vector3(), pb = new Vector3(), pc = new Vector3();
 	const ua = new Vector2(), ub = new Vector2(), uc = new Vector2();
+
+	// The strands stand on the tangent plane of the hit point. That plane
+	// runs past the edges of the surface, so roots are kept inside the
+	// coords box of the flat region around the hit triangle: triangles
+	// reached through shared vertices whose normal stays within ~15 degrees.
+	// Cached per region, so each face is walked once.
+	const regionOf = new Map();
+	const region = ( g, f0 ) => {
+
+		if ( regionOf.has( f0 ) ) return regionOf.get( f0 );
+		const idx = g.index, pAt = g.attributes.position, uAt = g.attributes.uv;
+		if ( ! idx ) return null;
+		const nTri = idx.count / 3;
+		const triN = ( f, out ) => {
+
+			pa.fromBufferAttribute( pAt, idx.getX( f * 3 ) ); pb.fromBufferAttribute( pAt, idx.getX( f * 3 + 1 ) ); pc.fromBufferAttribute( pAt, idx.getX( f * 3 + 2 ) );
+			return out.subVectors( pb, pa ).cross( e2.subVectors( pc, pa ) ).normalize();
+
+		};
+		if ( ! g.userData.ixVertTris ) {
+
+			const vt = Array.from( { length: pAt.count }, () => [] );
+			for ( let f = 0; f < nTri; f ++ ) for ( let k = 0; k < 3; k ++ ) vt[ idx.getX( f * 3 + k ) ].push( f );
+			g.userData.ixVertTris = vt;
+
+		}
+
+		const vt = g.userData.ixVertTris, n0 = triN( f0, new Vector3() ), n = new Vector3();
+		const seen = new Set( [ f0 ] ), stack = [ f0 ], box = { min: new Vector2( Infinity, Infinity ), max: new Vector2( - Infinity, - Infinity ) };
+		while ( stack.length && seen.size < 50000 ) {
+
+			const f = stack.pop();
+			for ( let k = 0; k < 3; k ++ ) {
+
+				const vi = idx.getX( f * 3 + k );
+				ua.fromBufferAttribute( uAt, vi ).multiplyScalar( mpu );
+				box.min.min( ua ); box.max.max( ua );
+				for ( const t of vt[ vi ] ) if ( ! seen.has( t ) && triN( t, n ).dot( n0 ) > 0.966 ) { seen.add( t ); stack.push( t ); }
+
+			}
+
+		}
+
+		for ( const f of seen ) regionOf.set( f, box );
+		return box;
+
+	};
 
 	// The brightest directional light casts the strand shadows.
 	const mainLight = ( scene ) => {
@@ -90,6 +138,8 @@ export function createHairWindow( spec, { host, metersPerUV: mpu, grid: G } ) {
 		u.T.value.copy( e1 ).multiplyScalar( dv2 ).addScaledVector( e2, - dv1 ).divideScalar( det );
 		u.B.value.copy( e2 ).multiplyScalar( du1 ).addScaledVector( e1, - du2 ).divideScalar( det );
 		u.N.value.copy( e1 ).cross( e2 ).normalize();
+		const box = region( g, hit.faceIndex );
+		if ( box ) { u.boxMin.value.copy( box.min ); u.boxMax.value.copy( box.max ); } else { u.boxMin.value.set( - 1e9, - 1e9 ); u.boxMax.value.set( 1e9, 1e9 ); }
 
 		// Window: what the camera sees around P, plus the reach of a hair.
 		const half = hit.distance * Math.tan( camera.fov * Math.PI / 360 ) * Math.max( 1, camera.aspect ) * 1.3;

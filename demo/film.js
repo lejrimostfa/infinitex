@@ -18,11 +18,11 @@ const sstep = ( a, b, x ) => {
 export const FILM = { dFar: 3.2, dNear: 6.5e-4, tilt: 38 * Math.PI / 180, spin: 0.55 };
 
 const CAPTIONS = [
-	[ 0.55, 'Un pull en laine, 100 % procédural' ],
-	[ 0.075, 'Les mailles du jersey' ],
-	[ 0.011, 'Chaque maille : un fil de 3 brins torsadés' ],
-	[ 0.0026, 'Les brins et leur duvet' ],
-	[ 0, 'Les fibres de laine, 21 µm' ],
+	[ 0.55, 'A wool sweater, 100% procedural' ],
+	[ 0.075, 'The jersey stitches' ],
+	[ 0.011, 'Each stitch: a yarn of 3 twisted plies' ],
+	[ 0.0026, 'The plies and their fuzz' ],
+	[ 0, 'Wool fibres, 21 µm' ],
 ];
 const BARS = [ 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01, 5e-3, 2e-3, 1e-3, 5e-4, 2e-4, 1e-4, 5e-5 ];
 const label = ( m ) => m >= 0.01 ? `${ +( m * 100 ).toFixed( 1 ) } cm` : m >= 1e-3 ? `${ +( m * 1000 ).toFixed( 1 ) } mm` : `${ Math.round( m * 1e6 ) } µm`;

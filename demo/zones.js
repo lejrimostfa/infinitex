@@ -49,7 +49,10 @@ export function atlasZones( image, zones ) {
 //   3. per-vertex weights ixZone<z>: share of the vertex's triangles in
 //      zone z, used as the material mask (soft only on real borders)
 // Returns a Uint8Array per zone (1 = triangle in the zone, new order).
-export function groupByZone( geometry, masks, { vote = 0.3, passes = 3 } = {} ) {
+// where: optional, one test per zone on the triangle centre ( x, y, z ) in
+// the mesh frame, for zones that colour alone cannot tell apart (boots and
+// coat of the same dark leather).
+export function groupByZone( geometry, masks, { vote = 0.3, passes = 3, where = [] } = {} ) {
 
 	const idx = geometry.index.array, uv = geometry.attributes.uv, pos = geometry.attributes.position;
 	const nTri = idx.length / 3, nZ = masks.length;
@@ -59,8 +62,11 @@ export function groupByZone( geometry, masks, { vote = 0.3, passes = 3 } = {} ) 
 		let best = nZ, bs = vote;
 		const a = idx[ t * 3 ], b = idx[ t * 3 + 1 ], c = idx[ t * 3 + 2 ];
 		const cu = ( uv.getX( a ) + uv.getX( b ) + uv.getX( c ) ) / 3, cv = ( uv.getY( a ) + uv.getY( b ) + uv.getY( c ) ) / 3;
+		const x = ( pos.getX( a ) + pos.getX( b ) + pos.getX( c ) ) / 3, y = ( pos.getY( a ) + pos.getY( b ) + pos.getY( c ) ) / 3, z0 = ( pos.getZ( a ) + pos.getZ( b ) + pos.getZ( c ) ) / 3;
 		masks.forEach( ( m, z ) => {
 
+			// A zone whose place test fails leaves the triangle to the next best.
+			if ( where[ z ] && ! where[ z ]( x, y, z0 ) ) return;
 			const sc = ( m.sampleUV( uv.getX( a ), uv.getY( a ) ) + m.sampleUV( uv.getX( b ), uv.getY( b ) ) + m.sampleUV( uv.getX( c ), uv.getY( c ) ) + m.sampleUV( cu, cv ) ) / 4;
 			if ( sc > bs ) { bs = sc; best = z; }
 

@@ -5,7 +5,8 @@
 //                the discal cell; a black margin scalloped between the
 //                veins, a row of white spots in it, a dark costal edge,
 //                darker toward the base. The blue is structural: a strong
-//                thin film over dark scales, it turns violet at grazing
+//                multilayer ridge interference (drawn as a thin film) over
+//                dark scales, it turns violet at grazing
 //   L1 scales    scales of size_mm (0.2 to 0.3 mm long) in rows across the
 //                veins like roof tiles: each tip covers the base of the
 //                next row and casts a thin shadow, the dark membrane shows

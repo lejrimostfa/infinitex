@@ -3,7 +3,7 @@
 // tension:  w^2 = g k + (sigma / rho) k^3,  sigma / rho = 7.3e-5 m3/s2.
 // So gravity waves (longer than 17 mm) go faster when long, capillary
 // waves (shorter) go faster when short; the slowest, 17 mm, runs at
-// 23 cm/s. A wave 5 cm long runs at 28 cm/s, one 3 mm long at 40 cm/s.
+// 23 cm/s. A wave 5 cm long runs at 29.5 cm/s, one 3 mm long at 40 cm/s.
 // Wind ripples have a slope spectrum about flat per octave: the same
 // steepness (about 0.1 at most) at every length.
 //   L0  long ripples along the wind, their crests bent by a slow warp,

@@ -18,7 +18,7 @@ Every pattern reuses the ply and fibre levels (yarn.js) and the fuzz shells. Far
 | Matter | Zoom |
 |---|---|
 | **Jersey** (sweater, t-shirt) | V stitches, plies, fibers, scales |
-| **Jacquard from a texture** (riveraine) | one colour per stitch |
+| **Jacquard from a texture** (game character) | one colour per stitch |
 | **Rib (2 x 2)** | raised V columns, sunk purl bumps, plies, fibers |
 | **Garter** | a ridge of purl bumps every two rows |
 | **Seed stitch** | knit and purl alternate: a pebbly check |
@@ -94,7 +94,7 @@ Cane and mail cut their holes (blended opacity, two sided); far away the opacity
 | Woven bamboo | flat slats, long fibers |
 | **Cane webbing** (chair) | six-way star mesh, octagonal holes, glossy rattan skin |
 | Mat, tatami | tight rush, binding threads |
-| **Rope** (riveraine mask) | twisted strands, hemp fibers |
+| **Rope** (game character mask) | twisted strands, hemp fibers |
 | **Braid** (three strand plaits) | interlaced strands, twisted yarns, fibres |
 | **Chain mail** | interlinked butted rings, 4 in 1, drawing lines |
 
@@ -102,7 +102,7 @@ Cane and mail cut their holes (blended opacity, two sided); far away the opacity
 
 | Matter | Zoom |
 |---|---|
-| **Full grain** (riveraine apron) | wrinkles, crease grain, craquelure, pores, finish micro cracks |
+| **Full grain** (game character apron) | wrinkles, crease grain, craquelure, pores, finish micro cracks |
 | Cracked, aged | crack patches, worn edges |
 | Patent, shiny | thick varnish, sharp reflections |
 | Wet | darkened, water film |
@@ -173,7 +173,7 @@ Light in the hair (`core/hair3d_shade.js`, a lighting model per light):
 - occlusion: the same depth darkens the ambient light;
 - depth tint: deep strands come out darker and more saturated (light scattered many times);
 - translucency: the TT lobe of Marschner's fibre model, so backlit hair glows;
-- a second, coloured highlight along the strand (TRT, Kajiya-Kay).
+- a second, coloured highlight along the strand (TRT, Marschner 2003; shifted twin highlights after Scheuermann 2004).
 Shadows on the surface (`core/hair3d_shadow.js`): each strand projected along the main light onto the tangent plane, drawn black and alpha blended, sharp at the root. Only the sharp part is drawn, and only at fine levels: wide soft shadows of thousands of strands cost up to 60 ms.
 Cost at 1920x1080 (M-series, WebGPU): fur and hair add 2 to 5 ms, crimped fleece up to 10 ms; the shadows add 0 to 1.5 ms.
 Limits: the surface under the window is its tangent plane (exact on flat faces); strands do not shadow each other one by one (statistical self-shadow only); shadows come from the brightest directional light.

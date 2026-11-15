@@ -2102,7 +2102,7 @@
    "hits": 1,
    "triangles": 57600
   },
-  "riveraineBody": {
+  "characterBody": {
    "ms": 6.09,
    "hits": 6,
    "triangles": 11135

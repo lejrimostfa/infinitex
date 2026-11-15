@@ -10,6 +10,7 @@ import * as THREE from 'three/webgpu';
 import { uv, vec2, positionWorldDirection } from 'three/tsl';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import './nav.js';
 import { createMaterial } from '../src/index.js';
 import { setTime } from '../src/core/clock.js';
 import { reliefLight } from '../src/core/relief.js';

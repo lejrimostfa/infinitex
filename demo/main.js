@@ -2,12 +2,15 @@
 // Panel, stats, SSAO, film and the loop live in app.js.
 // URL flags: ?webgl (WebGL2 backend), ?nofuzz, ?film (recorder mode).
 
+import './nav.js';
 import { createMaterial } from '../src/index.js';
 import { createScene } from './scene.js';
 import { createFilm } from './film.js';
 import { startApp } from './app.js';
+import { addCharacterPicker } from './charpick.js';
 
 const params = new URLSearchParams( location.search );
+addCharacterPicker( 'concept' );
 const forceWebGL = params.has( 'webgl' );
 document.body.classList.toggle( 'film', params.has( 'film' ) );
 

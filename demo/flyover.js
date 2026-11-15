@@ -277,12 +277,12 @@ export function createFlyover( { camera, scene, keys, C, V, ignore = () => false
 	const bar = document.getElementById( 'film-bar' );
 	function overlay( d ) {
 
-		// Caption of the last key passed, faded in over 0.8 s and out before the next.
+		// Caption of the last key passed, faded in over 0.8 s and out before the next key.
 		let html = '';
 		K.forEach( ( k, i ) => {
 
 			if ( ! k.caption ) return;
-			const end = K.slice( i + 1 ).find( ( x ) => x.caption )?.at ?? duration + 10;
+			const end = K[ i + 1 ]?.at ?? duration + 10; // a caption ends with its shot
 			const o = Math.min( 1, Math.max( 0, ( now - k.at + 0.4 ) / 0.8 ), Math.max( 0, ( end - now ) / 0.8 ) );
 			if ( o > 0.01 ) html += `<div style="opacity:${ o.toFixed( 3 ) }">${ k.caption }</div>`;
 
