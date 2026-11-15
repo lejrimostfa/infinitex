@@ -12,7 +12,7 @@ import { createStats } from './stats.js';
 const { vec3 } = TSL;
 
 // animate( t ): poses the scene at time t (seconds).
-export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, params, panel = null } ) {
+export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, params, panel = null, statsLevels = true } ) {
 
 	// Every animation step also moves the shared material clock (core/clock.js).
 	const animate = ( t ) => { setTime( t ); poseScene( t ); };
@@ -48,7 +48,7 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 
 	// SSAO post pass and the stats panel (top left).
 	const post = createPost( renderer, scene, camera );
-	const stats = createStats( { renderer, camera, ix, fuzz, meshes, post, backend: forceWebGL ? 'WebGL2' : 'WebGPU' } );
+	const stats = createStats( { renderer, camera, ix, fuzz, meshes, post, backend: forceWebGL ? 'WebGL2' : 'WebGPU', levels: statsLevels } );
 	const aoBtn = document.getElementById( 'ssao' );
 	const aoLabel = () => { aoBtn.textContent = post.enabled ? 'SSAO off' : 'SSAO on'; };
 	aoBtn.onclick = () => { post.enabled = ! post.enabled; aoLabel(); };

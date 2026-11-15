@@ -19,6 +19,7 @@ import { createWaterSurface, daySky } from '../src/core/watersurface.js';
 import { createWaterline } from '../src/core/waterline.js';
 import { createMirror } from '../src/core/mirror.js';
 import { createStage } from './scene.js';
+import { createStats } from './stats.js';
 
 const TW = 1.2, TD = 0.8, TH = 0.5, LEVEL = 0.35; // tank (m)
 const params = new URLSearchParams( location.search );
@@ -26,7 +27,6 @@ const ctx = await createStage( { forceWebGL: params.has( 'webgl' ) } );
 const { renderer, scene, camera, controls } = ctx;
 ctx.floor.visible = false;
 document.getElementById( 'panel' ).style.display = 'none';
-document.getElementById( 'stats' ).style.display = 'none';
 
 // One sun for the lights, the caustics and the sky.
 const sun = scene.children.find( ( o ) => o.isDirectionalLight );
@@ -162,6 +162,8 @@ function glassPan( t, dur = 8 ) {
 }
 
 view( params.get( 'view' ) ?? 'above' );
+// Stats panel (demo/stats.js): fps, frame and GPU time, triangles, draw calls.
+const stats = createStats( { renderer, camera, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
 let clock = 0, last = performance.now();
 renderer.setAnimationLoop( () => {
 
@@ -170,7 +172,9 @@ renderer.setAnimationLoop( () => {
 	last = now;
 	setTime( clock );
 	controls.update();
+	stats.beginFrame();
 	draw();
+	stats.endFrame( camera.position.distanceTo( controls.target ) );
 
 } );
 

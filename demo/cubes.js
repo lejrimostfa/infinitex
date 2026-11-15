@@ -273,6 +273,7 @@ const app = startApp( {
 	ctx, ix: lit[ 0 ].ix, meshes: lit.map( ( c ) => c.mesh ), fuzz, film, params,
 	panel: lit.map( ( c ) => ( { name: c.name, ix: c.ix } ) ),
 	animate: () => {},
+	statsLevels: false, // the knit levels belong to the first cube only
 } );
 
 // Benchmark: each lit matter fills a 1920x1080 target, seen straight on
