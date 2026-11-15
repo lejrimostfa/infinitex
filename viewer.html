@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Infinitex model viewer</title>
+<style>html,body{margin:0;height:100%;background:#15161a;overflow:hidden}</style></head>
+<body><script type="module">
+// Dev tool: view any GLB from demo/assets, framed front on. ?m=name (no .glb)
+import * as THREE from 'three/webgpu';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createStage } from '/demo/scene.js';
+const name = new URLSearchParams( location.search ).get( 'm' );
+const { renderer, scene, camera, controls } = await createStage( { forceWebGL: false } );
+const gltf = await new GLTFLoader().loadAsync( `/demo/assets/${ name }.glb` );
+scene.add( gltf.scene );
+const box = new THREE.Box3().setFromObject( gltf.scene ), c = box.getCenter( new THREE.Vector3() ), s = box.getSize( new THREE.Vector3() );
+controls.target.copy( c );
+camera.position.set( c.x + s.y * 0.3, c.y + s.y * 0.1, c.z + s.y * 1.6 );
+renderer.setAnimationLoop( () => { controls.update(); renderer.render( scene, camera ); } );
+window.__ready = true;
+</script></body></html>

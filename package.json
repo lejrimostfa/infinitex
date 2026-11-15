@@ -1,0 +1,22 @@
+{
+  "name": "infinitex",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Procedural three.js TSL materials whose detail grows as the camera zooms in.",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "vite --port 5211 --strictPort",
+    "build": "vite build",
+    "test": "node --test tests/"
+  },
+  "peerDependencies": {
+    "three": ">=0.187.0"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.65.0",
+    "three": "0.187.0",
+    "vite": "8.3.5"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Infinitex: knit from a game texture</title>
+<style>
+	html, body { margin: 0; height: 100%; background: #101114; color: #e8e6e3; font: 13px/1.4 system-ui, sans-serif; overflow: hidden; }
+	canvas { display: block; }
+	#panel { position: fixed; top: 12px; right: 12px; width: 260px; background: rgba(16,17,20,.82); border: 1px solid #2a2c31; border-radius: 8px; padding: 10px 12px; }
+	#panel h1 { font-size: 14px; margin: 0 0 6px; }
+	#panel label { display: grid; grid-template-columns: 1fr 90px 40px; gap: 6px; align-items: center; margin: 3px 0; }
+	#panel input[type=range] { width: 90px; }
+	#panel .row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+	#panel button { background: #2a2c31; color: inherit; border: 1px solid #3a3d44; border-radius: 5px; padding: 4px 8px; cursor: pointer; }
+	#stats { position: fixed; top: 12px; left: 12px; min-width: 250px; font: 12px/1.55 ui-monospace, monospace; background: rgba(16,17,20,.82); border: 1px solid #2a2c31; padding: 8px 10px; border-radius: 8px; }
+	#stats .big { font-size: 22px; font-weight: 600; color: #fff; }
+	#stats .dim { color: #9a9ca3; }
+	#stats hr { border: 0; border-top: 1px solid #2a2c31; margin: 6px 0; }
+	.bar { display: inline-block; width: 60px; height: 8px; background: #2a2c31; vertical-align: middle; margin-left: 4px; }
+	.bar i { display: block; height: 100%; background: #d9a441; }
+	#film-cap, #film-bar { display: none; }
+	body.film #panel, body.film #stats { display: none; }
+	body.film #film-cap { display: grid; position: fixed; left: 6vh; bottom: 6vh; font: 600 3.4vh/1.25 system-ui, sans-serif; color: #fff; text-shadow: 0 0.2vh 1vh rgba(0,0,0,.65); }
+	body.film #film-cap div { grid-area: 1 / 1; }
+	body.film #film-bar { display: block; position: fixed; right: 6vh; bottom: 6vh; text-align: right; font: 500 2.2vh system-ui, sans-serif; color: #fff; text-shadow: 0 0.2vh 0.8vh rgba(0,0,0,.7); }
+	body.film #film-bar i { display: block; height: 0.5vh; margin: 0 0 0.8vh auto; background: #fff; box-shadow: 0 0.1vh 0.6vh rgba(0,0,0,.6); }
+</style>
+</head>
+<body>
+<div id="panel">
+	<h1>Infinitex: riveraine, knit from her texture</h1>
+	<div id="sliders"></div>
+	<div class="row">
+		<button id="dolly">Zoom to the fibers</button>
+		<button id="fuzz"></button>
+		<button id="ssao"></button>
+		<button id="debug">Level view</button>
+		<button id="backend"></button>
+	</div>
+</div>
+<div id="stats"></div>
+<div id="film-cap"></div>
+<div id="film-bar"></div>
+<script type="module" src="/demo/character.js"></script>
+</body>
+</html>

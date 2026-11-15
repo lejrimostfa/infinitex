@@ -1,0 +1,55 @@
+{
+ "memory": {
+  "noix": {
+   "footprintMB": 538,
+   "heapMB": 24.8,
+   "three": {
+    "attributes": 32,
+    "attributesSize": 195336,
+    "geometries": 16,
+    "indexAttributes": 15,
+    "indexAttributesSize": 62364,
+    "indirectStorageAttributes": 0,
+    "indirectStorageAttributesSize": 0,
+    "programs": 21,
+    "programsSize": 81404,
+    "readbackBuffers": 0,
+    "readbackBuffersSize": 0,
+    "renderTargets": 7,
+    "storageAttributes": 0,
+    "storageAttributesSize": 0,
+    "textures": 15,
+    "texturesSize": 129767892,
+    "uniformBuffers": 49,
+    "uniformBuffersSize": 7328,
+    "total": 130114324
+   }
+  },
+  "ix": {
+   "footprintMB": 723,
+   "heapMB": 83.2,
+   "three": {
+    "attributes": 73,
+    "attributesSize": 4952936,
+    "geometries": 19,
+    "indexAttributes": 18,
+    "indexAttributesSize": 154908,
+    "indirectStorageAttributes": 0,
+    "indirectStorageAttributesSize": 0,
+    "programs": 71,
+    "programsSize": 3396540,
+    "readbackBuffers": 0,
+    "readbackBuffersSize": 0,
+    "renderTargets": 7,
+    "storageAttributes": 0,
+    "storageAttributesSize": 0,
+    "textures": 15,
+    "texturesSize": 129767892,
+    "uniformBuffers": 61,
+    "uniformBuffersSize": 15680,
+    "total": 138287956
+   }
+  }
+ },
+ "parts": {}
+}

@@ -1,0 +1,612 @@
+{
+ "memory": {
+  "noix": {
+   "footprintMB": null,
+   "heapMB": 29.4,
+   "three": {
+    "attributes": 32,
+    "attributesSize": 195336,
+    "geometries": 16,
+    "indexAttributes": 15,
+    "indexAttributesSize": 62364,
+    "indirectStorageAttributes": 0,
+    "indirectStorageAttributesSize": 0,
+    "programs": 21,
+    "programsSize": 81404,
+    "readbackBuffers": 0,
+    "readbackBuffersSize": 0,
+    "renderTargets": 7,
+    "storageAttributes": 0,
+    "storageAttributesSize": 0,
+    "textures": 15,
+    "texturesSize": 129767892,
+    "uniformBuffers": 49,
+    "uniformBuffersSize": 7328,
+    "total": 130114324
+   }
+  },
+  "ix": {
+   "footprintMB": null,
+   "heapMB": 78.2,
+   "three": {
+    "attributes": 73,
+    "attributesSize": 4952936,
+    "geometries": 19,
+    "indexAttributes": 18,
+    "indexAttributesSize": 154908,
+    "indirectStorageAttributes": 0,
+    "indirectStorageAttributesSize": 0,
+    "programs": 71,
+    "programsSize": 3396540,
+    "readbackBuffers": 0,
+    "readbackBuffersSize": 0,
+    "renderTargets": 7,
+    "storageAttributes": 0,
+    "storageAttributesSize": 0,
+    "textures": 15,
+    "texturesSize": 129767892,
+    "uniformBuffers": 61,
+    "uniformBuffersSize": 15680,
+    "total": 138287956
+   }
+  }
+ },
+ "parts": {
+  "tps3 none": {
+   "mode": "plain",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": null,
+   "wallMs": 6.3,
+   "cpuMs": 0.9,
+   "gpuSamples": 0,
+   "badPasses": 0,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "wall": [
+    6.3,
+    9.6,
+    7.4
+   ]
+  },
+  "tps3 face": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": null,
+   "wallMs": 6.5,
+   "cpuMs": 0.9,
+   "gpuSamples": 0,
+   "badPasses": 0,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "part": "face",
+   "matter": "Visage",
+   "wall": [
+    6.5,
+    11.2,
+    8.8
+   ]
+  },
+  "tps3 forearms": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": 8.097,
+   "wallMs": 6,
+   "cpuMs": 0.8,
+   "gpuSamples": 1,
+   "badPasses": 2,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "part": "forearms",
+   "matter": "Peau mate",
+   "wall": [
+    6,
+    12.2,
+    7
+   ]
+  },
+  "tps3 sweater": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": 9.266,
+   "wallMs": 6.4,
+   "cpuMs": 0.8,
+   "gpuSamples": 3,
+   "badPasses": 3,
+   "drawCalls": 27,
+   "triangles": 28090,
+   "size": "1920x1080",
+   "part": "sweater",
+   "matter": "Jersey",
+   "wall": [
+    6.4,
+    10.8,
+    7.4
+   ]
+  },
+  "tps3 trousers": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": 15.922,
+   "wallMs": 6.3,
+   "cpuMs": 0.7,
+   "gpuSamples": 1,
+   "badPasses": 2,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "part": "trousers",
+   "matter": "Cuir pleine fleur",
+   "wall": [
+    6.3,
+    10,
+    7.3
+   ]
+  },
+  "tps3 steel": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": 8.891,
+   "wallMs": 5.5,
+   "cpuMs": 0.7,
+   "gpuSamples": 1,
+   "badPasses": 1,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "part": "steel",
+   "matter": "Acier brossé",
+   "wall": [
+    5.5,
+    13.1,
+    7.1
+   ]
+  },
+  "tps3 ground": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": 18.531,
+   "wallMs": 11.4,
+   "cpuMs": 0.6,
+   "gpuSamples": 1,
+   "badPasses": 1,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "part": "ground",
+   "matter": "Terre",
+   "wall": [
+    11.4,
+    14.9,
+    13
+   ]
+  },
+  "tps3 wall": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": 11.451,
+   "wallMs": 6.3,
+   "cpuMs": 0.5,
+   "gpuSamples": 8,
+   "badPasses": 8,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "part": "wall",
+   "matter": "Brique et mortier",
+   "wall": [
+    6.3,
+    9.2,
+    8.5
+   ]
+  },
+  "tps3 path": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": 9.553,
+   "wallMs": 5.4,
+   "cpuMs": 0.5,
+   "gpuSamples": 10,
+   "badPasses": 12,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "part": "path",
+   "matter": "Béton",
+   "wall": [
+    5.4,
+    8.8,
+    11.3
+   ]
+  },
+  "tps3 crates": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": 6.838,
+   "wallMs": 4.5,
+   "cpuMs": 0.5,
+   "gpuSamples": 14,
+   "badPasses": 17,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "part": "crates",
+   "matter": "Bois brut",
+   "wall": [
+    4.5,
+    7,
+    12.6
+   ]
+  },
+  "tps3 barrel": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": 7.312,
+   "wallMs": 4.7,
+   "cpuMs": 0.6,
+   "gpuSamples": 12,
+   "badPasses": 14,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "part": "barrel",
+   "matter": "Fer rouillé",
+   "wall": [
+    4.7,
+    6.7,
+    14.1
+   ]
+  },
+  "tps3 bin": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": 7.384,
+   "wallMs": 4.4,
+   "cpuMs": 0.5,
+   "gpuSamples": 14,
+   "badPasses": 17,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "part": "bin",
+   "matter": "Plastique usé, jauni",
+   "wall": [
+    4.4,
+    7,
+    8.2
+   ]
+  },
+  "tps3 pot": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": 6.812,
+   "wallMs": 4.7,
+   "cpuMs": 0.6,
+   "gpuSamples": 11,
+   "badPasses": 13,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "part": "pot",
+   "matter": "Terre cuite",
+   "wall": [
+    4.7,
+    7.9,
+    9.9
+   ]
+  },
+  "tps3 rock": {
+   "mode": "ix",
+   "view": "tps3",
+   "post": true,
+   "gpuMs": 7.066,
+   "wallMs": 4.8,
+   "cpuMs": 0.6,
+   "gpuSamples": 15,
+   "badPasses": 17,
+   "drawCalls": 26,
+   "triangles": 20410,
+   "size": "1920x1080",
+   "part": "rock",
+   "matter": "Granit",
+   "wall": [
+    4.8,
+    7.2,
+    12.2
+   ]
+  },
+  "far10 none": {
+   "mode": "plain",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 3.347,
+   "wallMs": 2.6,
+   "cpuMs": 0.5,
+   "gpuSamples": 23,
+   "badPasses": 26,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "wall": [
+    2.6,
+    4.5,
+    6.1
+   ]
+  },
+  "far10 face": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 3.423,
+   "wallMs": 2.9,
+   "cpuMs": 0.5,
+   "gpuSamples": 21,
+   "badPasses": 25,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "part": "face",
+   "matter": "Visage",
+   "wall": [
+    2.9,
+    5.2,
+    6.4
+   ]
+  },
+  "far10 forearms": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 3.391,
+   "wallMs": 2.9,
+   "cpuMs": 0.6,
+   "gpuSamples": 22,
+   "badPasses": 25,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "part": "forearms",
+   "matter": "Peau mate",
+   "wall": [
+    2.9,
+    4.8,
+    9.1
+   ]
+  },
+  "far10 sweater": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 4.492,
+   "wallMs": 2.9,
+   "cpuMs": 0.5,
+   "gpuSamples": 21,
+   "badPasses": 23,
+   "drawCalls": 29,
+   "triangles": 28422,
+   "size": "1920x1080",
+   "part": "sweater",
+   "matter": "Jersey",
+   "wall": [
+    2.9,
+    3.5,
+    7.5
+   ]
+  },
+  "far10 trousers": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 4.052,
+   "wallMs": 3.2,
+   "cpuMs": 0.5,
+   "gpuSamples": 20,
+   "badPasses": 24,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "part": "trousers",
+   "matter": "Cuir pleine fleur",
+   "wall": [
+    3.2,
+    5,
+    7.8
+   ]
+  },
+  "far10 steel": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 4.079,
+   "wallMs": 3.5,
+   "cpuMs": 0.5,
+   "gpuSamples": 16,
+   "badPasses": 18,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "part": "steel",
+   "matter": "Acier brossé",
+   "wall": [
+    3.5,
+    4.9,
+    4
+   ]
+  },
+  "far10 ground": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": null,
+   "wallMs": 11.6,
+   "cpuMs": 0.6,
+   "gpuSamples": 0,
+   "badPasses": 0,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "part": "ground",
+   "matter": "Terre",
+   "wall": [
+    11.6,
+    11.1,
+    14
+   ]
+  },
+  "far10 wall": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 6.838,
+   "wallMs": 4.3,
+   "cpuMs": 0.6,
+   "gpuSamples": 13,
+   "badPasses": 14,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "part": "wall",
+   "matter": "Brique et mortier",
+   "wall": [
+    4.3,
+    6.6,
+    6
+   ]
+  },
+  "far10 path": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 6.313,
+   "wallMs": 5.3,
+   "cpuMs": 0.6,
+   "gpuSamples": 9,
+   "badPasses": 11,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "part": "path",
+   "matter": "Béton",
+   "wall": [
+    5.3,
+    6.8,
+    5.9
+   ]
+  },
+  "far10 crates": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 3.532,
+   "wallMs": 4,
+   "cpuMs": 0.6,
+   "gpuSamples": 14,
+   "badPasses": 16,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "part": "crates",
+   "matter": "Bois brut",
+   "wall": [
+    4,
+    5.9,
+    4.8
+   ]
+  },
+  "far10 barrel": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 4.144,
+   "wallMs": 4.5,
+   "cpuMs": 0.6,
+   "gpuSamples": 9,
+   "badPasses": 11,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "part": "barrel",
+   "matter": "Fer rouillé",
+   "wall": [
+    4.5,
+    5.7,
+    2.8
+   ]
+  },
+  "far10 bin": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 4.686,
+   "wallMs": 5.5,
+   "cpuMs": 0.6,
+   "gpuSamples": 3,
+   "badPasses": 3,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "part": "bin",
+   "matter": "Plastique usé, jauni",
+   "wall": [
+    5.5,
+    4.5,
+    4.9
+   ]
+  },
+  "far10 pot": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 5.635,
+   "wallMs": 9.5,
+   "cpuMs": 0.6,
+   "gpuSamples": 1,
+   "badPasses": 1,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "part": "pot",
+   "matter": "Terre cuite",
+   "wall": [
+    9.5,
+    3.5,
+    4.7
+   ]
+  },
+  "far10 rock": {
+   "mode": "ix",
+   "view": "far10",
+   "post": true,
+   "gpuMs": 6.178,
+   "wallMs": 5.1,
+   "cpuMs": 0.6,
+   "gpuSamples": 11,
+   "badPasses": 11,
+   "drawCalls": 28,
+   "triangles": 20742,
+   "size": "1920x1080",
+   "part": "rock",
+   "matter": "Granit",
+   "wall": [
+    5.1,
+    6.2,
+    5.9
+   ]
+  }
+ }
+}
