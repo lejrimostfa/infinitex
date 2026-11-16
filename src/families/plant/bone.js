@@ -12,9 +12,12 @@
 //                so long along the axis; cement lines between them;
 //                osteocyte lacunae (cell_um apart, 10 x 4 um) on the rings
 // color = ivory, color2 = yellow stain, color3 = marrow, color4 = canal.
+//
+// The osteons and the spongy bone sit in gate()s (core/lod.js): they run
+// only where they show.
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod, floor, fract, max } from 'three/tsl';
-import { fadeIn, surfaceGradient } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, lines, fbm, scratches } from './common.js';
@@ -33,7 +36,7 @@ export function buildBone( p, fp, u ) {
 	const dc = p.x.sub( cutX ).add( edgeN ); // > 0 inside the cut
 	const cutM = clamp( dc.div( fp ).add( 0.5 ), 0, 1 ).mul( step( 0.01, u.cut ) );
 	const cortexW = float( 0.005 ).add( fbm( vec2( ty.add( 3 ), s ), float( 0.04 ), fp, 2, 4 ).mul( 0.003 ) );
-	const spongy = smoothstep( cortexW, cortexW.add( 0.0015 ), dc ).mul( cutM );
+	const spongy = smoothstep( cortexW, cortexW.add( 0.0015 ), dc ).mul( cutM ).toVar();
 
 	// Outer surface: stains, growth lines, striation, foramina.
 	const stain = smoothstep( 0.45, 0.85, fbm( p, float( 0.08 ), fp, 4, 3 ) );
@@ -47,67 +50,91 @@ export function buildBone( p, fp, u ) {
 	const foramen = clamp( float( 1 ).sub( fe ).mul( fr ).div( fp ).add( 0.5 ), 0, 1 ).mul( step( hf.y, u.pores.mul( 0.6 ) ) ).mul( fadeIn( fr, fp, 1.0, 3.0 ) );
 	const foramenRim = smoothstep( 2.2, 1.0, fe ).mul( float( 1 ).sub( foramen ) ).mul( step( hf.y, u.pores.mul( 0.6 ) ) );
 
-	// Osteons (Haversian systems), everywhere on the compact bone.
-	const O = voronoi( mod( q.div( ost ), 4096 ).add( s.mul( 2.1 ) ), 0.85 );
-	const ho = hash3( O.id1.add( 1.1 ) );
-	const ov = O.toSeed.mul( ost );
-	const or = ov.length(); // in the squeezed frame: rings 3 x longer along the axis
-	const wO = fadeIn( ost, fp, 2.5, 6.0 );
-	const canR = ho.x.mul( 2e-5 ).add( 1.6e-5 );
-	const canal = clamp( canR.sub( or ).div( fp ).add( 0.5 ), 0, 1 ).mul( wO ).mul( fadeIn( canR.mul( 2 ), fp, 2.0, 5.0 ) );
-	const lam = lines( or, float( 6e-6 ), 1.2e-6, fp, 2.0, 5.0 ).mul( wO ).mul( smoothstep( 0.02, 0.12, O.edge ) );
-	const cement = band( O.edge.mul( ost ), 1.5e-6, fp ).mul( wO );
-	// Lacunae: tiny dark lens shapes on the rings.
+	// Osteons (Haversian systems), everywhere on the compact bone. They
+	// and their lacunae run only where the osteons span 2.5 px or the
+	// lacunae 2 px (their widest fades). The lacunae's Voronoi stays out
+	// of the branch: inside it, the lens edges round differently.
 	const lc = u.cellM;
-	const L = voronoi( mod( q.div( lc ), 4096 ).add( 3.3 ), 0.7 );
-	// Each lacuna lies along the ring it sits on (tangent of the osteon).
-	const lv = L.toSeed.mul( lc ), on = ov.div( or.max( 1e-7 ) );
-	const la = lv.dot( vec2( on.y.negate(), on.x ) ), lr = lv.dot( on );
-	const lac = clamp( float( 1 ).sub( la.div( lc.mul( 0.18 ) ).pow( 2 ).add( lr.div( lc.mul( 0.07 ) ).pow( 2 ) ) ).mul( lc.mul( 0.07 ) ).div( fp ).add( 0.5 ), 0, 1 )
-		.mul( step( hash1( L.id1 ), 0.6 ) ).mul( fadeIn( lc.mul( 0.3 ), fp, 2.0, 5.0 ) ).mul( float( 1 ).sub( canal ) );
+	const oq = mod( q.div( ost ), 4096 ).add( s.mul( 2.1 ) ).toVar();
+	const LV = voronoi( mod( q.div( lc ), 4096 ).add( 3.3 ), 0.7 );
+	const lSeed = LV.toSeed.toVar(), lId = LV.id1;
+	const O = gate( fadeOn( ost, fp, 2.5 ).or( fadeOn( lc.mul( 0.3 ), fp, 2.0 ) ), { tone: 0, cement: 0, lam: 0, canRim: 0, canal: 0, canTone: 0, lac: 0, wO: 0 }, () => {
 
-	// Spongy bone: struts around cavities, two scales of holes.
-	const tq = mod( p.div( 1.8e-3 ), 4096 ).add( s.mul( 3.7 ) );
-	const T = voronoi( tq.add( vec2( valueNoise( tq.mul( 1.7 ) ), valueNoise( tq.mul( 1.7 ).add( 5.3 ) ) ).sub( 0.5 ).mul( 0.7 ) ), 0.9 );
-	const T2 = voronoi( mod( p.div( 6e-4 ), 4096 ).add( 9.2 ), 0.9 );
-	const strutW = hash1( T.id1.add( T.id2 ) ).mul( 0.12 ).add( 0.05 ).mul( valueNoise( tq.mul( 3.1 ).add( 2.2 ) ).mul( 0.8 ).add( 0.6 ) );
-	const strut = clamp( strutW.sub( T.edge ).mul( 1.8e-3 ).div( fp ).add( 0.5 ), 0, 1 );
-	const hole2 = clamp( T2.toSeed.length().sub( 0.28 ).mul( - 6e-4 ).div( fp ).add( 0.5 ), 0, 1 ).mul( step( hash1( T2.id1 ), 0.3 ) );
-	const bone2 = strut;
-	const depth = smoothstep( strutW, strutW.add( 0.35 ), T.edge ); // deeper toward a cavity centre
-	// Struts are round: lit on top, shaded toward their flanks.
-	const strutTop = float( 1 ).sub( T.edge.div( strutW.max( 0.01 ) ).clamp( 0, 1 ).pow( 2 ).mul( 0.35 ) );
-	const marrow = u.color3.mul( float( 1 ).sub( depth.mul( 0.85 ) ) ).mul( float( 1 ).sub( hole2.mul( 0.6 ) ) ).mul( valueNoise( mod( p.div( 2e-4 ), 4096 ) ).mul( 0.4 ).add( 0.8 ) );
-	const wT = fadeIn( float( 1.8e-3 ), fp, 2.0, 5.0 );
+		const V = voronoi( oq, 0.85 );
+		const ho = hash3( V.id1.add( 1.1 ) );
+		const ov = V.toSeed.mul( ost );
+		const or = ov.length(); // in the squeezed frame: rings 3 x longer along the axis
+		const wO = fadeIn( ost, fp, 2.5, 6.0 );
+		const canR = ho.x.mul( 2e-5 ).add( 1.6e-5 );
+		const canal = clamp( canR.sub( or ).div( fp ).add( 0.5 ), 0, 1 ).mul( wO ).mul( fadeIn( canR.mul( 2 ), fp, 2.0, 5.0 ) );
+		const lam = lines( or, float( 6e-6 ), 1.2e-6, fp, 2.0, 5.0 ).mul( wO ).mul( smoothstep( 0.02, 0.12, V.edge ) );
+		const cement = band( V.edge.mul( ost ), 1.5e-6, fp ).mul( wO );
+		// Lacunae: tiny dark lens shapes on the rings.
+		// Each lacuna lies along the ring it sits on (tangent of the osteon).
+		const lv = lSeed.mul( lc ), on = ov.div( or.max( 1e-7 ) );
+		const la = lv.dot( vec2( on.y.negate(), on.x ) ), lr = lv.dot( on );
+		const lac = clamp( float( 1 ).sub( la.div( lc.mul( 0.18 ) ).pow( 2 ).add( lr.div( lc.mul( 0.07 ) ).pow( 2 ) ) ).mul( lc.mul( 0.07 ) ).div( fp ).add( 0.5 ), 0, 1 )
+			.mul( step( hash1( lId ), 0.6 ) ).mul( fadeIn( lc.mul( 0.3 ), fp, 2.0, 5.0 ) ).mul( float( 1 ).sub( canal ) );
+		return {
+			tone: ho.z.sub( 0.5 ).mul( 0.06 ).mul( wO ), cement, lam,
+			// Canal: dark lumen, a pale rim of the newest lamella.
+			canRim: band( or.sub( canR.mul( 1.25 ) ), canR.mul( 0.2 ), fp ).mul( wO ),
+			canal, canTone: ho.y.mul( 0.5 ).add( 0.3 ), lac, wO,
+		};
+
+	}, [ fp, oq, lSeed, lId ] );
+	const canal = O.canal, lac = O.lac, wO = O.wO;
 
 	// Colour.
 	let ivory = u.color.mul( fbm( p, float( 0.02 ), fp, 4, 8 ).sub( 0.5 ).mul( u.colorVar ).add( 1 ) );
 	ivory = mix( ivory, u.color2, stain.mul( 0.55 ) ).mul( float( 1 ).sub( growth.mul( 0.05 ) ) ).mul( striaN.mul( 0.08 ).add( 1 ) );
 	// Each osteon its own shade (mineral age), rings and cement lines.
-	let surf = ivory.mul( ho.z.sub( 0.5 ).mul( 0.06 ).mul( wO ).add( 1 ) ).mul( float( 1 ).sub( cement.mul( 0.25 ) ) ).mul( float( 1 ).sub( lam.mul( 0.1 ) ) );
-	// Canal: dark lumen, a pale rim of the newest lamella.
-	const canRim = band( or.sub( canR.mul( 1.25 ) ), canR.mul( 0.2 ), fp ).mul( wO );
-	surf = mix( surf, surf.mul( 1.08 ), canRim );
-	surf = mix( surf, u.color4.mul( ho.y.mul( 0.5 ).add( 0.3 ) ), canal.mul( 0.9 ) );
+	let surf = ivory.mul( O.tone.add( 1 ) ).mul( float( 1 ).sub( O.cement.mul( 0.25 ) ) ).mul( float( 1 ).sub( O.lam.mul( 0.1 ) ) );
+	surf = mix( surf, surf.mul( 1.08 ), O.canRim );
+	surf = mix( surf, u.color4.mul( O.canTone ), canal.mul( 0.9 ) );
 	surf = mix( surf, u.color4.mul( 0.4 ), lac.mul( 0.8 ) );
 	surf = mix( surf, surf.mul( 0.8 ), foramenRim.mul( 0.4 ) );
 	surf = mix( surf, u.color4.mul( 0.25 ), foramen );
 	// Cut: compact band (same osteons, a little greyer), spongy inside.
 	// The saw cuts through the stains: the cut is cleaner and whiter.
-	const cutCol = mix( surf, surf.div( ivory.max( vec3( 0.05 ) ) ).mul( u.color ).mul( 1.06 ), 0.8 );
-	const sp = mix( marrow, cutCol.mul( strutTop ), bone2 );
-	const spF = mix( mix( marrow, cutCol, 0.45 ), sp, wT );
+	const cutCol = mix( surf, surf.div( ivory.max( vec3( 0.05 ) ) ).mul( u.color ).mul( 1.06 ), 0.8 ).toVar();
 	let color = mix( surf, cutCol, cutM );
 	// The cut edge: a thin chamfer line where the saw left the surface.
 	color = color.mul( float( 1 ).sub( band( dc, float( 1.5e-4 ), fp ).mul( 0.3 ).mul( step( 0.01, u.cut ) ) ) );
-	color = mix( color, spF, spongy );
+
+	// Spongy bone: struts around cavities, two scales of holes. It runs
+	// only inside the cut (spongy > 0).
+	const tq = mod( p.div( 1.8e-3 ), 4096 ).add( s.mul( 3.7 ) ).toVar();
+	const t2q = mod( p.div( 6e-4 ), 4096 ).add( 9.2 ).toVar();
+	const SP = gate( spongy.greaterThan( 0 ), { spF: [ 0, 0, 0 ], sCav: [ 0, 0 ], bone2: 0, wT: 0 }, () => {
+
+		const T = voronoi( tq.add( vec2( valueNoise( tq.mul( 1.7 ) ), valueNoise( tq.mul( 1.7 ).add( 5.3 ) ) ).sub( 0.5 ).mul( 0.7 ) ), 0.9 );
+		const T2 = voronoi( t2q, 0.9 );
+		const strutW = hash1( T.id1.add( T.id2 ) ).mul( 0.12 ).add( 0.05 ).mul( valueNoise( tq.mul( 3.1 ).add( 2.2 ) ).mul( 0.8 ).add( 0.6 ) );
+		const strut = clamp( strutW.sub( T.edge ).mul( 1.8e-3 ).div( fp ).add( 0.5 ), 0, 1 );
+		const hole2 = clamp( T2.toSeed.length().sub( 0.28 ).mul( - 6e-4 ).div( fp ).add( 0.5 ), 0, 1 ).mul( step( hash1( T2.id1 ), 0.3 ) );
+		const bone2 = strut;
+		const depth = smoothstep( strutW, strutW.add( 0.35 ), T.edge ); // deeper toward a cavity centre
+		// Struts are round: lit on top, shaded toward their flanks.
+		const strutTop = float( 1 ).sub( T.edge.div( strutW.max( 0.01 ) ).clamp( 0, 1 ).pow( 2 ).mul( 0.35 ) );
+		const marrow = u.color3.mul( float( 1 ).sub( depth.mul( 0.85 ) ) ).mul( float( 1 ).sub( hole2.mul( 0.6 ) ) ).mul( valueNoise( mod( p.div( 2e-4 ), 4096 ) ).mul( 0.4 ).add( 0.8 ) );
+		const wT = fadeIn( float( 1.8e-3 ), fp, 2.0, 5.0 );
+		const sp = mix( marrow, cutCol.mul( strutTop ), bone2 );
+		return {
+			spF: mix( mix( marrow, cutCol, 0.45 ), sp, wT ),
+			sCav: T.dir.mul( depth.mul( 0.8 ) ).mul( float( 1 ).sub( bone2 ) ).mul( spongy ).mul( wT ),
+			bone2, wT,
+		};
+
+	}, [ p, fp, tq, t2q, cutCol, spongy ] );
+	const bone2 = SP.bone2, wT = SP.wT;
+	color = mix( color, SP.spF, spongy );
 
 	// Relief: the surface is smooth with sunken pores; the cut is flat
 	// with deep cavities; saw marks across the cut.
 	const sawn = lines( p.dot( dir2( 1.4 ) ), float( 3e-4 ), 6e-5, fp, 2.0, 6.0 ).mul( cutM ).mul( u.polish.oneMinus() );
 	const h = foramen.mul( - 1e-4 ).sub( foramenRim.mul( 2e-5 ) ).sub( canal.mul( 3e-6 ) ).sub( growth.mul( 1e-5 ) ).add( sawn.mul( 3e-6 ) );
-	const sCav = T.dir.mul( depth.mul( 0.8 ) ).mul( float( 1 ).sub( bone2 ) ).mul( spongy ).mul( wT );
-	const slope = surfaceGradient( h, p ).add( sCav ).add( vec2( 0, striaN.mul( 0.08 ) ) ).add( ax.mul( valueNoise( mod( p.div( 0.02 ), 4096 ) ).sub( 0.5 ).mul( 0.06 ) ) );
+	const slope = surfaceGradient( h, p ).add( SP.sCav ).add( vec2( 0, striaN.mul( 0.08 ) ) ).add( ax.mul( valueNoise( mod( p.div( 0.02 ), 4096 ) ).sub( 0.5 ).mul( 0.06 ) ) );
 	const scr = scratches( p, fp, float( 4e-4 ), 1e-6, u.polish.mul( 0.5 ), 5 );
 	color = color.mul( scr.mul( 0.06 ).add( 1 ) );
 	const rough = mix( float( 0.6 ), float( 0.25 ), u.polish ).add( spongy.mul( float( 1 ).sub( bone2 ) ).mul( 0.3 ) ).add( stain.mul( - 0.08 ) ).mul( u.roughness.div( 0.45 ) ).clamp( 0.08, 1 );

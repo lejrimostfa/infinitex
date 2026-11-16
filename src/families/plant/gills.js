@@ -13,9 +13,11 @@
 //   L2 hymenium the gill face is a palisade of basidia (cell_um, about
 //               7 um) carrying spores: ellipsoids 6 x 4 um, dark brown
 // color = gill face, color2 = gill edge, color3 = spores, color4 = stem.
+//
+// The stem flesh sits in a gate() (core/lod.js): it runs only on the stem.
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod, floor, fract, atan, min, max } from 'three/tsl';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, fbm, cells } from './common.js';
@@ -28,7 +30,7 @@ export function buildGills( p, fp, u ) {
 	const R = u.sizeM, s = u.seed;
 	// Off centre, so the middle of the tile shows gills, not the stem.
 	const c = mod( p, 0.3 ).sub( vec2( 0.105, 0.112 ) );
-	const r = c.length().max( 1e-6 );
+	const r = c.length().max( 1e-6 ).toVar();
 	const dv = c.div( r ), tang = vec2( dv.y.negate(), dv.x );
 	const stipeR = float( 0.016 ), ringR = stipeR.add( 0.006 );
 
@@ -99,25 +101,34 @@ export function buildGills( p, fp, u ) {
 	gillC = mix( mix( crevice, face, 0.8 ), gillC, w );
 
 	// Stem, ring and collar.
-	const stem = smoothstep( stipeR.add( fp ), stipeR, r );
+	const stem = smoothstep( stipeR.add( fp ), stipeR, r ).toVar();
 	const ring = smoothstep( ringR.add( fp ), ringR, r ).mul( float( 1 ).sub( stem ) );
 	const collar = smoothstep( r0.mul( 0.9 ), r0.mul( 0.8 ), r ).mul( float( 1 ).sub( ring ) ).mul( float( 1 ).sub( stem ) );
-	// Stem flesh: hyphae cut across, round cells of 30 um.
-	const Hy = cells( p, fp, float( 3e-5 ), 1.5e-6, 6.1, 0.3, 0.3 );
-	const flesh = u.color4.mul( fbm( p, float( 0.004 ), fp, 4, 9 ).sub( 0.5 ).mul( 0.25 ).add( 1 ) )
-		.mul( mix( float( 1 ), float( 0.8 ), smoothstep( stipeR.mul( 0.8 ), stipeR, r ) ) )
-		.mul( float( 1 ).sub( Hy.wall.mul( 0.12 ) ) );
+	// Stem flesh: hyphae cut across, round cells of 30 um. Only on the
+	// stem (stem > 0).
+	const yq = mod( p.div( 3e-5 ), 4096 ).add( 6.1 ).toVar();
+	const FL = gate( stem.greaterThan( 0 ), { flesh: [ 0, 0, 0 ], slope: [ 0, 0 ] }, () => {
+
+		const Hy = cells( p, fp, float( 3e-5 ), 1.5e-6, 6.1, 0.3, 0.3, yq );
+		return {
+			flesh: u.color4.mul( fbm( p, float( 0.004 ), fp, 4, 9 ).sub( 0.5 ).mul( 0.25 ).add( 1 ) )
+				.mul( mix( float( 1 ), float( 0.8 ), smoothstep( stipeR.mul( 0.8 ), stipeR, r ) ) )
+				.mul( float( 1 ).sub( Hy.wall.mul( 0.12 ) ) ),
+			slope: Hy.slope.mul( stem ).mul( 0.3 ),
+		};
+
+	}, [ p, fp, yq, r, stem ] );
 	const stria = fract( th.mul( 480 ) ).sub( 0.5 ).abs().mul( fadeIn( r.mul( TWO_PI / 480 ), fp, 3.0, 8.0 ) );
 	const ringC = u.color4.mul( 0.92 ).mul( float( 1 ).sub( stria.mul( 0.25 ) ) ).mul( smoothstep( ringR, stipeR, r ).mul( 0.3 ).add( 0.7 ) );
 	let color = mix( gillC, crevice.mul( 0.6 ), collar );
 	color = mix( color, ringC, ring );
-	color = mix( color, flesh, stem );
+	color = mix( color, FL.flesh, stem );
 	// Beyond the margin: the dark underside of the cap rim.
 	const outside = smoothstep( R, R.add( 0.004 ), r );
 	color = mix( color, u.color.mul( 0.25 ), outside );
 
 	const gillMask = float( 1 ).sub( max( stem, ring ).max( collar ) ).mul( float( 1 ).sub( outside ) );
-	const sl = slope.add( H.slope.mul( prof ).mul( 0.3 ) ).add( sporeS ).mul( gillMask ).add( dv.mul( ring.mul( 0.4 ) ) ).add( Hy.slope.mul( stem ).mul( 0.3 ) );
+	const sl = slope.add( H.slope.mul( prof ).mul( 0.3 ) ).add( sporeS ).mul( gillMask ).add( dv.mul( ring.mul( 0.4 ) ) ).add( FL.slope );
 	const cavity = t.mul( gillMask ).max( collar );
 	const rough = u.roughness.sub( spore.mul( 0.25 ) ).add( t.mul( 0.15 ) );
 	const s2 = float( 1 ).sub( w ).mul( 0.25 ).mul( gillMask );

@@ -15,9 +15,12 @@
 //               (about 20 um) packed in each wart; in the jelly, wandering cells
 //               (8 um) and elastic fibres (4 um)
 // Returns colour, slope, transmission share, emission, cavity.
+//
+// The warts, photocytes, eggs and the L3 cells sit in gate()s
+// (core/lod.js): they run only where they show.
 
 import { vec2, float, floor, fract, clamp, smoothstep, mix, abs, cos, atan, max, min, mod } from 'three/tsl';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate } from '../../core/lod.js';
 import { hash1, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
@@ -85,46 +88,85 @@ export function buildMedusa( p, fp, u ) {
 	const oral = solid( armD.sub( armW ) ).mul( smoothstep( 0.27, 0.2, r ) ).mul( valueNoise( q.mul( 160 ).add( 3.3 ) ).mul( 0.08 ).add( 0.08 ) )
 		.max( lip.mul( smoothstep( 0.27, 0.2, r ) ).mul( 0.3 ) ).max( smoothstep( 0.025, 0.0, r ).mul( 0.25 ) );
 
-	// L1 dots: nematocyst warts (white) and photocytes (glow).
-	const wq = p.div( 0.003 );
-	const wv = voronoi( wq.add( 1.3 ), 0.8 );
-	const wartOn = smoothstep( 0.55, 0.6, hash1( wv.id1.add( 2.2 ) ) );
-	const wartD = wv.toSeed.length().mul( 0.003 ); // meters
-	const wW = fadeIn( 4e-4, fp, 1.5, 4.0 );
-	const wart = clamp( float( 2e-4 ).sub( wartD ).div( fp ).add( 0.5 ), 0, 1 ).mul( wartOn ).mul( wW ).mul( inBell );
-	const gq = p.div( 0.002 );
-	const gvv = voronoi( gq.add( 7.1 ), 0.9 );
-	const nearOrg = max( canal.mul( 0.8 ), smoothstep( 0.03, 0.0, abs( r.sub( Rr ).add( 0.006 ) ) ) );
-	const glowOn = smoothstep( 0.6, 0.7, hash1( gvv.id1 ).add( nearOrg.mul( 0.5 ) ) );
-	const gd = gvv.toSeed.length().mul( 0.002 );
-	const wG = fadeIn( 3e-4, fp, 1.0, 3.0 );
-	const glowDot = smoothstep( 1.6e-4, 0.4e-4, gd ).mul( glowOn ).mul( inBell );
+	// L1 dots: nematocyst warts (white) and photocytes (glow). The warts,
+	// and the L3 cells and capsules inside them, run only where the warts
+	// span 1.5 px (their fade); the L3 level only where the capsules span
+	// 2 px (the widest L3 fade).
+	const wq = p.div( 0.003 ).add( 1.3 ).toVar();
+	const cq = mod( p.div( 1.2e-5 ), 4096 ).add( 9.9 ).toVar(); // ids kept small for the hash
+	const nq = mod( p.div( 3e-5 ), 4096 ).add( 5.5 ).toVar();
+	const aq = p.div( 6e-5 ).add( 2.7 ).toVar();
+	const inBellV = inBell.toVar();
+	const off3 = { cellEdge: 0, sCell: [ 0, 0 ], caps: 0, capRim: 0, sCaps: [ 0, 0 ], amoe: 0, fibre: 0, wCap: 0 };
+	const WT = gate( fadeOn( 4e-4, fp, 1.5 ), { wart: 0, ...off3 }, () => {
+
+		const wv = voronoi( wq, 0.8 );
+		const wartOn = smoothstep( 0.55, 0.6, hash1( wv.id1.add( 2.2 ) ) ).toVar();
+		const wartD = wv.toSeed.length().mul( 0.003 ).toVar(); // meters
+		const wW = fadeIn( 4e-4, fp, 1.5, 4.0 );
+		const wart = clamp( float( 2e-4 ).sub( wartD ).div( fp ).add( 0.5 ), 0, 1 ).mul( wartOn ).mul( wW ).mul( inBellV );
+
+		// L3: epidermal cells, nematocysts packed in the warts.
+		const L3 = gate( fadeOn( 1.5e-5, fp, 2.0 ), off3, () => {
+
+			const cv = voronoi( cq, 0.85 );
+			const wC = fadeIn( 1.2e-5, fp, 2.0, 5.0 );
+			const nemaZone = smoothstep( 2.3e-4, 1.7e-4, wartD ).mul( wartOn );
+			const nv = voronoi( nq, 0.6 );
+			const wCap = fadeIn( 1.5e-5, fp, 2.0, 5.0 ); // the wart resolves into its capsules
+			const caps = smoothstep( 0.42, 0.28, nv.toSeed.mul( vec2( 1, 1.6 ) ).length() ).mul( nemaZone ).mul( wCap );
+			// In the jelly itself: wandering cells (amoebocytes, about 8 um) and
+			// elastic fibres (about 4 um wide), faint but enough to show depth.
+			const av = voronoi( aq, 0.9 );
+			const fq = p.div( 4e-4 );
+			return {
+				cellEdge: smoothstep( 0.08, 0.0, cv.edge ).mul( wC ), sCell: cv.toSeed.mul( - 0.3 ).mul( wC ),
+				caps,
+				// Capsules: bright, with a dark refracting rim.
+				capRim: smoothstep( 0.26, 0.4, nv.toSeed.mul( vec2( 1, 1.6 ) ).length() ).mul( caps ),
+				sCaps: nv.toSeed.mul( vec2( 1, 1.6 ) ).mul( - 1.2 ).mul( caps ),
+				amoe: smoothstep( 0.2, 0.1, av.toSeed.length() ).mul( smoothstep( 0.8, 0.85, hash1( av.id1.add( 6.1 ) ) ) ).mul( fadeIn( 8e-6, fp, 2.0, 5.0 ) ),
+				fibre: line( valueNoise( fq ).sub( 0.5 ).add( valueNoise( fq.mul( 2.3 ).add( 1.7 ) ).sub( 0.5 ).mul( 0.5 ) ).mul( 4e-4 ).div( B ), float( 2e-6 ).div( B ) )
+					.mul( fadeIn( 4e-6, fp, 2.0, 5.0 ) ),
+				wCap,
+			};
+
+		}, [ p, fp, cq, nq, aq, wartD, wartOn ] );
+		return { wart, ...L3 };
+
+	}, [ p, fp, wq, cq, nq, aq, inBellV ] );
+	const wart = WT.wart, wCap = WT.wCap, caps = WT.caps, cellEdge = WT.cellEdge, amoe = WT.amoe, fibre = WT.fibre;
+
+	// Photocytes: only where they span 1 px (their fade); farther, a mean
+	// glow along the rim and the canals.
+	const nearOrg = max( canal.mul( 0.8 ), smoothstep( 0.03, 0.0, abs( r.sub( Rr ).add( 0.006 ) ) ) ).toVar();
+	const gq = p.div( 0.002 ).add( 7.1 ).toVar();
+	const wG = fadeIn( 3e-4, fp, 1.0, 3.0 ).toVar();
+	const GD = gate( fadeOn( 3e-4, fp, 1.0 ), { glowDot: 0 }, () => {
+
+		const gvv = voronoi( gq, 0.9 );
+		const glowOn = smoothstep( 0.6, 0.7, hash1( gvv.id1 ).add( nearOrg.mul( 0.5 ) ) );
+		const gd = gvv.toSeed.length().mul( 0.002 );
+		return { glowDot: smoothstep( 1.6e-4, 0.4e-4, gd ).mul( glowOn ).mul( inBellV ) };
+
+	}, [ fp, gq, nearOrg, inBellV ] );
+	const glowDot = GD.glowDot;
 	// Far away, the dots melt into a faint mean glow along the rim and canals.
 	const glow = mix( nearOrg.mul( 0.04 ), glowDot, wG );
 
-	// L2: eggs in the gonads, surface ripples.
-	const ev = voronoi( p.div( 1.5e-4 ).add( 3.3 ), 0.8 );
-	const wE = fadeIn( 1.5e-4, fp, 2.0, 5.0 );
-	const egg = smoothstep( 0.45, 0.25, ev.toSeed.length() ).mul( wE ).mul( gonad );
+	// L2: eggs in the gonads (only there, and where they span 2 px),
+	// surface ripples.
+	const eq = p.div( 1.5e-4 ).add( 3.3 ).toVar();
+	const EG = gate( fadeOn( 1.5e-4, fp, 2.0 ).and( gonad.greaterThan( 0 ) ), { egg: 0 }, () => {
+
+		const ev = voronoi( eq, 0.8 );
+		const wE = fadeIn( 1.5e-4, fp, 2.0, 5.0 );
+		return { egg: smoothstep( 0.45, 0.25, ev.toSeed.length() ).mul( wE ).mul( gonad ) };
+
+	}, [ fp, eq, gonad ] );
+	const egg = EG.egg;
 	const rq = p.div( 0.006 );
 	const sRip = vec2( valueNoise( rq ), valueNoise( rq.add( 4.4 ) ) ).sub( 0.5 ).mul( 0.03 ).mul( fadeIn( 0.006, fp, 2.0, 6.0 ) );
-
-	// L3: epidermal cells, nematocysts packed in the warts.
-	const cv = voronoi( mod( p.div( 1.2e-5 ), 4096 ).add( 9.9 ), 0.85 ); // ids kept small for the hash
-	const wC = fadeIn( 1.2e-5, fp, 2.0, 5.0 );
-	const cellEdge = smoothstep( 0.08, 0.0, cv.edge ).mul( wC );
-	const sCell = cv.toSeed.mul( - 0.3 ).mul( wC );
-	const nemaZone = smoothstep( 2.3e-4, 1.7e-4, wartD ).mul( wartOn );
-	const nv = voronoi( mod( p.div( 3e-5 ), 4096 ).add( 5.5 ), 0.6 );
-	const wCap = fadeIn( 1.5e-5, fp, 2.0, 5.0 ); // the wart resolves into its capsules
-	const caps = smoothstep( 0.42, 0.28, nv.toSeed.mul( vec2( 1, 1.6 ) ).length() ).mul( nemaZone ).mul( wCap );
-	// In the jelly itself: wandering cells (amoebocytes, about 8 um) and
-	// elastic fibres (about 4 um wide), faint but enough to show depth.
-	const av = voronoi( p.div( 6e-5 ).add( 2.7 ), 0.9 );
-	const amoe = smoothstep( 0.2, 0.1, av.toSeed.length() ).mul( smoothstep( 0.8, 0.85, hash1( av.id1.add( 6.1 ) ) ) ).mul( fadeIn( 8e-6, fp, 2.0, 5.0 ) );
-	const fq = p.div( 4e-4 );
-	const fibre = line( valueNoise( fq ).sub( 0.5 ).add( valueNoise( fq.mul( 2.3 ).add( 1.7 ) ).sub( 0.5 ).mul( 0.5 ) ).mul( 4e-4 ).div( B ), float( 2e-6 ).div( B ) )
-		.mul( fadeIn( 4e-6, fp, 2.0, 5.0 ) );
 
 	// Organ density: how much the light is scattered here (0 clear jelly).
 	const org = max( max( gonad.mul( 0.5 ), canal.mul( 0.6 ) ), max( max( ringC.mul( 0.6 ), rho.mul( 0.8 ) ), max( oral, fringe.mul( 0.5 ) ) ) )
@@ -133,12 +175,10 @@ export function buildMedusa( p, fp, u ) {
 	color = mix( color, u.organColor.mul( float( 1 ).sub( egg.mul( 0.25 ) ) ), gonad );
 	color = mix( color, vec2( 0.95, 0.85 ).xyy.mul( u.canalColor ), rho );
 	// Capsules: bright, with a dark refracting rim.
-	const capRim = smoothstep( 0.26, 0.4, nv.toSeed.mul( vec2( 1, 1.6 ) ).length() ).mul( caps );
-	color = color.mul( float( 1 ).sub( cellEdge.mul( 0.2 ) ) ).mul( float( 1 ).sub( capRim.mul( 0.6 ) ) );
-	const outside = float( 1 ).sub( inBell ).mul( 0.25 ); // jelly outside the bell is thinner, clearer
+	color = color.mul( float( 1 ).sub( cellEdge.mul( 0.2 ) ) ).mul( float( 1 ).sub( WT.capRim.mul( 0.6 ) ) );
+	const outside = float( 1 ).sub( inBellV ).mul( 0.25 ); // jelly outside the bell is thinner, clearer
 	const transmission = u.clarity.mul( float( 1 ).sub( org.mul( 0.7 ) ) ).add( outside.mul( float( 1 ).sub( u.clarity ) ) ).min( 0.99 );
-	const sCaps = nv.toSeed.mul( vec2( 1, 1.6 ) ).mul( - 1.2 ).mul( caps );
-	const slope = sRip.add( sCell ).add( sCaps ).add( vec2( valueNoise( p.div( 3e-4 ) ), valueNoise( p.div( 3e-4 ).add( 2.2 ) ) ).sub( 0.5 ).mul( 0.04 ).mul( gonad ).mul( fadeIn( 3e-4, fp, 2.0, 6.0 ) ) );
+	const slope = sRip.add( WT.sCell ).add( WT.sCaps ).add( vec2( valueNoise( p.div( 3e-4 ) ), valueNoise( p.div( 3e-4 ).add( 2.2 ) ) ).sub( 0.5 ).mul( 0.04 ).mul( gonad ).mul( fadeIn( 3e-4, fp, 2.0, 6.0 ) ) );
 	color = mix( color, u.glowColor.mul( 0.5 ), glowDot.mul( wG ) );
 	const emissive = u.glowColor.mul( glow.mul( u.glow ) );
 	const cavity = gonad.mul( 0.3 ).add( cellEdge.mul( 0.2 ) );

@@ -11,9 +11,12 @@
 //   L2 cells     leaf cells (cell_um, about 14 um), longer than wide,
 //                pale walls, granular chloroplasts inside
 // color = shoots, color2 = young tips, color3 = lichen, color4 = cups.
+//
+// The lower shoot layers and the leaf cells sit in gate()s (core/lod.js):
+// past the shoots' fade only the top layer's cover is computed.
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod, fract, floor, atan, sin, cos, max } from 'three/tsl';
-import { fadeIn, surfaceGradient } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, fbm } from './common.js';
@@ -71,46 +74,68 @@ export function buildMoss( p, fp, u ) {
 	const hollow = smoothstep( 0.55, 0.3, mound );
 	const sMound = surfaceGradient( mound.mul( 0.004 ), p );
 
-	const w1 = fadeIn( sm, fp, 2.0, 5.0 );
+	const w1 = fadeIn( sm, fp, 2.0, 5.0 ).toVar();
 	const A = shoots( p, fp, sm, s.mul( 3.1 ) );
-	const B = shoots( p.add( vec2( 0.37, 0.71 ).mul( sm ) ), fp, sm.mul( 0.8 ), s.mul( 5.7 ).add( 11 ) );
-
-	// Shoot colour: tips paler, inner whorl and young shoots yellower.
-	const tone = A.h.z.sub( 0.5 ).mul( u.colorVar ).mul( 2 ).add( 1 );
-	const young = smoothstep( 0.6, 0.95, valueNoise( mod( p.div( 0.012 ), 4096 ).add( 3.3 ) ) );
-	// Bases sit deep in the shoot (darker), tips catch the light.
-	const leafC = mix( u.color, u.color2, A.rr.mul( 0.5 ).add( A.top.mul( 0.2 ) ).add( young.mul( 0.35 ) ).min( 1 ) ).mul( tone )
-		.mul( A.lt.sub( 0.5 ).mul( 0.25 ).add( 1 ) ).mul( smoothstep( 0.0, 0.5, A.rr ).mul( 0.45 ).add( 0.55 ) ).mul( float( 1 ).sub( A.rim.mul( 0.3 ) ) );
-	const hairPt = step( 0.72, A.h.x ).mul( smoothstep( 0.78, 0.95, A.rr ) ).mul( float( 1 ).sub( A.top ) );
-	let shootC = mix( leafC, vec3( 0.78, 0.8, 0.72 ), hairPt.mul( 0.85 ) );
-	shootC = mix( shootC, u.color2.mul( 1.1 ), A.bud.mul( 0.6 ) );
-	const costa = band( A.lat.mul( sm ), sm.mul( 0.018 ), fp ).mul( smoothstep( 0.9, 0.6, A.rr ) ).mul( A.cov ).mul( fadeIn( sm.mul( 0.08 ), fp, 2.0, 5.0 ) );
-	shootC = shootC.mul( float( 1 ).sub( costa.mul( 0.25 ) ) );
-	// Lower layer, a third one of old brown shoots, then shadow.
-	const lowC = mix( u.color, u.color2, B.rr.mul( 0.4 ) ).mul( B.rr.mul( 0.3 ).add( 0.25 ) ).mul( B.lt.sub( 0.5 ).mul( 0.3 ).add( 1 ) );
-	const C = shoots( p.add( vec2( 0.81, 0.23 ).mul( sm ) ), fp, sm.mul( 0.65 ), s.mul( 2.3 ).add( 23 ) );
-	const oldC = mix( vec3( 0.05, 0.035, 0.015 ), vec3( 0.06, 0.07, 0.02 ), C.lt ).mul( C.rr.mul( 0.6 ).add( 0.4 ) );
-	const deep = mix( mix( vec3( 0.006, 0.006, 0.003 ), oldC, C.cov ), lowC, B.cov );
-	let color = mix( deep, shootC, A.cov );
-	// Leaf cells, long along the leaf, on whichever leaf is on top.
-	const tRr = mix( mix( C.rr, B.rr, B.cov ), A.rr, A.cov ), tLat = mix( mix( C.lat, B.lat, B.cov ), A.lat, A.cov );
-	const tH = mix( mix( C.h.xy, B.h.xy, B.cov ), A.h.xy, A.cov );
-	const lc = vec2( tRr.mul( sm ).div( cm.mul( 2 ) ), tLat.mul( sm ).div( cm ) ).add( tH.mul( 50 ) ).add( 100 );
-	const LC = voronoi( mod( lc, 4096 ), 0.7 );
-	const wC = fadeIn( cm, fp, 2.5, 6.0 );
-	const wall = band( LC.edge.mul( cm ), cm.mul( 0.1 ), fp ).mul( wC );
-	// Chloroplasts: discs of 4 um packed in each cell.
-	const CH = voronoi( mod( p.div( cm.mul( 0.3 ) ), 4096 ).add( 2.2 ), 0.8 );
-	const chl = smoothstep( 0.05, 0.25, CH.edge ).sub( 0.5 ).mul( fadeIn( cm.mul( 0.3 ), fp, 2.5, 6.0 ) );
-	const leafOn = A.cov.max( B.cov ).max( C.cov );
-	color = mix( color, mix( color.mul( chl.mul( 0.45 ).add( 1 ) ), color.mul( 1.3 ).add( vec3( 0.03, 0.035, 0.015 ) ), wall.mul( 0.7 ) ), leafOn );
+	// The roughness reads the top shoots' cover at every distance.
+	A.cov = A.cov.toVar();
 	// Far: the mean of the shoot pattern.
 	const far = mix( u.color, u.color2, 0.3 ).mul( 0.7 );
-	color = mix( far, color, w1 );
-	color = color.mul( mix( float( 1 ), float( 0.7 ), hollow ) ).mul( mound.sub( 0.5 ).mul( 0.4 ).add( 1 ) );
+	// Past the shoots' fade (under 2 px per shoot) the lower layers, the
+	// leaf cells and the shoot colours are skipped: only far shows.
+	const F = gate( fadeOn( sm, fp, 2.0 ), { color: { node: far, size: 3 }, slope: [ 0, 0 ], cavity: 0 }, () => {
+
+		const B = shoots( p.add( vec2( 0.37, 0.71 ).mul( sm ) ), fp, sm.mul( 0.8 ), s.mul( 5.7 ).add( 11 ) );
+
+		// Shoot colour: tips paler, inner whorl and young shoots yellower.
+		const tone = A.h.z.sub( 0.5 ).mul( u.colorVar ).mul( 2 ).add( 1 );
+		const young = smoothstep( 0.6, 0.95, valueNoise( mod( p.div( 0.012 ), 4096 ).add( 3.3 ) ) );
+		// Bases sit deep in the shoot (darker), tips catch the light.
+		const leafC = mix( u.color, u.color2, A.rr.mul( 0.5 ).add( A.top.mul( 0.2 ) ).add( young.mul( 0.35 ) ).min( 1 ) ).mul( tone )
+			.mul( A.lt.sub( 0.5 ).mul( 0.25 ).add( 1 ) ).mul( smoothstep( 0.0, 0.5, A.rr ).mul( 0.45 ).add( 0.55 ) ).mul( float( 1 ).sub( A.rim.mul( 0.3 ) ) );
+		const hairPt = step( 0.72, A.h.x ).mul( smoothstep( 0.78, 0.95, A.rr ) ).mul( float( 1 ).sub( A.top ) );
+		let shootC = mix( leafC, vec3( 0.78, 0.8, 0.72 ), hairPt.mul( 0.85 ) );
+		shootC = mix( shootC, u.color2.mul( 1.1 ), A.bud.mul( 0.6 ) );
+		const costa = band( A.lat.mul( sm ), sm.mul( 0.018 ), fp ).mul( smoothstep( 0.9, 0.6, A.rr ) ).mul( A.cov ).mul( fadeIn( sm.mul( 0.08 ), fp, 2.0, 5.0 ) );
+		shootC = shootC.mul( float( 1 ).sub( costa.mul( 0.25 ) ) );
+		// Lower layer, a third one of old brown shoots, then shadow.
+		const lowC = mix( u.color, u.color2, B.rr.mul( 0.4 ) ).mul( B.rr.mul( 0.3 ).add( 0.25 ) ).mul( B.lt.sub( 0.5 ).mul( 0.3 ).add( 1 ) );
+		const C = shoots( p.add( vec2( 0.81, 0.23 ).mul( sm ) ), fp, sm.mul( 0.65 ), s.mul( 2.3 ).add( 23 ) );
+		const oldC = mix( vec3( 0.05, 0.035, 0.015 ), vec3( 0.06, 0.07, 0.02 ), C.lt ).mul( C.rr.mul( 0.6 ).add( 0.4 ) );
+		const deep = mix( mix( vec3( 0.006, 0.006, 0.003 ), oldC, C.cov ), lowC, B.cov );
+		let color = mix( deep, shootC, A.cov );
+		// Leaf cells, long along the leaf, on whichever leaf is on top.
+		const tRr = mix( mix( C.rr, B.rr, B.cov ), A.rr, A.cov ), tLat = mix( mix( C.lat, B.lat, B.cov ), A.lat, A.cov );
+		const tH = mix( mix( C.h.xy, B.h.xy, B.cov ), A.h.xy, A.cov );
+		const lc = mod( vec2( tRr.mul( sm ).div( cm.mul( 2 ) ), tLat.mul( sm ).div( cm ) ).add( tH.mul( 50 ) ).add( 100 ), 4096 ).toVar();
+		const cq = mod( p.div( cm.mul( 0.3 ) ), 4096 ).add( 2.2 ).toVar();
+		// The leaf cells and chloroplasts run only where the cells span
+		// 2.5 px (their widest fade).
+		const LC = gate( fadeOn( cm, fp, 2.5 ), { wall: 0, chl: 0 }, () => {
+
+			const V = voronoi( lc, 0.7 );
+			const wC = fadeIn( cm, fp, 2.5, 6.0 );
+			// Chloroplasts: discs of 4 um packed in each cell.
+			const CH = voronoi( cq, 0.8 );
+			return {
+				wall: band( V.edge.mul( cm ), cm.mul( 0.1 ), fp ).mul( wC ),
+				chl: smoothstep( 0.05, 0.25, CH.edge ).sub( 0.5 ).mul( fadeIn( cm.mul( 0.3 ), fp, 2.5, 6.0 ) ),
+			};
+
+		}, [ p, fp, lc, cq ] );
+		const leafOn = A.cov.max( B.cov ).max( C.cov );
+		color = mix( color, mix( color.mul( LC.chl.mul( 0.45 ).add( 1 ) ), color.mul( 1.3 ).add( vec3( 0.03, 0.035, 0.015 ) ), LC.wall.mul( 0.7 ) ), leafOn );
+		return {
+			color: mix( far, color, w1 ),
+			slope: A.slope.add( B.slope.mul( float( 1 ).sub( A.cov ) ).mul( 0.6 ) ).mul( w1 ),
+			cavity: float( 1 ).sub( A.cov ).mul( w1 ).mul( 0.8 ),
+		};
+
+	}, [ p, fp, w1, A.cov ] );
+
+	let color = F.color.mul( mix( float( 1 ), float( 0.7 ), hollow ) ).mul( mound.sub( 0.5 ).mul( 0.4 ).add( 1 ) );
 	color = mix( color, color.mul( vec3( 1.15, 1.1, 0.75 ) ), smoothstep( 0.6, 0.8, mound ).mul( 0.6 ) );
-	let slope = A.slope.add( B.slope.mul( float( 1 ).sub( A.cov ) ).mul( 0.6 ) ).mul( w1 ).add( sMound );
-	let cavity = float( 1 ).sub( A.cov ).mul( w1 ).mul( 0.8 ).add( hollow.mul( 0.2 ) );
+	let slope = F.slope.add( sMound );
+	let cavity = F.cavity.add( hollow.mul( 0.2 ) );
 	let rough = float( 0.65 ).add( float( 1 ).sub( A.cov ).mul( 0.3 ) ).mul( u.roughness.div( 0.75 ) );
 
 	// Spore capsules on setae, above the shoots.
