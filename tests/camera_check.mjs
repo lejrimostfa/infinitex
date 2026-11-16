@@ -5,6 +5,8 @@
 //   walk     W held into the surface at the screen centre: the camera stops
 //            1e-4 m from it (exact three.js raycast, 5 % tolerance); cost
 //            of walk.update (BVH collision included) per frame
+//   strafe   D held 1 mm from that surface: under 1 cm/s (the nearest
+//            surface limit), never through it
 //   lens     (?dof) fov unchanged at 1 m and 30 cm, 22 deg at 3 cm, back
 //            without a jump; near-to-far switch with no jump; cost of the
 //            focus ray per frame; frame cost with depth of field on and off
@@ -51,6 +53,8 @@ for ( const p of PAGES ) for ( const backend of [ 'webgpu', 'webgl' ] ) {
 		r.walk = await probe( page, 'walkCheck' );
 		const sd = r.walk.stopDist;
 		r.walk.check = check( sd !== null && Math.abs( sd - MARGIN ) / MARGIN < 0.05, `${ tag }: walk stopped at ${ sd } m` );
+		const S = r.walk.side;
+		if ( S ) S.check = check( S.speed > 0 && S.speed < 0.01 && ( S.aheadAfter === null || S.aheadAfter > 0 ), `${ tag }: strafe 1 mm from the surface at ${ S.speed } m/s` );
 		if ( r.walk.animatedMinDist !== undefined ) r.walk.animatedCheck = check( r.walk.animatedMinDist > 0, `${ tag }: went through the animated character` );
 		r.errorsPlain = errors;
 		check( ! errors.length, `${ tag }: page errors (plain): ${ errors.join( ' | ' ) }` );
@@ -87,6 +91,7 @@ for ( const p of PAGES ) for ( const backend of [ 'webgpu', 'webgl' ] ) {
 	console.log( `\n${ tag }` );
 	console.log( `  plain   lens ${ r.plain?.lensOn } fov ${ r.plain?.fov } ${ r.plain?.check }` );
 	console.log( `  walk    ${ w.surface } from ${ w.startDist } m, stop ${ w.stopDist?.toExponential( 4 ) } m in ${ w.frames } frames ${ w.check }; first call ${ w.firstMs } ms; ms/frame ${ JSON.stringify( w.staticMs ) }` );
+	if ( w.side ) console.log( `  strafe  1 mm from the surface: ${ w.side.speed?.toExponential( 3 ) } m/s, ms/frame ${ JSON.stringify( w.side.ms ) } ${ w.side.check }` );
 	if ( w.animatedMs ) console.log( `  walk animated  ms/frame ${ JSON.stringify( w.animatedMs ) }, closest ${ w.animatedMinDist?.toExponential( 3 ) } m ${ w.animatedCheck }` );
 	if ( L.at1m ) {
 

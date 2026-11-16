@@ -11,9 +11,11 @@
 //   walls    a ray along the move finds the surface ahead. Speed also
 //            follows that distance, and a step covers at most a share of
 //            the room left (exponential approach), so the camera slows
-//            down near a surface and never passes through it. The ray
-//            query and what it skips live in collide.js (collider: null
-//            turns walls off).
+//            down near a surface and never passes through it. The
+//            nearest surface in any direction also limits the speed
+//            (sideLimit), so a strafe or a slide along the floor or a
+//            wall slows down near it too. The queries and what they
+//            skip live in collide.js (collider: null turns walls off).
 //   click    a click (not a drag) on a mesh glides the camera to it: a
 //            small object is framed whole, a large one (floor, wall) is
 //            approached at the point clicked. The view direction is kept.
@@ -112,6 +114,23 @@ export function createWalk( { camera, controls, scene, collider = null, dom = co
 	const surfaceAhead = collider ?? ( () => Infinity ); // collide.js: BVH raycast
 	const ease = ( k ) => k * k * ( 3 - 2 * k );
 	const MARGIN = 1e-4; // m, half of controls.minDistance (stage.js)
+	const away = new THREE.Vector3();
+
+	// Speed limit from the nearest surface in any direction (the floor under
+	// a strafe, a wall beside it), which the ray along the move misses:
+	// 0.8 of that distance per second, like the ray. Only the part of the
+	// move that does not leave that surface is limited: a = 0 along it,
+	// a = 1 straight away from it (no limit). Moving toward it is the ray's
+	// job. Floor: MARGIN per second, so the camera is never stuck.
+	function sideLimit( speed ) {
+
+		if ( ! speedScale || ! surfaceAhead.near ) return Infinity;
+		const c = surfaceAhead.near( camera.position, speed * 1.25 ); // farther, 0.8 c >= speed: no limit
+		if ( c === Infinity ) return Infinity;
+		const a = c > 1e-9 ? Math.max( 0, dir.dot( away.subVectors( camera.position, surfaceAhead.near.point ).divideScalar( c ) ) ) : 0;
+		return a >= 1 ? Infinity : Math.max( 0.8 * c / ( 1 - a ), MARGIN );
+
+	}
 
 	bus.update = ( dt ) => {
 
@@ -149,7 +168,8 @@ export function createWalk( { camera, controls, scene, collider = null, dom = co
 		const want = Math.min( step.length(), 1 ); // keys held: 1, diagonals are not faster
 		const h = surfaceAhead( camera.position, dir, Math.max( d, maxSpeed ) * 2 );
 		const near = speedScale ? Math.min( d, h ) * 0.8 : maxSpeed / 3;
-		const speed = THREE.MathUtils.clamp( near, minSpeed, maxSpeed ) * ( down.has( 'ShiftLeft' ) || down.has( 'ShiftRight' ) ? 3 : 1 );
+		let speed = THREE.MathUtils.clamp( near, minSpeed, maxSpeed );
+		speed = Math.min( speed, sideLimit( speed ) ) * ( down.has( 'ShiftLeft' ) || down.has( 'ShiftRight' ) ? 3 : 1 );
 		// Never closer than MARGIN; each frame covers at most 1 - e^(-4 dt) of the room left.
 		const room = Math.max( 0, h - MARGIN );
 		const len = Math.min( want * speed * dt, room * ( 1 - Math.exp( - 4 * dt ) ) );

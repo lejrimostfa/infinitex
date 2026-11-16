@@ -5,8 +5,9 @@
 //               object (walk.js)
 //   collide     the walk slows down near a surface and stops 0.1 mm from
 //               it (collide.js, BVH ray, shared with the lens)
-//   speedScale  walk speed follows the distance to the target and to the
-//               surface ahead
+//   speedScale  walk speed follows the distance to the target, to the
+//               surface ahead and to the nearest surface beside (a strafe
+//               over the floor slows down too)
 //   macro       field of view from the page's own to 22 degrees between
 //               12 cm and 3 cm from the surface at the screen centre (lens.js)
 //   dof         depth of field on the nearest surface of a small autofocus
