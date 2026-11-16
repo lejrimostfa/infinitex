@@ -1,11 +1,12 @@
 // A honeybee worker (Apis mellifera) built in code, for the Room demo's
-// flyer (demo/flyer.js). About 13 mm long, at real size: it can go from
-// the window to a stitch of the sweater or the skin of a fruit.
+// flyer (demo/flyer.js). About 6.5 mm long, half the real size (the real
+// one looked too big in the room): it can go from the window to a stitch
+// of the sweater or the skin of a fruit.
 //   fuzz     the thorax wears 700 real hairs (one instanced cone each,
-//            0.5 mm long) over a golden sheen, so its outline is soft
+//            0.25 mm long) over a golden sheen, so its outline is soft
 //   abdomen  golden and dark bands; it pulses a little, as a bee breathes
 //   eyes     the Infinitex insect eye (insect.js), large dark ovals
-//   wings    two pairs, the fore wing 6.5 mm, a faint amber tint
+//   wings    two pairs, the fore wing 3.2 mm, a faint amber tint
 //   legs     dark, the hind pair carries two orange pollen loads
 // Local frame: +Z forward, +Y up, origin at the thorax. pose( t, flight,
 // beat ) as the mosquito (mosquito.js). Every mesh has userData.owner =
@@ -16,7 +17,7 @@
 import * as THREE from 'three/webgpu';
 import { banded, blob, rod, addEyes, addWings, finish } from './insect.js';
 
-const MM = 1e-3;
+const MM = 0.5e-3; // the model's unit: its sizes below are a real bee's in mm, it is built at half
 
 // Deterministic random numbers (the same bee on every visit).
 function rng( seed ) {

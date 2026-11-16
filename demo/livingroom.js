@@ -183,7 +183,7 @@ if ( ! params.has( 'nofly' ) ) {
 	const bee = createBee();
 	scene.add( bee.group );
 	vehicle = createFlyer( { vehicle: bee, camera, controls, dom: renderer.domElement, collider: kit.collider,
-		home: new THREE.Vector3( 0.78, 0.74, 1.0 ), options: { name: 'bee', maxSpeed: 0.6, near: 1.5, turnRate: 2, chase: 0.07, chaseMin: 0.02, chaseMax: 1.5 } } );
+		home: new THREE.Vector3( 0.78, 0.74, 1.0 ), options: { name: 'bee', maxSpeed: 0.15, minSpeed: 0.003, near: 1.5, turnRate: 2, chase: 0.065, chaseMin: 0.01, chaseMax: 1.5 } } );
 	vehicle.yaw = Math.atan2( 0.92 - 0.78, 0.85 - 1.0 ); // toward the fruit
 	addFlyHud( vehicle, { label: 'the bee' } );
 

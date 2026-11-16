@@ -1,6 +1,6 @@
 // A toy helicopter built in code, for the All matters page's flyer
-// (demo/flyer.js). About 11 cm from the nose to the tail rotor, a main
-// rotor of 10 cm: a desk toy next to cubes of 30 cm.
+// (demo/flyer.js). About 6 cm from the nose to the tail rotor, a main
+// rotor of 5.5 cm: a small desk toy next to cubes of 30 cm.
 //   body     glossy red ABS, the Infinitex plastic of the wall's "glossy
 //            plastic" cube: fine scratches and dust up close
 //   rotors   textured black ABS (the "moulded plastic" cube): spark
@@ -18,7 +18,7 @@
 import * as THREE from 'three/webgpu';
 import { ellipsoid, tube, blade, glossy, moulded } from './toy.js';
 
-const CM = 0.01;
+const CM = 0.0055; // the model's unit: its sizes below were drawn for 11 cm, it is built at 55 percent
 
 export function createHelicopter() {
 

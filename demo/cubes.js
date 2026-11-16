@@ -288,7 +288,7 @@ if ( ! params.has( 'fly' ) && ! params.has( 'film' ) && ! famSel && ! params.has
 	const home = new THREE.Vector3( below.position.x, SIZE + heli.skid, below.position.z );
 	vehicle = createFlyer( { vehicle: heli, camera, controls, dom: ctx.renderer.domElement, home, options: {
 		name: 'helicopter', idle: 'landed', plane: false, tilt: 0.3, bank: 0.45, turnRate: 1.8,
-		maxSpeed: 1.5, minSpeed: 0.02, response: 2, chase: 0.32, chaseMin: 0.06, chaseMax: 3, chaseLift: 0.35,
+		maxSpeed: 0.6, minSpeed: 0.008, response: 2, chase: 0.26, chaseMin: 0.03, chaseMax: 3, chaseLift: 0.35,
 	} } );
 	vehicle.yaw = Math.PI; // facing the rows: boarding shows the wall ahead
 	addFlyHud( vehicle, { label: 'the helicopter' } );

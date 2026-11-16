@@ -165,8 +165,8 @@ if ( ! params.has( 'nofly' ) ) {
 	const r = sub.radius;
 	vehicle = createFlyer( { vehicle: sub, camera, controls, dom: renderer.domElement, collider: kit.collider,
 		home: new THREE.Vector3( 0.12, 0.2, 0.12 ), options: { name: 'submarine', idle: 'hover', plane: false, nose: 0.25, tilt: 0, bank: 0.12,
-			maxSpeed: 0.15, minSpeed: 0.01, near: 1.5, turnRate: 1.1, pitchRate: 0.8, response: 1.2,
-			chase: 0.2, chaseMin: 0.05, chaseMax: 0.8, chaseLift: 0.25,
+			maxSpeed: 0.12, minSpeed: 0.004, near: 1.5, turnRate: 1.1, pitchRate: 0.8, response: 1.2,
+			chase: 0.12, chaseMin: 0.02, chaseMax: 0.8, chaseLift: 0.25,
 			bounds: { min: new THREE.Vector3( - TW / 2 + r, 0.03, - TD / 2 + r ), max: new THREE.Vector3( TW / 2 - r, LEVEL - 0.012, TD / 2 - r ) } } } );
 	vehicle.yaw = Math.PI; // toward the back wall: boarding shows the tank ahead
 	addFlyHud( vehicle, { label: 'the submarine', fly: 'Steer', land: 'Leave' } );

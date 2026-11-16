@@ -1,5 +1,6 @@
 // A toy submarine built in code, for the Water page's flyer (demo/flyer.js):
-// a bath toy about 10 cm long, yellow hull, red fins and propeller, round
+// a small bath toy about 3.5 cm long (a third of the first one, which hid
+// the surfaces it came close to), yellow hull, red fins and propeller, round
 // portholes. Every part is an Infinitex plastic built with underwater: 1,
 // so it takes the caustics, the colour loss of the water and the
 // refraction through the surface like the rest of the tank
@@ -12,7 +13,7 @@
 import * as THREE from 'three/webgpu';
 import { ellipsoid, tube, blade, glossy, moulded } from './toy.js';
 
-const CM = 0.01;
+const CM = 0.0035; // the model's unit: its sizes below were drawn for 10 cm, it is built at 35 percent
 
 export function createSubmarine() {
 
