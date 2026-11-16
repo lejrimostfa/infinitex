@@ -7,6 +7,8 @@
 //   ?view=room | window | tv | fruit | rug | chair   start from a preset camera
 //   arrows or ZQSD walk, Space and C up and down, a click focuses, F the
 //   lens (the camera kit, src/camera, through camerakit.js)
+//   ?nofly  no bee. Without it, a honeybee hovers over the fruit bowl; V or
+//           the button at the bottom right flies it (flyer.js, flyhud.js)
 // window.__ix: renderer, scene, camera, controls, kit, view( name ), setTime( s ), ready.
 // Event bus: none of its own, a viewing page. The nav (nav.js) waits for __ix.ready.
 
@@ -21,6 +23,10 @@ import { createStats } from './stats.js';
 import { createDemoKit } from './camerakit.js';
 import { createMannequin } from './mannequin.js';
 import { MATTERS, SWEATER } from './roomMatters.js';
+import { createBee } from './vehicles/bee.js';
+import { streamMaterials } from './warmup.js';
+import { createFlyer } from './flyer.js';
+import { addFlyHud } from './flyhud.js';
 
 const params = new URLSearchParams( location.search );
 const ctx = await createStage( { forceWebGL: params.has( 'webgl' ) } );
@@ -169,6 +175,20 @@ view( params.get( 'view' ) ?? 'room' );
 // light (src/camera). ?nolit, ?nocsm, ?nodof.
 const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 1.5, sun: key } } );
 const { walk, adaptive, lens, post } = kit;
+
+// The bee, hovering over the fruit bowl, facing it from the room's side.
+let vehicle = null;
+if ( ! params.has( 'nofly' ) ) {
+
+	const bee = createBee();
+	scene.add( bee.group );
+	vehicle = createFlyer( { vehicle: bee, camera, controls, dom: renderer.domElement, collider: kit.collider,
+		home: new THREE.Vector3( 0.78, 0.74, 1.0 ), options: { name: 'bee', maxSpeed: 0.6, near: 1.5, turnRate: 2, chase: 0.07, chaseMin: 0.02, chaseMax: 1.5 } } );
+	vehicle.yaw = Math.atan2( 0.92 - 0.78, 0.85 - 1.0 ); // toward the fruit
+	addFlyHud( vehicle, { label: 'the bee' } );
+
+}
+
 const stats = createStats( { renderer, camera, adaptive, post, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
 let clock = 0, last = performance.now();
 renderer.setAnimationLoop( () => {
@@ -178,12 +198,30 @@ renderer.setAnimationLoop( () => {
 	clock += dt;
 	last = now;
 	setTime( clock );
-	kit.update( dt );
+	vehicle?.update( dt, clock ); // while flown, it moves the camera and the walk holds still
+	kit.update( dt, { move: ! vehicle?.active } );
 	sunDisc.lookAt( camera.position );
 	stats.beginFrame();
+	// The frame draws to the screen. The bee's background compile
+	// (warmup.js) leaves its own target and MRT set while it yields, as on
+	// the cube wall (app.js).
+	renderer.setRenderTarget( null );
+	renderer.setMRT( null );
 	kit.render();
 	stats.endFrame( camera.position.distanceTo( controls.target ) );
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, kit, walk, adaptive, lens, focus: lens, post, view, setTime, matters, ready: true };
+// The bee is out of the first view: it would compile on boarding (4 s
+// frozen). Its matters compile in the background instead, in the scene
+// pass's context, once the loop runs (the pass sets its target up on its
+// first render).
+if ( vehicle ) {
+
+	const parts = [];
+	vehicle.model.group.traverse( ( o ) => { if ( o.isMesh ) parts.push( o ); } );
+	streamMaterials( { renderer, scene, camera, pass: post?.scenePass, meshes: parts, placeholder: new THREE.MeshStandardMaterial( { color: 0x3a3022 } ) } );
+
+}
+
+window.__ix = { renderer, scene, camera, controls, kit, walk, vehicle, adaptive, lens, focus: lens, post, view, setTime, matters, ready: true };

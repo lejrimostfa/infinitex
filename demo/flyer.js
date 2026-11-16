@@ -177,6 +177,7 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 		chase.dispose();
 
 	};
+	bus.model = vehicle;
 	Object.defineProperty( bus, 'active', { get: () => active } );
 	Object.defineProperty( bus, 'position', { get: () => pos } );
 	Object.defineProperty( bus, 'yaw', { get: () => yaw, set: ( v ) => { yaw = v; } } );

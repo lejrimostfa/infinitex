@@ -1,5 +1,5 @@
-// The flyer's UI: a board / leave button (#fly in the page panel, if any)
-// and a small pill at the bottom with the controls while flying.
+// The flyer's UI: a board / leave button (#fly in the page panel, or a
+// floating one at the bottom right when the page has no panel) and a small pill at the bottom with the controls while flying.
 // Event bus: listens to the flyer's vehicleBoarded and vehicleLeft
 // (flyer.js); the button calls flyer.board() or flyer.leave().
 
@@ -9,7 +9,10 @@ const css = `
 	border: 1px solid #2a2c31; border-radius: 8px; padding: 5px 12px; z-index: 11; pointer-events: none; display: none; }
 #ix-fly b { color: #d9a441; font-weight: 600; }
 body.flying #ix-fly { display: block; }
-body.film #ix-fly { display: none; }
+body.film #ix-fly, body.film #ix-fly-btn { display: none; }
+#ix-fly-btn { position: fixed; right: 14px; bottom: 14px; z-index: 10; background: rgba(16,17,20,.82); color: #e8e6e3;
+	border: 1px solid #2a2c31; border-radius: 9px; padding: 9px 12px; font: 13px system-ui, sans-serif; cursor: pointer; }
+#ix-fly-btn:hover { background: #2a2c31; }
 `;
 
 // label: the vehicle as the button names it ('the mosquito').
@@ -34,7 +37,15 @@ export function addFlyHud( flyer, { label = 'the vehicle', key = 'V' } = {} ) {
 	navigator.keyboard?.getLayoutMap?.().then( ( m ) => { for ( const k in name ) name[ k ] = ( m.get( k ) ?? name[ k ] ).toUpperCase(); fill(); } ).catch( () => {} );
 	document.body.appendChild( hint );
 
-	const btn = document.getElementById( 'fly' );
+	let btn = document.getElementById( 'fly' );
+	if ( ! btn ) {
+
+		btn = document.createElement( 'button' );
+		btn.id = 'ix-fly-btn';
+		document.body.appendChild( btn );
+
+	}
+
 	const text = ( on ) => on ? `Land (${ key })` : `Fly ${ label } (${ key })`;
 	if ( btn ) {
 
