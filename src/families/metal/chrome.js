@@ -12,9 +12,12 @@
 //                  dome; their tilt is tiny, so far away they do not dull
 //                  the mirror
 // Chrome is bluish white, about 55 to 60 % reflectance.
+//
+// The swirl rows, the microcracks and the nodules sit in gate()s
+// (core/lod.js) and run only where they show.
 
 import { vec2, float, floor, clamp, smoothstep, step, mix, mod, atan } from 'three/tsl';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { grooves } from './scratch.js';
@@ -31,9 +34,9 @@ export function buildChrome( p, fp, u ) {
 	// L1 swirl arcs around the seeds of 25 mm cells, in short arcs.
 	const SW = 0.025;
 	const sv = voronoi( p.div( SW ).add( 7.7 ), 0.9 );
-	const rr = sv.toSeed.length().max( 1e-4 );
+	const rr = sv.toSeed.length().max( 1e-4 ).toVar();
 	const radial = sv.toSeed.div( rr );
-	const ang = atan( sv.toSeed.y, sv.toSeed.x ).add( hash1( sv.id1 ).mul( 6.28 ) );
+	const ang = atan( sv.toSeed.y, sv.toSeed.x ).add( hash1( sv.id1 ).mul( 6.28 ) ).toVar();
 	const ring = ( P, seed, density ) => {
 
 		const w = fadeIn( P, fp, 1.5, 4.0 );
@@ -41,11 +44,25 @@ export function buildChrome( p, fp, u ) {
 		return { s: g.s.mul( w ), cov: g.cov.mul( w ) };
 
 	};
-	const r0 = ring( 250e-6, 1.7, u.swirls.mul( 0.4 ) );
-	const r1 = ring( 80e-6, 3.1, u.swirls.mul( 0.5 ) );
-	const r2 = ring( 25e-6, 6.7, u.swirls.mul( 0.35 ) );
-	const swirl = r0.cov.max( r1.cov ).max( r2.cov );
-	const sSwirl = radial.mul( r0.s.add( r1.s ).add( r2.s ) );
+	// Each row size in its gate, the finer ones nested: a row skipped once
+	// faded, and every finer one with it. The slope sum keeps its order.
+	const rows = [ [ 250e-6, 1.7, 0.4 ], [ 80e-6, 3.1, 0.5 ], [ 25e-6, 6.7, 0.35 ] ];
+	const swirlRows = ( i, cov, s ) => {
+
+		if ( i >= rows.length ) return { cov, s };
+		const [ P, seed, k ] = rows[ i ];
+		const c0 = cov.isVarNode ? cov : cov.toVar(), s0 = s.isVarNode ? s : s.toVar();
+		return gate( fadeOn( P, fp, 1.5 ), { cov: c0, s: s0 }, () => {
+
+			const r = ring( P, seed, u.swirls.mul( k ) );
+			return swirlRows( i + 1, c0.max( r.cov ), s0.add( r.s ) );
+
+		}, [ fp, ang, rr, c0, s0 ] );
+
+	};
+	const SR = swirlRows( 0, float( 0 ), float( 0 ) );
+	const swirl = SR.cov;
+	const sSwirl = radial.mul( SR.s );
 
 	// L2 plating pits.
 	const PC = 3e-4;
@@ -62,20 +79,34 @@ export function buildChrome( p, fp, u ) {
 	const sPit = qv.div( dq.max( 1e-4 ) ).mul( rim.mul( - 0.5 ).add( pit.mul( 0.8 ) ) ).mul( fadeIn( pitR, fp, 2.0, 5.0 ) );
 
 	// L3 microcrack network.
+	// Skipped past its fade (250 um, from 4 px).
 	const CC = 2.5e-4;
-	const cq = p.div( CC ).add( vec2( vn( p.div( CC * 0.7 ) ), vn( p.div( CC * 0.7 ).add( 3.3 ) ) ).mul( 0.4 ) );
-	const cv = voronoi( mod( cq, 4096 ).add( 1.2 ), 0.9 );
-	const cw = float( 8e-7 ).mul( hash1( cv.id1.add( cv.id2 ) ).add( 0.5 ) ), cwE = cw.max( fp );
-	const crack = aa( cwE.sub( cv.edge.mul( CC ) ), fp ).mul( cw.div( cwE ) ).mul( u.cracks )
-		.mul( smoothstep( 0.3, 0.6, hash1( cv.id1.add( cv.id2.mul( 1.7 ) ) ).add( 0.3 ) ) ).mul( fadeIn( CC, fp, 4.0, 12.0 ) );
+	const crack = gate( fadeOn( CC, fp, 4.0 ), { crack: 0 }, () => {
+
+		const cq = p.div( CC ).add( vec2( vn( p.div( CC * 0.7 ) ), vn( p.div( CC * 0.7 ).add( 3.3 ) ) ).mul( 0.4 ) );
+		const cv = voronoi( mod( cq, 4096 ).add( 1.2 ), 0.9 );
+		const cw = float( 8e-7 ).mul( hash1( cv.id1.add( cv.id2 ) ).add( 0.5 ) ), cwE = cw.max( fp );
+		return { crack: aa( cwE.sub( cv.edge.mul( CC ) ), fp ).mul( cw.div( cwE ) ).mul( u.cracks )
+			.mul( smoothstep( 0.3, 0.6, hash1( cv.id1.add( cv.id2.mul( 1.7 ) ) ).add( 0.3 ) ) ).mul( fadeIn( CC, fp, 4.0, 12.0 ) ) };
+
+	}, [ p, fp ] ).crack.toVar();
 
 	// L4 nodules.
+	// Skipped past their fade (6 um, from 2 px).
 	const NC = 6e-6;
-	const nv = voronoi( mod( p.div( NC ), 4096 ).add( 9.4 ), 0.9 );
-	const wN = fadeIn( NC, fp, 2.0, 6.0 );
-	const nh = hash3( nv.id1 );
-	const sNod = nv.toSeed.mul( - 0.035 ).mul( wN );
-	const nodTone = nh.z.sub( 0.5 ).mul( 0.04 ).add( 1 ).mul( float( 1 ).sub( smoothstep( 0.0, 0.15, nv.edge ).oneMinus().mul( 0.08 ) ) ).sub( 1 ).mul( wN ).add( 1 );
+	const nq = mod( p.div( NC ), 4096 ).add( 9.4 ).toVar();
+	const wN = fadeIn( NC, fp, 2.0, 6.0 ).toVar();
+	const N = gate( fadeOn( NC, fp, 2.0 ), { sNod: [ 0, 0 ], nodTone: 1 }, () => {
+
+		const nv = voronoi( nq, 0.9 );
+		const nh = hash3( nv.id1 );
+		return {
+			sNod: nv.toSeed.mul( - 0.035 ).mul( wN ),
+			nodTone: nh.z.sub( 0.5 ).mul( 0.04 ).add( 1 ).mul( float( 1 ).sub( smoothstep( 0.0, 0.15, nv.edge ).oneMinus().mul( 0.08 ) ) ).sub( 1 ).mul( wN ).add( 1 ),
+		};
+
+	}, [ nq, wN ] );
+	const sNod = N.sNod, nodTone = N.nodTone;
 
 	// Pits are dark (light trapped), cracks a little.
 	const color = u.f0.mul( nodTone ).mul( float( 1 ).sub( pit.mul( 0.85 ) ) ).mul( float( 1 ).sub( crack.mul( 0.8 ) ) )
