@@ -10,6 +10,9 @@
 //             each gets its own water pass, bent at its own plane, and
 //             a pixel takes the pane its ray enters first. One pane in
 //             view costs what it did; a corner costs one more pass.
+//   glass     { thickness (m), ior } of the panes: what is behind comes
+//             nearer by thickness ( 1 - 1 / ior ) (core/refraction.js).
+//             The pane itself (edges, reflections) is the page's mesh
 //   lens      a port lensD in front of the camera (lens: true): every
 //             ray crosses it, so the frame splits along the waterline
 //   level     the still level plus the ripples at that point, so the
@@ -41,7 +44,7 @@ export { WALL_CONTACT, meniscusHeight } from './meniscus.js';
 // meniscus: signed height (m), > 0 climbs, < 0 dips; by default from
 // tension and contactDeg (the wall, core/meniscus.js). reach: how far
 // the scene mirrored by a dipping edge lies (m).
-export function createWaterline( renderer, scene, camera, { lens = false, glassZ = 0, xMin = - 1, xMax = 1, panes = [ { axis: 'z', at: glassZ, min: xMin, max: xMax, out: 0 } ], yMin = 0, yMax = 1, lensD = 0.03, tension = 0.072, contactDeg = WALL_CONTACT.glass, meniscus = meniscusHeight( { tension, contactDeg } ), reach = 0.5, boost = 1, power = 5, prepare = null } = {}, W = waterBody ) {
+export function createWaterline( renderer, scene, camera, { lens = false, glassZ = 0, xMin = - 1, xMax = 1, panes = [ { axis: 'z', at: glassZ, min: xMin, max: xMax, out: 0 } ], yMin = 0, yMax = 1, lensD = 0.03, glass = null, tension = 0.072, contactDeg = WALL_CONTACT.glass, meniscus = meniscusHeight( { tension, contactDeg } ), reach = 0.5, boost = 1, power = 5, prepare = null } = {}, W = waterBody ) {
 
 	const size = renderer.getDrawingBufferSize( new Vector2() );
 	const opts = { type: HalfFloatType };
@@ -175,7 +178,7 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 					const sg = p.out || Math.sign( camera.position[ p.axis ] - p.at ) || 1;
 					if ( p.axis === 'z' ) { u.n.value.set( 0, 0, sg ); u.along.value.set( 1, 0, 0 ); paneP.set( 0, 0, p.at ); } else { u.n.value.set( sg, 0, 0 ); u.along.value.set( 0, 0, 1 ); paneP.set( p.at, 0, 0 ); }
 					u.at.value = sg * p.at; u.min.value = p.min; u.max.value = p.max;
-					refractPlane( camera.position, paneP, u.n.value );
+					refractPlane( camera.position, paneP, u.n.value, glass );
 					renderer.setRenderTarget( i ? rtB2 : rtB ); renderer.render( scene, camera );
 
 				} );

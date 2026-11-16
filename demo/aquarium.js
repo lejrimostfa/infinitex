@@ -13,7 +13,7 @@
 // apparentPoint, waterBody, tank, LEVEL, TD (tests/refraction_gpu.mjs).
 
 import * as THREE from 'three/webgpu';
-import { uv, vec2, vec3, float, positionWorldDirection, positionLocal, normalLocal, attribute } from 'three/tsl';
+import { uv, vec2, vec3, float, positionWorldDirection, positionLocal, positionWorld, normalLocal, cameraPosition, attribute, reflect, mix } from 'three/tsl';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js';
@@ -151,6 +151,57 @@ for ( const [ w, x, z, ry ] of [ [ TW, 0, TD / 2, Math.PI ], [ TD, - TW / 2, 0, 
 
 }
 
+// The panes themselves: 8 mm of ordinary glass (n = 1.52), outside the
+// water. A box each, without its face on the water's side. Its wide face
+// mirrors the sky by Fresnel's law (4 % face on, all of it at a grazing
+// angle); its edges, where the eye looks through centimetres of glass,
+// show the green of soda-lime glass. Blended after the opaque scene, no
+// depth written: the effects (AO, depth of field) see through it. What the
+// plate does to the picture behind is in the waterline pass (`glass`).
+// The walk and the focus go through it, like the water.
+const GLASS = { thickness: 0.008, ior: 1.52 };
+const paneMeshes = [];
+{
+
+	const GT = GLASS.thickness, F0 = ( ( GLASS.ior - 1 ) / ( GLASS.ior + 1 ) ) ** 2, Y0 = - 0.021;
+	// thin: the axis across the pane; inner: the box face on the water's side (BoxGeometry order +x -x +y -y +z -z).
+	const pane = ( w, h, d, x, z, thin, inner ) => {
+
+		const g = new THREE.BoxGeometry( w, h, d );
+		const edge = new Float32Array( 24 ), idx = [];
+		for ( let f = 0; f < 6; f ++ ) {
+
+			const wide = ( f >> 1 ) === ( thin === 'x' ? 0 : 2 );
+			edge.fill( wide ? 0 : 1, f * 4, f * 4 + 4 );
+			if ( f !== inner ) for ( let k = 0; k < 6; k ++ ) idx.push( g.index.array[ f * 6 + k ] );
+
+		}
+
+		g.setAttribute( 'edge', new THREE.BufferAttribute( edge, 1 ) );
+		g.setIndex( idx );
+		const m = new THREE.MeshBasicNodeMaterial( { transparent: true, depthWrite: false } );
+		const V = positionWorld.sub( cameraPosition ).normalize();
+		const N = normalLocal; // the box is not turned: its own normal is the world's
+		const fres = float( F0 ).add( float( 1 - F0 ).mul( float( 1 ).sub( V.dot( N ).abs() ).pow( 5 ) ) );
+		const e = attribute( 'edge', 'float' );
+		// Two faces mirror on a wide side, 2 F / ( 1 + F ) with the bounces
+		// between them; an edge is a deep, bright green.
+		const a = mix( fres.mul( 2 ).div( fres.add( 1 ) ), float( 0.82 ), e );
+		m.colorNode = mix( sky( reflect( V, N ) ), vec3( 0.42, 0.72, 0.6 ).mul( fres.mul( 3 ).add( 0.75 ) ), e );
+		m.opacityNode = a;
+		const mesh = new THREE.Mesh( g, m );
+		mesh.position.set( x, Y0 + h / 2, z );
+		mesh.renderOrder = 20; // after the water's surface
+		mesh.userData.noFocus = true;
+		scene.add( mesh );
+		paneMeshes.push( mesh );
+
+	};
+	pane( TW + 2 * GT, TH - Y0, GT, 0, TD / 2 + GT / 2, 'z', 5 ); // front, over both corners
+	for ( const sx of [ - 1, 1 ] ) pane( GT, TH - Y0, TD + 0.021, sx * ( TW / 2 + GT / 2 ), - 0.021 / 2, 'x', sx > 0 ? 1 : 0 );
+
+}
+
 // The tank seen from outside: the slabs above face inwards only, so from
 // behind the tank the back wall was culled and the eye fell into the
 // void (and the light shafts drew there in blocks). A marble shell gives
@@ -235,7 +286,7 @@ function view( name ) {
 // (core/meniscus.js): 2.9 mm up the glass; ?wall=ptfe or coatedGlass for
 // a pane the water does not wet, the edge dips and rolls over (convex).
 const wall = WALL_CONTACT[ params.get( 'wall' ) ] ?? WALL_CONTACT.glass;
-const glassLine = createWaterline( renderer, scene, camera, { panes: [ { axis: 'z', at: TD / 2, min: - TW / 2, max: TW / 2, out: 1 }, { axis: 'x', at: - TW / 2, min: - TD / 2, max: TD / 2, out: - 1 }, { axis: 'x', at: TW / 2, min: - TD / 2, max: TD / 2, out: 1 } ], yMin: 0, yMax: TH, contactDeg: wall, prepare } );
+const glassLine = createWaterline( renderer, scene, camera, { panes: [ { axis: 'z', at: TD / 2, min: - TW / 2, max: TW / 2, out: 1 }, { axis: 'x', at: - TW / 2, min: - TD / 2, max: TD / 2, out: - 1 }, { axis: 'x', at: TW / 2, min: - TD / 2, max: TD / 2, out: 1 } ], glass: GLASS, yMin: 0, yMax: TH, contactDeg: wall, prepare } );
 // The port's film is thinner and flatter than the meniscus on a pane.
 const lensLine = createWaterline( renderer, scene, camera, { lens: true, meniscus: 0.0008, power: 2.5, prepare } );
 addEventListener( 'resize', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );

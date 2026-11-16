@@ -35,6 +35,7 @@ export const refraction = {
 	normal: uniform( new Vector3( 0, 1, 0 ) ), // toward the eye
 	offset: uniform( 0 ),
 	eta: uniform( 1 / N_WATER ), // n on the eye's side / n on the far side
+	plate: uniform( 0 ), // a glass plate on the plane (m): how much nearer it brings what is behind it, t ( 1 - 1 / n )
 	strength: uniform( 1 ), // 0: the true positions (tests, comparisons)
 };
 
@@ -44,6 +45,7 @@ const R = refraction;
 export function refractSurface( eye, level ) {
 
 	const up = eye.y >= level ? 1 : - 1;
+	R.plate.value = 0;
 	R.on.value = 1;
 	R.eye.value.copy( eye );
 	R.normal.value.set( 0, up, 0 );
@@ -57,8 +59,14 @@ export function refractSurface( eye, level ) {
 // also those above the level: their rays cross the plane into the water
 // first, then the surface (that second bend is not modelled). Bending
 // only the wet ones put the dry marble inside the magnified water.
-export function refractPlane( eye, point, normal ) {
+// plate: { thickness (m), ior } of a pane of glass standing on the plane,
+// on the eye's side. Parallel faces do not turn the ray, they shift it:
+// to the eye the glass is a layer of air thickness / ior deep, so all that
+// is behind comes nearer by thickness ( 1 - 1 / ior ) (2.7 mm for 8 mm of
+// ordinary glass). Exact near the normal, a little short at grazing angles.
+export function refractPlane( eye, point, normal, plate = null ) {
 
+	R.plate.value = plate ? plate.thickness * ( 1 - 1 / plate.ior ) : 0;
 	R.on.value = 1;
 	R.eye.value.copy( eye );
 	R.normal.value.copy( normal ).normalize();
@@ -101,7 +109,9 @@ export function apparentPoint( E, P, normal, offset, eta ) {
 // vertices (billboards, core/bubbles.js).
 export function refractedPoint( P ) {
 
-	const E = R.eye, N = R.normal;
+	// Through a plate the eye stands nearer the plane by R.plate; what it
+	// sees from there is then moved back by as much.
+	const N = R.normal, E = R.eye.sub( N.mul( R.plate ) );
 	const a = N.dot( E ).sub( R.offset ).max( 1e-6 ); // eye above the plane
 	const b = R.offset.sub( N.dot( P ) ); // point beyond it (> 0)
 	const bb = b.max( 1e-6 );
@@ -128,10 +138,10 @@ export function refractedPoint( P ) {
 	const l = ES.length();
 	// Along the first leg, as far as the optical path: in water seen from
 	// the air, the depth shrinks by 1 / 1.33.
-	const A = E.add( ES.div( l.max( 1e-9 ) ).mul( l.add( P.sub( S ).length().mul( R.eta ) ) ) );
+	const A = E.add( ES.div( l.max( 1e-9 ) ).mul( l.add( P.sub( S ).length().mul( R.eta ) ) ) ).add( N.mul( R.plate ) );
 	const gate = R.on.mul( R.strength )
 		.mul( step( 0, b ) )
-		.mul( step( cameraPosition.sub( E ).length(), 1e-4 ) ); // this eye only
+		.mul( step( cameraPosition.sub( R.eye ).length(), 1e-4 ) ); // this eye only
 	return mix( P, A, gate );
 
 }
