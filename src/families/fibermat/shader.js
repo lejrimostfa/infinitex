@@ -11,7 +11,7 @@
 // fused drops sit in gates on their amount, so the other mats skip them.
 
 import { uv, vec2, vec3, float, floor, fract, clamp, smoothstep, step, sqrt, mix, sin, cos, normalView, tangentView, bitangentView } from 'three/tsl';
-import { footprint, fadeIn, fadeOn, gate, composeRoughness, specularAA, perturbNormal } from '../../core/lod.js';
+import { footprint, fadeIn, fadeOn, gate, gateGpu, composeRoughness, specularAA, perturbNormal } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { applySurface } from '../../core/surface.js';
@@ -199,7 +199,8 @@ export function buildFibermatNodes( u, opts = {} ) {
 	// widths (wFib = 0) the gate skips the warp, the layers and the drops.
 	const wFib = fadeIn( u.fiberW.mul( 5 ), fp, 1.5, 5.0 ).toVar();
 	const meanCol = mix( u.color, u.color2, 0.35 ).toVar();
-	const F = gate( fadeOn( u.fiberW.mul( 5 ), fp, 1.5 ), { fibers: { node: meanCol.mul( 0.85 ), size: 3 }, sFib: [ 0, 0 ], bond: 0 },
+	// gateGpu: on WebGL2 suede (9 um fibres) rounds differently in the branch.
+	const F = gateGpu( fadeOn( u.fiberW.mul( 5 ), fp, 1.5 ), { fibers: { node: meanCol.mul( 0.85 ), size: 3 }, sFib: [ 0, 0 ], bond: 0 },
 		() => fiberLevel( p0, fp, u, meanCol, wFib ), [ p0, fp, meanCol, wFib ] );
 
 	let color = mix( meanCol.mul( 0.85 ), F.fibers, u.contrast.min( 1 ) );

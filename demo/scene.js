@@ -8,6 +8,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { createMannequin } from './mannequin.js';
+import { setLodFallback, setLodBranches } from '../src/core/lod.js';
 
 // Rescale a geometry's UVs so one UV unit is one meter on the surface.
 export function uvToMeters( geometry, metersU, metersV ) {
@@ -21,6 +22,9 @@ export function uvToMeters( geometry, metersU, metersV ) {
 
 // Renderer, light, floor, camera and orbit controls. Shared by both demos.
 export async function createStage( { forceWebGL } ) {
+
+	setLodFallback( !! forceWebGL ); // gates that are exact on WebGPU only (core/lod.js)
+	setLodBranches( ! new URLSearchParams( location.search ).has( 'nobranches' ) ); // ?nobranches: every level computed, to measure what the branches save
 
 	const renderer = new THREE.WebGPURenderer( { antialias: true, forceWebGL, trackTimestamp: true, reversedDepthBuffer: true } );
 	renderer.setPixelRatio( Math.min( devicePixelRatio, 2 ) );

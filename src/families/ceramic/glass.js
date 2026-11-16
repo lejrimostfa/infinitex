@@ -25,7 +25,7 @@
 // gate()s (core/lod.js): they run only where they show.
 
 import { vec2, vec3, float, fract, step, smoothstep, sin, cos, mod, positionView, tangentView, bitangentView } from 'three/tsl';
-import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate, gateGpu, surfaceGradient } from '../../core/lod.js';
 import { hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { bubbleCells, bubbleAt, capSlope } from './bubbles.js';
@@ -45,7 +45,7 @@ function frosted( p, fp, u, y ) {
 	// Skipped under 1.5 px per pit, with their ripples (narrower fade).
 	const wA = fadeIn( f, fp, 1.5, 4.0 ).toVar();
 	const qA = mod( p.div( f ), 4096 ).add( s.mul( 3 ) ).toVar();
-	const PA = gate( fadeOn( f, fp, 1.5 ), { slope: [ 0, 0 ], ridge: 0 }, () => {
+	const PA = gateGpu( fadeOn( f, fp, 1.5 ), { slope: [ 0, 0 ], ridge: 0 }, () => {
 
 		const A = voronoi( qA, 0.95 );
 		const hA = hash3( A.id1 );
@@ -63,7 +63,7 @@ function frosted( p, fp, u, y ) {
 	// Smaller pits on top. Skipped under 1.5 px per pit.
 	const wB = fadeIn( f.mul( 0.33 ), fp, 1.5, 4.0 ).toVar();
 	const qB = mod( p.div( f.mul( 0.33 ) ), 4096 ).add( 7.7 ).toVar();
-	const PB = gate( fadeOn( f.mul( 0.33 ), fp, 1.5 ), { slope: [ 0, 0 ] }, () => ( { slope: voronoi( qB, 0.95 ).toSeed.mul( 0.9 ).mul( wB ) } ), [ wB, qB ] );
+	const PB = gateGpu( fadeOn( f.mul( 0.33 ), fp, 1.5 ), { slope: [ 0, 0 ] }, () => ( { slope: voronoi( qB, 0.95 ).toSeed.mul( 0.9 ).mul( wB ) } ), [ wB, qB ] );
 	slope = slope.add( PB.slope );
 	// Unresolved pits go into the roughness (slope variance of a paraboloid
 	// pit: k^2 / 6 per axis, here both octaves).
@@ -71,7 +71,7 @@ function frosted( p, fp, u, y ) {
 	// at arm's length, where the small ones are already a haze. Skipped
 	// where they are under a pixel (their fade is zero).
 	const qC = bubbleCells( p, f.mul( 5 ), 51 ).toVar();
-	const C = gate( fadeOn( f.mul( 5 * 0.77 ), fp, 1.0 ), { slope: [ 0, 0 ], fade: 0 }, () => {
+	const C = gateGpu( fadeOn( f.mul( 5 * 0.77 ), fp, 1.0 ), { slope: [ 0, 0 ], fade: 0 }, () => {
 
 		const B = bubbleAt( qC, fp, f.mul( 5 ), float( 0.35 ), 51 );
 		return { slope: capSlope( B.v, B.d ).mul( B.inside ).mul( B.fade ).mul( 0.5 ), fade: B.fade };
