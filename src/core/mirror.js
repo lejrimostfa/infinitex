@@ -7,7 +7,7 @@
 // holds the scene's content. side +1: the mirror seen from above shows what
 // is above the level; side -1: seen from below, what is below it.
 // sample( offset ) gives the mirror colour at this pixel, offset in screen
-// UV (ripples). render( renderer, camera ) before the frame that uses it.
+// UV (ripples); sampleAt( uv, offset ) at another screen UV. render( renderer, camera ) before the frame that uses it.
 //
 // The group always holds exactly one clipping plane. three bumps a clipping
 // context's version, and rebuilds the TSL graph of every object under it,
@@ -17,7 +17,7 @@
 // clips nothing; a pass only changes its values, which are uniforms.
 
 import { RenderTarget, HalfFloatType, PerspectiveCamera, Plane, Vector2, Vector3 } from 'three/webgpu';
-import { texture, screenUV } from 'three/tsl';
+import { texture, screenUV, vec2, float } from 'three/tsl';
 
 export function createMirror( { group, level, side = 1, resolutionScale = 0.5, hide = [] } ) {
 
@@ -39,6 +39,9 @@ export function createMirror( { group, level, side = 1, resolutionScale = 0.5, h
 	return {
 		rt,
 		sample: ( offset ) => texture( rt.texture, screenUV.flipX().add( offset ) ),
+		// At a given screen UV instead of the pixel's own (a surface drawn
+		// away from its true place, core/refraction.js).
+		sampleAt: ( uv, offset ) => texture( rt.texture, vec2( float( 1 ).sub( uv.x ), uv.y ).add( offset ) ),
 		map,
 		// Renders when the camera is on the mirror's side; else keeps the
 		// last image (it is not seen).

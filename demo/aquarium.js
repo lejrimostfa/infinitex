@@ -6,12 +6,15 @@
 //   ?view=above | below | floor | glass | lens   start from a preset camera
 //   ?wall=glass | cleanGlass | acrylic | coatedGlass | ptfe   the pane (meniscus)
 //   arrows or ZQSD walk, Space and C up and down, a click focuses (walk.js)
-// window.__ix: renderer, scene, camera, ready, view( name ), setTime( s ).
+// window.__ix: renderer, scene, camera, ready, view( name ), setTime( s ),
+// refraction (core/refraction.js; strength 0 draws the true positions),
+// apparentPoint, waterBody, tank, LEVEL, TD (tests/refraction_gpu.mjs).
 
 import * as THREE from 'three/webgpu';
 import { uv, vec2, positionWorldDirection } from 'three/tsl';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js';
 import './nav.js';
 import { createMaterial } from '../src/index.js';
 import { setTime } from '../src/core/clock.js';
@@ -21,6 +24,7 @@ import { createWaterSurface, daySky } from '../src/core/watersurface.js';
 import { createWaterline } from '../src/core/waterline.js';
 import { WALL_CONTACT } from '../src/core/meniscus.js';
 import { createMirror } from '../src/core/mirror.js';
+import { refraction, refractSurface, refractOff, apparentPoint } from '../src/core/refraction.js';
 import { createStage } from './scene.js';
 import { createStats } from './stats.js';
 import { createAdaptiveResolution } from './adaptive.js';
@@ -56,7 +60,10 @@ scene.add( tank );
 // A plane with UVs in metres, facing +z before it is placed.
 function slab( w, h, preset, place ) {
 
-	const g = new THREE.PlaneGeometry( w, h );
+	// 2 cm segments: refraction moves vertices (core/refraction.js). A line
+	// seen through a flat interface bends gently; 1 cm gave 4 times the
+	// triangles for no visible gain.
+	const g = new THREE.PlaneGeometry( w, h, Math.ceil( w / 0.02 ), Math.ceil( h / 0.02 ) );
 	g.computeTangents();
 	const ix = createMaterial( { ...preset, underwater: 1 }, { coords: uv().mul( vec2( w, h ) ) } );
 	const m = new THREE.Mesh( g, ix.material );
@@ -79,6 +86,9 @@ function cube( size, h, preset, x, z, ry ) {
 
 	let g = new RoundedBoxGeometry( size, h, size, 4, 0.012 );
 	g.deleteAttribute( 'uv1' );
+	// Its flat faces are single quads: cut them to about 2 cm, so the part
+	// under water can bend (core/refraction.js).
+	g = new TessellateModifier( 0.02, 10 ).modify( g.toNonIndexed() );
 	g = mergeVertices( g );
 	g.computeTangents();
 	const ix = createMaterial( { ...preset, underwater: 1 }, { coords: uv().mul( vec2( size, h ) ) } );
@@ -146,6 +156,9 @@ function draw() {
 	else if ( Math.abs( p.x ) < TW / 2 && Math.abs( p.z ) < TD / 2 ) lensLine.render();
 	else {
 
+		// Above the water, it is seen through the surface; beside the
+		// tank below the rim, only the marble walls are seen.
+		if ( p.y > LEVEL ) refractSurface( p, LEVEL ); else refractOff();
 		prepare( camera );
 		renderer.setRenderTarget( null );
 		renderer.render( scene, camera );
@@ -206,4 +219,4 @@ renderer.setAnimationLoop( () => {
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, walk, adaptive, view, setTime, draw, dive, glassPan, ready: true };
+window.__ix = { renderer, scene, camera, controls, walk, adaptive, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };

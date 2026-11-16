@@ -17,16 +17,18 @@
 //              waves shorter than the mesh spacing faded out), so its edge
 //              on a pane follows the meniscus (core/waterline.js) instead
 //              of reading as a flat plate under it. Give it segments.
+//   refraction through a pane or a port, bent like the matter behind it
 // mirrors: { up, down } from core/mirror.js, rendered by the app.
 // sky(dir) is the app's sky (the same function draws the background), so
 // reflections and the window match what is above.
 
 import { MeshBasicNodeMaterial, DoubleSide } from 'three/webgpu';
-import { vec2, vec3, vec4, float, positionWorld, positionLocal, modelWorldMatrix, modelWorldMatrixInverse, cameraPosition, reflect, mix, smoothstep, step, sqrt, viewportSharedTexture, screenUV } from 'three/tsl';
+import { vec2, vec3, vec4, float, positionWorld, positionLocal, modelWorldMatrix, modelWorldMatrixInverse, cameraPosition, cameraProjectionMatrix, cameraViewMatrix, reflect, mix, smoothstep, step, sqrt, viewportSharedTexture, screenUV } from 'three/tsl';
 import { ixTime } from './clock.js';
 import { footprint } from './lod.js';
 import { waterBody } from './underwater.js';
 import { waveField } from '../families/liquid/waves.js';
+import { refractedVertex } from './refraction.js';
 
 const N_WATER = 1.33;
 
@@ -58,12 +60,19 @@ export function createWaterSurface( sky, mirrors = {}, W = waterBody, { spacing 
 	// pool itself). Without them, the sky alone and a dim tint.
 	const shift = vec2( wf.slope.x, wf.slope.y.negate() ).mul( 0.06 );
 	const mshift = shift.mul( vec2( - 1, 1 ) );
+	// Where this point of the surface would be on screen unbent. The
+	// mirrors are drawn from the true scene, so the surface reads them
+	// there: bent by a pane or a port (core/refraction.js), it carries its
+	// reflection along. Without refraction, the pixel itself.
+	const clip = cameraProjectionMatrix.mul( cameraViewMatrix.mul( vec4( P, 1 ) ) );
+	const ndc = clip.xy.div( clip.w );
+	const trueUV = vec2( ndc.x.mul( 0.5 ).add( 0.5 ), float( 0.5 ).sub( ndc.y.mul( 0.5 ) ) );
 
 	// From above: the mirror by Fresnel, the scene below pushed by the slope.
 	const cosA = n.dot( V ).max( 0 );
 	const Fa = float( 0.02 ).add( float( 0.98 ).mul( float( 1 ).sub( cosA ).pow( 5 ) ) );
 	const Rr = reflect( V.negate(), n );
-	const skyR = mirrors.up ? mirrors.up.sample( mshift ).rgb : sky( vec3( Rr.x, Rr.y.max( 0.03 ), Rr.z ) );
+	const skyR = mirrors.up ? mirrors.up.sampleAt( trueUV, mshift ).rgb : sky( vec3( Rr.x, Rr.y.max( 0.03 ), Rr.z ) );
 	const under = viewportSharedTexture( screenUV.add( shift ) ).rgb;
 	const fromAbove = mix( under.mul( vec3( 0.9, 0.97, 1.0 ) ), skyR, Fa );
 
@@ -87,7 +96,7 @@ export function createWaterSurface( sky, mirrors = {}, W = waterBody, { spacing 
 	// Beyond the window, total internal reflection: a perfect mirror of
 	// the pool (walls, floor, posts), rippled. The silver band of every
 	// aquarium is this mirror seen through the glass.
-	const mirror = mirrors.down ? mirrors.down.sample( mshift ).rgb : W.inscatter.mul( 0.5 );
+	const mirror = mirrors.down ? mirrors.down.sampleAt( trueUV, mshift ).rgb : W.inscatter.mul( 0.5 );
 	const fromBelow = mix( mirror, air, leaves.mul( float( 1 ).sub( Fb ) ) );
 
 	const m = new MeshBasicNodeMaterial( { side: DoubleSide, transparent: false } );
@@ -95,6 +104,10 @@ export function createWaterSurface( sky, mirrors = {}, W = waterBody, { spacing 
 	const wp = modelWorldMatrix.mul( vec4( positionLocal, 1 ) );
 	const hv = surfaceWaves( vec2( wp.x, wp.z ), float( spacing ), W ).h.div( W.depthScale );
 	m.positionNode = positionLocal.add( modelWorldMatrixInverse.mul( vec4( 0, hv, 0, 0 ) ).xyz );
+	// Seen through a pane or a port the surface is beyond it too, so it
+	// bends with the rest (core/refraction.js); seen from above it is the
+	// interface itself and stays put.
+	m.vertexNode = refractedVertex();
 	m.colorNode = vec4( mix( fromBelow, fromAbove, above ), 1 );
 	m.toneMapped = true;
 	return m;

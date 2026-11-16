@@ -13,6 +13,8 @@
 //              fills in what is lost: far objects fade into blue-green
 //   wet band   a few millimetres above the line, the matter is darker
 //              (capillary rise, splashes)
+//   refraction drawn where the eye sees it through the surface, a pane or
+//              a camera port (core/refraction.js, off unless the app sets it)
 // The light terms multiply the albedo: the sky light is dimmed with the
 // sun. Simple, and right for the main light. Cost: about 12 waves per
 // pixel under water, nothing above it.
@@ -24,6 +26,7 @@ import { ixTime } from './clock.js';
 import { causticLight } from './caustics.js';
 import { reliefLight } from './relief.js';
 import { waveField } from '../families/liquid/waves.js';
+import { refractedVertex } from './refraction.js';
 
 export const waterBody = {
 	level: uniform( 0.2 ), // world y of the still surface (m)
@@ -72,6 +75,7 @@ export function applyUnderwater( nodes, W = waterBody ) {
 	const wet = smoothstep( 0.004, 0.0, d.negate() ).mul( float( 1 ).sub( under ) ).mul( 0.25 );
 	nodes.colorNode = mix( nodes.colorNode.mul( float( 1 ).sub( wet ) ), lit, under );
 	nodes.emissiveNode = ( nodes.emissiveNode ?? vec3( 0 ) ).add( glow.mul( under ) );
+	nodes.vertexNode = refractedVertex();
 	return nodes;
 
 }

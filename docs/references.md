@@ -123,7 +123,7 @@ can find the theory.
   Used in: `src/core/optics.js` (`spectral`: the six-bump fit), so `thinfilm.js`, opal, hologram, crystal.
 
 - M. Born, E. Wolf. Principles of Optics, 7th edition. Cambridge University Press, 1999. https://doi.org/10.1017/CBO9781139644181
-  Used in: `src/core/thinfilm.js` (two-beam thin-film reflectance, path difference 2 n d cos t), `src/core/watersurface.js` and `demo/aquarium.js` (Snell's law, critical angle, total internal reflection, Snell's window), `src/core/waterline.js` (total internal reflection in the meniscus), `src/families/scifi/hologram.js` (grating equation), `src/core/states_shape.js` (a drop as a lens).
+  Used in: `src/core/thinfilm.js` (two-beam thin-film reflectance, path difference 2 n d cos t), `src/core/watersurface.js` and `demo/aquarium.js` (Snell's law, critical angle, total internal reflection, Snell's window), `src/core/refraction.js` (Snell at a flat interface: apparent depth, the broken stick, a pane's magnification), `src/core/waterline.js` (total internal reflection in the meniscus), `src/families/scifi/hologram.js` (grating equation), `src/core/states_shape.js` (a drop as a lens).
 
 - A. Michel-Lévy, A. Lacroix. Les minéraux des roches. Baudry, Paris, 1888. (unverified)
   B. E. Sørensen. A revised Michel-Lévy interference colour chart based on first-principles calculations. European Journal of Mineralogy 25(1), 2013. https://doi.org/10.1127/0935-1221/2013/0025-2252

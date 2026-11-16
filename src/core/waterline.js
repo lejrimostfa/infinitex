@@ -22,6 +22,7 @@ import { vec2, vec3, vec4, float, uniform, texture, uv, mix, step, sign } from '
 import { waterBody } from './underwater.js';
 import { ixTime } from './clock.js';
 import { surfaceWaves } from './watersurface.js';
+import { refractSurface, refractPlane, refractOff } from './refraction.js';
 import { WALL_CONTACT, meniscusHeight, capillaryLength, wettingFilm, dippingBead } from './meniscus.js';
 
 export { WALL_CONTACT, meniscusHeight } from './meniscus.js';
@@ -33,6 +34,7 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 
 	const size = renderer.getDrawingBufferSize( new Vector2() );
 	const opts = { type: HalfFloatType };
+	const fwd = new Vector3(), port = new Vector3(), paneN = new Vector3(), paneP = new Vector3();
 	const rtA = new RenderTarget( size.x, size.y, opts ), rtB = new RenderTarget( size.x, size.y, opts );
 	const projInv = uniform( new Matrix4() ), camWorld = uniform( new Matrix4() ), camPos = uniform( new Vector3() ), viewProj = uniform( new Matrix4() );
 
@@ -101,8 +103,21 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 
 			};
 			// prepare( camera ): the app's mirrors, before each pass.
-			side( true ); W.eyeUnder.value = 0; prepare?.( camera ); renderer.setRenderTarget( rtA ); renderer.render( scene, camera );
-			side( false ); W.eyeUnder.value = 1; prepare?.( camera ); renderer.setRenderTarget( rtB ); renderer.render( scene, camera );
+			// Refraction (core/refraction.js): the air pass sees the water
+			// through its surface when the eye is above it; the water pass
+			// through the pane, or through the port 3 cm ahead of the lens.
+			side( true ); W.eyeUnder.value = 0; prepare?.( camera );
+			if ( camera.position.y > L ) refractSurface( camera.position, L ); else refractOff();
+			renderer.setRenderTarget( rtA ); renderer.render( scene, camera );
+			side( false ); W.eyeUnder.value = 1; prepare?.( camera );
+			if ( lens ) {
+
+				camera.getWorldDirection( fwd );
+				refractPlane( camera.position, port.copy( camera.position ).addScaledVector( fwd, lensD ), fwd.negate() );
+
+			} else refractPlane( camera.position, paneP.set( 0, 0, glassZ ), paneN.set( 0, 0, Math.sign( camera.position.z - glassZ ) || 1 ) );
+			renderer.setRenderTarget( rtB ); renderer.render( scene, camera );
+			refractOff();
 			camera.position.y = y; camera.updateMatrixWorld();
 			W.eyeUnder.value = prev;
 			renderer.setRenderTarget( null );
