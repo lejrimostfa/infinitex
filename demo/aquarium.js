@@ -35,6 +35,13 @@ import { createBubbles } from '../src/core/bubbles.js';
 import { createSchool } from './sealife/fish.js';
 import { createJellies } from './sealife/jelly.js';
 import { createCrab } from './sealife/crab.js';
+import { sandAt } from './sealife/seabed.js';
+import { createSeagrass } from './sealife/grass.js';
+import { createKelp } from './sealife/kelp.js';
+import { createAnemones } from './sealife/anemone.js';
+import { createCorals } from './sealife/coral.js';
+import { createBrainCorals } from './sealife/brain.js';
+import { createStarfish } from './sealife/starfish.js';
 
 const TW = 1.2, TD = 0.8, TH = 0.5, LEVEL = 0.35; // tank (m)
 const params = new URLSearchParams( location.search );
@@ -223,6 +230,61 @@ view( params.get( 'view' ) ?? 'above' );
 // and no depth of field. No sun cascades here. The waterline targets
 // follow the pixel ratio (kit event).
 // The sun's light shafts in the water join the frame before the blur.
+// The fixed life of the floor, built by code (demo/sealife): seagrass
+// meadows, two kelps, anemones, three corals and two starfish, in the free
+// floor clear of the cubes and of the crab's lane (z = 0.31). All stand on
+// the displaced sand (seabed.js sandAt) and below the level. ?noflora.
+const flora = [];
+if ( ! params.has( 'nolife' ) && ! params.has( 'noflora' ) ) {
+
+	const floor = sandAt( params.has( 'flat' ) ? null : { ...sand, dune: 1 }, TW, TD );
+	const grass = createSeagrass( { floor, meadows: [
+		{ x: - 0.46, z: - 0.18, r: 0.09, shoots: 36, h: [ 0.08, 0.13 ], w: [ 0.004, 0.006 ] },
+		{ x: - 0.5, z: 0.12, r: 0.08, shoots: 26, h: [ 0.1, 0.16 ], w: [ 0.004, 0.006 ] },
+		{ x: - 0.07, z: - 0.31, r: 0.09, shoots: 30, h: [ 0.08, 0.14 ], w: [ 0.004, 0.0065 ] },
+		{ x: - 0.04, z: 0.02, r: 0.05, shoots: 14, h: [ 0.07, 0.12 ], w: [ 0.0035, 0.005 ] },
+		{ x: 0.46, z: 0.3, r: 0.08, shoots: 24, h: [ 0.09, 0.15 ], w: [ 0.004, 0.006 ] },
+	] } );
+	tank.add( grass.mesh );
+	const kelp = createKelp( { floor, spots: [ [ 0.5, - 0.3, 0.25 ], [ 0.16, - 0.33, 0.21 ] ] } ); // [ x, z, height ]: the top leaf stays 2 cm under the level
+	tank.add( kelp.group );
+	const anemones = createAnemones( { floor, list: [
+		{ x: - 0.2, z: 0.12, R: 0.022, H: 0.035, count: 130, column: '#a04a5c', base: '#e0508c', tip: '#fff0f6' },
+		{ x: 0.33, z: 0.12, R: 0.016, H: 0.028, count: 84, column: '#3e5e2e', base: '#4caa58', tip: '#d070e8' },
+		{ x: - 0.52, z: - 0.02, R: 0.028, H: 0.04, count: 150, column: '#a04018', base: '#f06a1c', tip: '#ffe0a0' },
+	] } );
+	tank.add( anemones.group );
+	const corals = createCorals( { floor, list: [
+		{ kind: 'branching', x: 0.5, z: 0.11, size: 0.1 },
+		{ kind: 'fan', x: - 0.27, z: - 0.355, size: 0.14, ry: 0 },
+	] } );
+	const brains = createBrainCorals( { floor, list: [ { x: 0.26, z: - 0.005, R: 0.05 } ] } );
+	const stars = createStarfish( { floor, list: [
+		{ x: - 0.04, z: 0.19, Ra: 0.04, knobs: 1, color: '#e0a060', knobColor: '#3a1a10', groove: '#5a2a10' },
+		{ x: 0.48, z: - 0.04, Ra: 0.048, knobs: 0, color: '#3a6ae0', groove: '#0c1a50' },
+	] } );
+	tank.add( corals.group, brains.group, stars.group );
+	flora.push( grass, kelp, anemones, corals, brains, stars );
+	// Sharp sun shadows: the stage has a shadow map, but nothing in the tank
+	// received it. The map now covers the tank only (2048 texels over 1.5 m:
+	// 0.7 mm each, a quarter of the stage's 4096 map to fill), the
+	// sand, the walls and the cubes take shadows, the cubes cast them too.
+	// The map is drawn once per frame: each water mirror is another camera,
+	// which would draw it again. ?noshadow.
+	if ( ! params.has( 'noshadow' ) ) {
+
+		const S = sun.shadow.camera;
+		S.left = S.bottom = - 0.75; S.right = S.top = 0.75; S.near = 2.4; S.far = 4.4;
+		S.updateProjectionMatrix();
+		sun.shadow.mapSize.set( 2048, 2048 );
+		for ( const o of tank.children ) if ( o.isMesh && o !== water && ! o.isInstancedMesh ) { o.receiveShadow = true; o.castShadow ||= o.geometry.type !== 'PlaneGeometry'; }
+		sun.shadow.autoUpdate = false;
+		flora.push( { update() { sun.shadow.needsUpdate = true; } } );
+
+	}
+
+}
+
 // Strings of bubbles from three points of the floor (src/core/bubbles.js);
 // ?nobubbles. In the scene, not in the tank group: the mirrors skip them.
 if ( ! params.has( 'nobubbles' ) ) scene.add( createBubbles( { box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] }, count: 150, sources: [ [ - 0.36, 0.14 ], [ 0.02, - 0.22 ], [ 0.42, 0.2 ] ] } ) );
@@ -259,6 +321,7 @@ renderer.setAnimationLoop( () => {
 	last = now;
 	setTime( clock );
 	for ( const l of life ) l.update( clock );
+	for ( const f of flora ) f.update( clock );
 	// Under water the haze tells the distance, not the lens: half the blur.
 	const under = camera.position.y < LEVEL && Math.abs( camera.position.x ) < TW / 2 && Math.abs( camera.position.z ) < TD / 2;
 	if ( lens ) lens.bokehScale = under ? 0.5 : 1;
@@ -269,4 +332,4 @@ renderer.setAnimationLoop( () => {
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, kit, life, walk, adaptive, lens, focus: lens, fx, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };
+window.__ix = { renderer, scene, camera, controls, kit, life, flora, walk, adaptive, lens, focus: lens, fx, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };
