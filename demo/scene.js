@@ -1,10 +1,11 @@
 // Demo scene: a mannequin in a knitted sweater (mannequin.js) and a flat
 // swatch used only by the quality gate. UVs are in meters.
-// Renderer, environment light, controls and camera clip planes that follow
-// the distance to the surface (needed to sit 1 mm from the wool).
+// Renderer, camera and controls come from the camera kit's stage
+// (src/camera/stage.js: reversed depth, near 1 um); this adds the
+// environment light, the sun and the floor.
 
 import * as THREE from 'three/webgpu';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createCameraStage } from '../src/camera/index.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { createMannequin } from './mannequin.js';
@@ -22,12 +23,9 @@ export function uvToMeters( geometry, metersU, metersV ) {
 // Renderer, light, floor, camera and orbit controls. Shared by both demos.
 export async function createStage( { forceWebGL } ) {
 
-	const renderer = new THREE.WebGPURenderer( { antialias: true, forceWebGL, trackTimestamp: true, reversedDepthBuffer: true } );
-	renderer.setPixelRatio( Math.min( devicePixelRatio, 2 ) );
-	renderer.setSize( innerWidth, innerHeight );
+	const { renderer, camera, controls } = await createCameraStage( { forceWebGL, trackTimestamp: true } );
 	renderer.toneMapping = THREE.ACESFilmicToneMapping;
-	document.body.appendChild( renderer.domElement );
-	await renderer.init();
+	camera.position.set( 0.9, 1.45, 1.9 );
 
 	const scene = new THREE.Scene();
 	scene.background = new THREE.Color( 0x15161a );
@@ -67,31 +65,6 @@ export async function createStage( { forceWebGL } ) {
 	const floor = new THREE.Mesh( new THREE.CircleGeometry( 1.2, 64 ), new THREE.MeshStandardMaterial( { color: 0x1d1f24, roughness: 0.9 } ) );
 	floor.rotation.x = - Math.PI / 2;
 	scene.add( floor );
-
-	const camera = new THREE.PerspectiveCamera( 40, innerWidth / innerHeight, 0.001, 50 );
-	camera.position.set( 0.9, 1.45, 1.9 );
-
-	const controls = new OrbitControls( camera, renderer.domElement );
-	controls.enableDamping = true;
-	controls.zoomToCursor = true;
-	controls.minDistance = 2e-4;
-	controls.maxDistance = 5;
-	controls.zoomSpeed = 1.6;
-
-	// Reversed float depth keeps precision from 1 um to 100 m, so the clip
-	// planes stay fixed. (A raycast against the skinned sweater to place the
-	// near plane cost 50 ms of CPU per frame.)
-	camera.near = 1e-6;
-	camera.far = 100;
-	camera.updateProjectionMatrix();
-
-	addEventListener( 'resize', () => {
-
-		camera.aspect = innerWidth / innerHeight;
-		camera.updateProjectionMatrix();
-		renderer.setSize( innerWidth, innerHeight );
-
-	} );
 
 	return { THREE, renderer, scene, camera, controls, floor };
 

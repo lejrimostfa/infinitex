@@ -3,7 +3,7 @@
 // primitives wears 5 matters (face and forearm skin with 3D hair, knit with
 // fuzz, leather, steel) in a decor of 8 matters (soil, brick, concrete,
 // wood, rusty iron, plastic, terracotta, granite). Sun shadows, GTAO and
-// the hair pass of demo/post.js, as in a game.
+// the hair pass of src/camera/post.js, as in a game.
 // window.__game.measure() swaps every material between three modes:
 //   ix     the Infinitex matters
 //   plain  MeshStandardMaterial, one colour, no texture: "the rest of the frame"
@@ -17,7 +17,7 @@ import { uv } from 'three/tsl';
 import { createMaterial } from '../src/index.js';
 import { HAIR_LAYER } from '../src/core/hair3d.js';
 import { createStage } from './scene.js';
-import { createPost } from './post.js';
+import { createPost } from '../src/camera/index.js';
 import { CUBES } from './cubelist.js';
 
 const params = new URLSearchParams( location.search );

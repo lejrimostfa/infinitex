@@ -227,7 +227,7 @@ Other sizes in the code (fibre diameters, grain sizes, pore sizes, droplet sizes
   Used in: `demo/scene.js` (sun shadow map, `PCFSoftShadowMap`).
 
 - J. Jimenez, X. Wu, A. Pesce, A. Jarabo. Practical Real-Time Strategies for Accurate Indirect Occlusion. Activision technical memo ATVI-TR-16-01, SIGGRAPH 2016 course. https://www.activision.com/cdn/research/Practical_Real_Time_Strategies_for_Accurate_Indirect_Occlusion_NEW%20VERSION_COLOR.pdf
-  Used in: `demo/post.js` (GTAO from three.js addons), `src/core/hair3d_shadow.js` (writes the surface normal so GTAO leaves strand shadows alone).
+  Used in: `src/camera/post.js` (GTAO from three.js addons), `src/core/hair3d_shadow.js` (writes the surface normal so GTAO leaves strand shadows alone).
 
 - Academy of Motion Picture Arts and Sciences. Academy Color Encoding System (ACES). https://acescentral.com (unverified URL); three.js uses the RRT and ODT fit by S. Hill, https://github.com/selfshadow/ltc_code/blob/master/webgl/shaders/ltc/ltc_blit.fs
   Used in: `demo/scene.js` (`ACESFilmicToneMapping`), `src/families/transform/heat.js` (glow kept moderate for it).

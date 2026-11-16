@@ -5,7 +5,8 @@
 // Fresnel, refraction) and from below (Snell's window).
 //   ?view=above | below | floor | glass | lens   start from a preset camera
 //   ?wall=glass | cleanGlass | acrylic | coatedGlass | ptfe   the pane (meniscus)
-//   arrows or ZQSD walk, Space and C up and down, a click focuses (walk.js)
+//   arrows or ZQSD walk, Space and C up and down, a click focuses, F the
+//   macro lens (the camera kit, src/camera, through camerakit.js)
 // window.__ix: renderer, scene, camera, ready, view( name ), setTime( s ),
 // refraction (core/refraction.js; strength 0 draws the true positions),
 // apparentPoint, waterBody, tank, LEVEL, TD (tests/refraction_gpu.mjs).
@@ -27,8 +28,7 @@ import { createMirror } from '../src/core/mirror.js';
 import { refraction, refractSurface, refractOff, apparentPoint } from '../src/core/refraction.js';
 import { createStage } from './scene.js';
 import { createStats } from './stats.js';
-import { createAdaptiveResolution } from './adaptive.js';
-import { createWalk } from './walk.js';
+import { createDemoKit } from './camerakit.js';
 
 const TW = 1.2, TD = 0.8, TH = 0.5, LEVEL = 0.35; // tank (m)
 const params = new URLSearchParams( location.search );
@@ -117,7 +117,7 @@ water.position.y = LEVEL;
 water.renderOrder = 10; // after the opaque scene: it reads the screen
 tank.add( water );
 hide.push( water );
-water.userData.noFocus = true; // a click goes through to what is under it (walk.js)
+water.userData.noFocus = true; // a click and the walk go through to what is under it (src/camera)
 
 const VIEWS = {
 	above: { pos: [ 0.55, 0.95, 0.95 ], look: [ 0, 0.12, 0 ] },
@@ -196,12 +196,13 @@ function glassPan( t, dur = 8 ) {
 
 view( params.get( 'view' ) ?? 'above' );
 // Stats panel (demo/stats.js): fps, frame and GPU time, triangles, draw calls.
-// Adaptive pixel ratio (demo/adaptive.js): the waterline targets follow it.
-const adaptive = createAdaptiveResolution( renderer, { enabled: ! params.has( 'film' ) && ! params.has( 'fullres' ) } );
-adaptive.addEventListener( 'pixelRatioChanged', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );
+// The camera kit (walk, collisions, macro lens, adaptive pixel ratio).
+// The page draws itself (mirrors, waterlines), so no AO and no depth of
+// field. The waterline targets follow the pixel ratio (kit event).
+const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 0.6, ao: false, dof: false } } );
+const { walk, adaptive, lens } = kit;
+kit.addEventListener( 'pixelRatioChanged', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );
 const stats = createStats( { renderer, camera, adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
-// Arrows or ZQSD to walk, a click to focus (walk.js).
-const walk = createWalk( { camera, controls, scene, maxSpeed: 0.6 } );
 let clock = 0, last = performance.now();
 renderer.setAnimationLoop( () => {
 
@@ -210,13 +211,11 @@ renderer.setAnimationLoop( () => {
 	clock += dt;
 	last = now;
 	setTime( clock );
-	walk.update( dt );
-	controls.update();
+	kit.update( dt );
 	stats.beginFrame();
 	draw();
 	stats.endFrame( camera.position.distanceTo( controls.target ) );
-	adaptive.frame();
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, walk, adaptive, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };
+window.__ix = { renderer, scene, camera, controls, kit, walk, adaptive, lens, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };

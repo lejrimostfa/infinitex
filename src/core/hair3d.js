@@ -29,7 +29,7 @@ import {
 import { hash3, valueNoise } from './hash.js';
 import { createHairWindow, MAXK } from './hair3d_window.js';
 
-// A post pipeline may draw the strands apart (demo/post.js keeps them out
+// A post pipeline may draw the strands apart (src/camera/post.js keeps them out
 // of screen-space AO): it finds them by userData.hairStrands.
 export const HAIR_LAYER = 7;
 import { createHairMaterial } from './hair3d_shade.js';

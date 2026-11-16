@@ -1,4 +1,4 @@
-// Adaptive resolution for the demos. Infinitex shades every pixel, so the
+// Adaptive resolution, a part of the camera kit (kit.js). Infinitex shades every pixel, so the
 // cost follows the pixel count: on a Retina screen (pixel ratio 2) a heavy
 // matter filling the screen took 110 to 220 ms per frame, against 8 ms at
 // pixel ratio 1. This lowers the pixel ratio by steps while frames are
@@ -10,14 +10,13 @@
 //   up     mean frame times (next / current)^2 under 25 ms for 1.5 s
 //
 // Gaps longer than 2 s are ignored (hidden tab). A shader compile stall
-// may cost one step, which comes back once frames are fast. ?fullres
-// turns it off. Film and bench
-// hooks stop the render loop, so they never call frame() and keep the
-// full ratio.
+// may cost one step, which comes back once frames are fast. The demos
+// turn it off with ?fullres and in film mode. Film and bench hooks stop
+// the render loop, so they never call frame() and keep the full ratio.
 //
 // Event bus: dispatches 'pixelRatioChanged' { ratio, max } on the returned
-// object. The aquarium listens to resize its waterline targets; the stats
-// panel reads the ratio from the renderer.
+// object; the kit forwards it. The aquarium listens to resize its
+// waterline targets; the stats panel reads the ratio from the renderer.
 
 export function createAdaptiveResolution( renderer, { enabled = true } = {} ) {
 

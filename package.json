@@ -5,6 +5,10 @@
   "type": "module",
   "description": "Procedural three.js TSL materials whose detail grows as the camera zooms in.",
   "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./camera": "./src/camera/index.js"
+  },
   "scripts": {
     "dev": "vite --port 5211 --strictPort",
     "build": "vite build",
@@ -13,10 +17,12 @@
   "peerDependencies": {
     "three": ">=0.187.0"
   },
+  "dependencies": {
+    "three-mesh-bvh": "^0.9.18"
+  },
   "devDependencies": {
     "playwright-core": "^1.65.0",
     "three": "0.187.0",
-    "three-mesh-bvh": "^0.9.18",
     "vite": "8.3.5"
   },
   "license": "MIT"

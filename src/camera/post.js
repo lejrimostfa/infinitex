@@ -1,3 +1,4 @@
+// Post-processing of the camera kit (kit.js), or alone (createPost).
 // Screen-space ambient occlusion (GTAO from three/addons) in one scene pass.
 // The pass writes colour and view normals (MRT). GTAO reads depth and
 // normals and darkens creases and contacts: the sleeves on the torso, the
@@ -12,9 +13,43 @@
 // window; the strands have their own self-shadow and occlusion.
 
 import * as THREE from 'three/webgpu';
-import { HAIR_LAYER } from '../src/core/hair3d.js';
+import { HAIR_LAYER } from '../core/hair3d.js';
 import { nodeObject, pass, mrt, output, normalView, directionToColor, colorToDirection, sample, screenUV, uniform, vec4, mix } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
+import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
+
+// Blurs a colour node by the scene's view depth (viewZ: a pass's
+// getViewZNode()), with the focus uniforms of a lens.
+export function withDof( color, viewZ, lens ) {
+
+	return dof( color, viewZ, lens.distance, lens.range, lens.bokeh );
+
+}
+
+// Output node that follows the lens: blurred while it is on, sharp when off.
+function followLens( pipeline, sharp, viewZ, lens ) {
+
+	if ( ! lens?.hasDof ) return sharp;
+	const blurred = withDof( sharp, viewZ, lens );
+	lens.addEventListener( 'dofToggled', ( e ) => { pipeline.outputNode = e.detail.enabled ? blurred : sharp; pipeline.needsUpdate = true; } );
+	return lens.enabled ? blurred : sharp;
+
+}
+
+// For a page with no AO: one scene pass, then the blur. With the lens off
+// the scene is drawn straight to the screen.
+export function createDofPipeline( renderer, scene, camera, lens ) {
+
+	const pipeline = new THREE.RenderPipeline( renderer );
+	const scenePass = pass( scene, camera );
+	pipeline.outputNode = followLens( pipeline, scenePass, scenePass.getViewZNode(), lens );
+	return {
+		pipeline, scenePass,
+		render() { if ( lens.enabled ) pipeline.render(); else renderer.render( scene, camera ); },
+		async renderAsync() { if ( lens.enabled ) await pipeline.renderAsync(); else await renderer.renderAsync( scene, camera ); },
+	};
+
+}
 
 // The hair pass: no background and a transparent clear, so thin strands
 // keep their own coverage (alpha) instead of blending into the backdrop.
@@ -35,7 +70,9 @@ class HairPassNode extends THREE.PassNode {
 
 }
 
-export function createPost( renderer, scene, camera ) {
+// lens: a createLens() of lens.js, for a depth of field at the end; without
+// it (game.html) the frame is AO and hair only.
+export function createPost( renderer, scene, camera, { lens = null } = {} ) {
 
 	const pipeline = new THREE.RenderPipeline( renderer );
 	const sceneLayers = new THREE.Layers();
@@ -64,7 +101,10 @@ export function createPost( renderer, scene, camera ) {
 	// grow on the face the camera looks at, so they are always in front of
 	// their host; no depth test is needed.
 	const hair = hairPass.getTextureNode( 'output' );
-	pipeline.outputNode = vec4( lit.mul( hair.a.oneMinus() ).add( hair.rgb ), color.a );
+	const sharp = vec4( lit.mul( hair.a.oneMinus() ).add( hair.rgb ), color.a );
+	// Depth of field last, on the finished image. The strands are not in the
+	// scene depth: they blur as the skin they grow on.
+	pipeline.outputNode = followLens( pipeline, sharp, scenePass.getViewZNode(), lens );
 
 	let enabled = true;
 	return {

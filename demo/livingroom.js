@@ -5,9 +5,10 @@
 // Light: the low sun through the window (shadows), the lava's glow from
 // below (it lights the ceiling), the CRT's glow, a dim sky.
 //   ?view=room | window | tv | fruit | rug | chair   start from a preset camera
-//   arrows or ZQSD walk, Space and C up and down, a click focuses (walk.js)
-// window.__ix: renderer, scene, camera, controls, view( name ), setTime( s ), ready.
-// Event bus: none, a viewing page. The nav (nav.js) waits for __ix.ready.
+//   arrows or ZQSD walk, Space and C up and down, a click focuses, F the
+//   lens (the camera kit, src/camera, through camerakit.js)
+// window.__ix: renderer, scene, camera, controls, kit, view( name ), setTime( s ), ready.
+// Event bus: none of its own, a viewing page. The nav (nav.js) waits for __ix.ready.
 
 import * as THREE from 'three/webgpu';
 import { positionWorldDirection, vec2, vec3, mix, smoothstep, float, pow, max, uv } from 'three/tsl';
@@ -17,8 +18,7 @@ import { createMaterial } from '../src/index.js';
 import { setTime } from '../src/core/clock.js';
 import { createStage } from './scene.js';
 import { createStats } from './stats.js';
-import { createAdaptiveResolution } from './adaptive.js';
-import { createWalk } from './walk.js';
+import { createDemoKit } from './camerakit.js';
 import { createMannequin } from './mannequin.js';
 import { MATTERS, SWEATER } from './roomMatters.js';
 
@@ -163,12 +163,12 @@ function view( name ) {
 
 view( params.get( 'view' ) ?? 'room' );
 
-// Adaptive resolution and the stats panel, as every demo. No post pass:
-// shadows and each matter's own occlusion carry the contacts.
-const adaptive = createAdaptiveResolution( renderer, { enabled: ! params.has( 'fullres' ) } );
+// The camera kit (walk, collisions, lens, adaptive resolution) and the
+// stats panel, as every demo. No AO pass: shadows and each matter's own
+// occlusion carry the contacts.
+const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 1.5, ao: false } } );
+const { walk, adaptive, lens } = kit;
 const stats = createStats( { renderer, camera, adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
-// Arrows or ZQSD to walk, a click to focus (walk.js).
-const walk = createWalk( { camera, controls, scene, maxSpeed: 1.5 } );
 let clock = 0, last = performance.now();
 renderer.setAnimationLoop( () => {
 
@@ -177,14 +177,12 @@ renderer.setAnimationLoop( () => {
 	clock += dt;
 	last = now;
 	setTime( clock );
-	walk.update( dt );
-	controls.update();
+	kit.update( dt );
 	sunDisc.lookAt( camera.position );
 	stats.beginFrame();
-	renderer.render( scene, camera );
+	kit.render();
 	stats.endFrame( camera.position.distanceTo( controls.target ) );
-	adaptive.frame();
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, walk, adaptive, view, setTime, matters, ready: true };
+window.__ix = { renderer, scene, camera, controls, kit, walk, adaptive, lens, focus: lens, view, setTime, matters, ready: true };

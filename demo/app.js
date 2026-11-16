@@ -1,15 +1,16 @@
-// Shared demo shell: panel, buttons, SSAO, stats, film and test hooks, and
-// the render loop. Used by main.js (mannequin) and by the character demos.
-// UI wiring goes through the material's events:
+// Shared demo shell: panel, buttons, stats, film and test hooks, and the
+// render loop. Used by main.js (mannequin), cubes.js and character.js.
+// The camera (walk, collisions, lens, adaptive resolution, SSAO) is the
+// camera kit (src/camera, through camerakit.js).
+// UI wiring goes through events:
 //   sliders -> ix.set() -> 'paramsChanged' -> panel and stats refresh.
+//   SSAO button <- the kit's post.enabled (a button state, not an event).
 
 import * as TSL from 'three/tsl';
 import { buildPanel } from './panel.js';
-import { createPost } from './post.js';
 import { setTime } from '../src/core/clock.js';
 import { createStats } from './stats.js';
-import { createAdaptiveResolution } from './adaptive.js';
-import { createWalk } from './walk.js';
+import { createDemoKit } from './camerakit.js';
 
 const { vec3 } = TSL;
 
@@ -48,10 +49,10 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 	let dolly = null;
 	document.getElementById( 'dolly' ).onclick = () => { dolly = { t0: performance.now(), dur: 24000 }; };
 
-	// SSAO post pass and the stats panel (top left).
-	const post = createPost( renderer, scene, camera );
-	// Lower the pixel ratio while frames are slow (demo/adaptive.js).
-	const adaptive = createAdaptiveResolution( renderer, { enabled: ! filmMode && ! params.has( 'fullres' ) } );
+	// The camera kit: walk, collisions, lens, adaptive resolution, SSAO
+	// (src/camera). The walk and the controls hold still during the dolly.
+	const kit = createDemoKit( { renderer, scene, camera, controls, params } );
+	const { post, adaptive, walk, lens } = kit;
 	const stats = createStats( { renderer, camera, ix, fuzz, meshes, post, adaptive, backend: forceWebGL ? 'WebGL2' : 'WebGPU', levels: statsLevels } );
 	const aoBtn = document.getElementById( 'ssao' );
 	const aoLabel = () => { aoBtn.textContent = post.enabled ? 'SSAO off' : 'SSAO on'; };
@@ -65,7 +66,7 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 
 	// Test and film hooks for Playwright (tests/).
 	window.__ix = {
-		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate, adaptive,
+		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate, adaptive, kit, walk, lens, controls,
 		ready: true,
 		async runGate( heights ) {
 
@@ -115,9 +116,6 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 	};
 
 	camera.lookAt( controls.target );
-	// Arrows or ZQSD to walk, a click to focus (walk.js); off in film mode.
-	const walk = createWalk( { camera, controls, scene } );
-	window.__ix.walk = walk;
 	loop = () => {
 
 		const now = performance.now();
@@ -126,7 +124,8 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 		last = now;
 		animate( animT );
 
-		let dist;
+		let dist = null;
+		const scripted = !! dolly;
 		if ( dolly ) {
 
 			const k = Math.min( 1, ( now - dolly.t0 ) / dolly.dur );
@@ -138,24 +137,18 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 
 			}
 
-		} else {
-
-			walk.update( dt );
-			controls.update();
-			dist = updateClip();
-
 		}
 
+		kit.update( dt, { move: ! scripted, dist } );
+		dist ??= updateClip();
 		stats.beginFrame();
 		// The frame draws to the screen. A background compile (demo/warmup.js,
 		// three r187 compileAsync) leaves its own target and MRT set while it
 		// yields: a frame drawn then built a pipeline for the wrong targets.
 		renderer.setRenderTarget( null );
 		renderer.setMRT( null );
-		post.update( dist );
-		post.render();
+		kit.render();
 		stats.endFrame( dist );
-		adaptive.frame();
 
 	};
 	if ( ! filmMode ) renderer.setAnimationLoop( loop );

@@ -5,7 +5,7 @@
 //   fps and frame time       from requestAnimationFrame timing
 //   GPU time                 WebGPU timestamp queries, when available
 //   draw calls, triangles    renderer.info, reset by hand once per frame
-//   resolution, pixel ratio  the canvas size actually shaded (auto: demo/adaptive.js)
+//   resolution, pixel ratio  the canvas size actually shaded (auto: src/camera/adaptive.js)
 //   distance, pixel size     camera to the orbit target, one pixel in meters
 //   detail levels            knit only (opts.levels): pixels per period
 //
