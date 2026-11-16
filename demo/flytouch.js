@@ -1,12 +1,15 @@
 // Touch controls of the flyer (flyer.js), shown on touch screens while a
-// vehicle is flown (body.flying; ?touch forces them on a desktop):
-//   stick     bottom left: up and down raise or lower the nose, left and
-//             right turn. Analog: half way, half the rate
-//   buttons   bottom right: forward (held), back (held), fast (held)
-//   look      a drag anywhere else on the scene looks around (chase.js)
-// They write the flyer's input.touch (flyinput.js), the same reading as
-// the keys. Each control keeps its own pointer (setPointerCapture), so the
-// stick and a button work together with two thumbs.
+// vehicle is flown (body.flying; ?touch forces them on a desktop). They
+// follow the keys (flyinput.js):
+//   left stick    the arrows: forward, back, sideways
+//   right stick   Z / S / Q / D: up on the stick dips the nose (Z), down
+//                 raises it (S), left and right turn
+//   buttons       above the right stick: up (Space) and down (C); above
+//                 the left one: slow (Shift), all held
+//   look          a drag anywhere else on the scene looks around (chase.js)
+// Analog: half way, half the speed or rate. Each control keeps its own
+// pointer (setPointerCapture), so both thumbs work together.
+// They write the flyer's input.touch, read with the keys.
 // Event bus: none. flyhud.js adds the pad; CSS shows it with body.flying.
 
 export const isTouch = () => matchMedia( '(pointer: coarse)' ).matches || new URLSearchParams( location.search ).has( 'touch' );
@@ -16,15 +19,15 @@ const css = `
 body.flying.ix-touch #ix-pad { display: block; }
 body.film #ix-pad { display: none; }
 #ix-pad .stick, #ix-pad .btn { position: fixed; z-index: 12; touch-action: none; user-select: none; -webkit-user-select: none;
-	background: rgba(16,17,20,.55); border: 1px solid rgba(232,230,227,.25); color: #e8e6e3; font: 600 13px system-ui, sans-serif; }
-#ix-pad .stick { left: 18px; bottom: 72px; width: 124px; height: 124px; border-radius: 50%; }
-#ix-pad .knob { position: absolute; left: 37px; top: 37px; width: 50px; height: 50px; border-radius: 50%;
-	background: rgba(217,164,65,.85); pointer-events: none; }
-#ix-pad .btn { right: 18px; border-radius: 50%; display: grid; place-items: center; }
+	background: rgba(16,17,20,.55); border: 1px solid rgba(232,230,227,.25); color: #e8e6e3; font: 600 15px system-ui, sans-serif; border-radius: 50%; }
+#ix-pad .stick { bottom: 72px; width: 118px; height: 118px; }
+#ix-pad .stick.l { left: 16px; } #ix-pad .stick.r { right: 16px; }
+#ix-pad .stick small { position: absolute; left: 0; right: 0; top: -18px; text-align: center; font: 600 11px system-ui, sans-serif; color: #f2f0ed; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
+#ix-pad .knob { position: absolute; left: 35px; top: 35px; width: 48px; height: 48px; border-radius: 50%; background: rgba(217,164,65,.85); pointer-events: none; }
+#ix-pad .btn { width: 52px; height: 52px; display: grid; place-items: center; }
 #ix-pad .btn.on { background: rgba(217,164,65,.85); color: #101114; }
-#ix-pad .fwd { bottom: 132px; width: 78px; height: 78px; }
-#ix-pad .back { bottom: 72px; right: 104px; width: 54px; height: 54px; }
-#ix-pad .fast { bottom: 222px; width: 54px; height: 54px; right: 30px; }
+#ix-pad .up { right: 82px; bottom: 214px; } #ix-pad .down { right: 22px; bottom: 214px; }
+#ix-pad .slow { left: 22px; bottom: 214px; font-size: 12px; }
 `;
 
 export function addFlyTouch( flyer ) {
@@ -37,45 +40,58 @@ export function addFlyTouch( flyer ) {
 
 	const pad = document.createElement( 'div' );
 	pad.id = 'ix-pad';
-	pad.innerHTML = '<div class="stick"><div class="knob"></div></div>'
-		+ '<div class="btn fwd">▲ Go</div><div class="btn back">▼</div><div class="btn fast">»</div>';
+	pad.innerHTML = '<div class="stick l"><small>move</small><div class="knob"></div></div>'
+		+ '<div class="stick r"><small>nose, turn</small><div class="knob"></div></div>'
+		+ '<div class="btn up">▲</div><div class="btn down">▼</div><div class="btn slow">slow</div>';
 	document.body.appendChild( pad );
 
-	// The stick: the knob follows the thumb within the ring.
-	const stick = pad.querySelector( '.stick' ), knob = pad.querySelector( '.knob' );
-	const R = 50; // px of travel
-	let id = null;
-	const move = ( e ) => {
+	// A stick: the knob follows the thumb within the ring; set( x, y ) gets
+	// -1 to 1, y up.
+	const R = 48; // px of travel
+	const releases = [];
+	function stick( el, set ) {
 
-		const r = stick.getBoundingClientRect();
-		let dx = e.clientX - ( r.left + r.width / 2 ), dy = e.clientY - ( r.top + r.height / 2 );
-		const l = Math.hypot( dx, dy );
-		if ( l > R ) { dx *= R / l; dy *= R / l; }
-		knob.style.transform = `translate(${ dx }px, ${ dy }px)`;
-		touch.turn = - dx / R; // right turns right
-		touch.nose = - dy / R; // up raises the nose
+		const knob = el.querySelector( '.knob' );
+		let id = null;
+		const move = ( e ) => {
 
-	};
-	const release = () => { id = null; knob.style.transform = ''; touch.turn = touch.nose = 0; };
-	stick.addEventListener( 'pointerdown', ( e ) => { id = e.pointerId; stick.setPointerCapture( id ); move( e ); e.preventDefault(); } );
-	stick.addEventListener( 'pointermove', ( e ) => { if ( e.pointerId === id ) move( e ); } );
-	stick.addEventListener( 'pointerup', release );
-	stick.addEventListener( 'pointercancel', release );
+			const r = el.getBoundingClientRect();
+			let dx = e.clientX - ( r.left + r.width / 2 ), dy = e.clientY - ( r.top + r.height / 2 );
+			const l = Math.hypot( dx, dy );
+			if ( l > R ) { dx *= R / l; dy *= R / l; }
+			knob.style.transform = `translate(${ dx }px, ${ dy }px)`;
+			set( dx / R, - dy / R );
+
+		};
+		const release = () => { id = null; knob.style.transform = ''; set( 0, 0 ); };
+		el.addEventListener( 'pointerdown', ( e ) => { id = e.pointerId; el.setPointerCapture( id ); move( e ); e.preventDefault(); } );
+		el.addEventListener( 'pointermove', ( e ) => { if ( e.pointerId === id ) move( e ); } );
+		el.addEventListener( 'pointerup', release );
+		el.addEventListener( 'pointercancel', release );
+		releases.push( release );
+
+	}
+
+	stick( pad.querySelector( '.stick.l' ), ( x, y ) => { touch.strafe = x; touch.throttle = y; } );
+	stick( pad.querySelector( '.stick.r' ), ( x, y ) => { touch.turn = - x; touch.nose = - y; } ); // up dips the nose, as Z
 
 	// Held buttons.
-	const hold = ( cls, on, off ) => {
+	const hold = ( cls, set ) => {
 
 		const b = pad.querySelector( cls );
-		const up = () => { b.classList.remove( 'on' ); off(); };
-		b.addEventListener( 'pointerdown', ( e ) => { b.setPointerCapture( e.pointerId ); b.classList.add( 'on' ); on(); e.preventDefault(); } );
+		const up = () => { b.classList.remove( 'on' ); set( false ); };
+		b.addEventListener( 'pointerdown', ( e ) => { b.setPointerCapture( e.pointerId ); b.classList.add( 'on' ); set( true ); e.preventDefault(); } );
 		b.addEventListener( 'pointerup', up );
 		b.addEventListener( 'pointercancel', up );
+		releases.push( up );
 
 	};
-	hold( '.fwd', () => { touch.throttle = 1; }, () => { touch.throttle = 0; } );
-	hold( '.back', () => { touch.throttle = - 0.4; }, () => { touch.throttle = 0; } );
-	hold( '.fast', () => { touch.fast = true; }, () => { touch.fast = false; } );
+	let rise = false, sink = false;
+	const lift = () => { touch.lift = ( rise ? 1 : 0 ) - ( sink ? 1 : 0 ); };
+	hold( '.up', ( on ) => { rise = on; lift(); } );
+	hold( '.down', ( on ) => { sink = on; lift(); } );
+	hold( '.slow', ( on ) => { touch.slow = on; } );
 
-	flyer.addEventListener( 'vehicleLeft', release );
+	flyer.addEventListener( 'vehicleLeft', () => releases.forEach( ( r ) => r() ) );
 
 }

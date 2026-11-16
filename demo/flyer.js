@@ -1,14 +1,14 @@
 // A tiny vehicle the visitor can fly, shared by the demos: the mosquito of
 // the Knit page, the toy helicopter of All matters, more to come.
 // One controller, tuned per vehicle (FLYER_DEFAULTS):
-//   keys      (flyinput.js, with touch from flytouch.js) Z / S on AZERTY (W / S on QWERTY, read by physical key) or
-//             up / down arrows: the nose up or down. Q / D (A / D) or left /
-//             right: turn. Space forward, C back, Shift faster. V boards or
-//             leaves. The nose keeps its angle when the key is released.
-//   hover     no Space or C: the speed eases to zero and the vehicle hangs
+//   keys      (flyinput.js, with touch from flytouch.js) Space / C up and
+//             down, Z / S nose down and up, Q / D turn, arrows forward,
+//             back and sideways, Shift slower, V boards or leaves. The nose
+//             keeps its angle when the key is released.
+//   hover     no move key: the speed eases to zero and the vehicle hangs
 //             in place (a mosquito, a bee, a helicopter all can)
-//   path      the vehicle flies where its nose points: nose up and Space
-//             climbs, nose down dives
+//   path      forward and back follow the nose (nose down and forward
+//             dives); sideways stays level; up and down are straight
 //   attitude  a turn banks the body. plane: true (an insect) shows the
 //             whole nose angle; plane: false (a helicopter) shows a part
 //             of it and dips the nose to fly forward (tilt)
@@ -34,7 +34,7 @@ import { createFlyInput } from './flyinput.js';
 
 export const FLYER_DEFAULTS = Object.freeze( {
 	name: 'vehicle', key: 'KeyV', idle: 'hover',
-	maxSpeed: 0.5, minSpeed: 0.008, near: 2.5, turnRate: 2.2, pitchRate: 1.1, maxPitch: 1.35, response: 3, boost: 3,
+	maxSpeed: 0.5, minSpeed: 0.008, near: 2.5, turnRate: 2.2, pitchRate: 1.1, maxPitch: 1.35, response: 3, slow: 0.3,
 	chase: 0.03, chaseMin: 0.008, chaseMax: 0.6, chaseLift: 0.3,
 	plane: true, bank: 0.7, nose: 0.3, tilt: 0.15, // nose: share of the aim a helicopter body shows
 	bounds: null,
@@ -81,22 +81,31 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 
 	}
 
-	const fwd = new THREE.Vector3(), dir = new THREE.Vector3(), want = new THREE.Vector3(), step = new THREE.Vector3();
+	const fwd = new THREE.Vector3(), side = new THREE.Vector3(), dir = new THREE.Vector3(), want = new THREE.Vector3(), step = new THREE.Vector3();
 
 	// One frame of flight. Returns how fast it goes, 0 to 1.
 	function fly( dt ) {
 
-		const { throttle, turn, nose, fast } = input.read();
-		const boost = fast ? o.boost : 1;
+		const { throttle, strafe, lift, turn, nose, slow } = input.read();
 		yaw += turn * o.turnRate * dt;
 		aim = THREE.MathUtils.clamp( aim + nose * o.pitchRate * dt, - o.maxPitch, o.maxPitch );
 		fwd.set( Math.sin( yaw ) * Math.cos( aim ), Math.sin( aim ), Math.cos( yaw ) * Math.cos( aim ) ); // where the nose points
+		side.set( - Math.cos( yaw ), 0, Math.sin( yaw ) ); // the vehicle's right, level
 
-		// Felt speed: the room ahead sets the top speed, as the walk does.
-		dir.copy( fwd ).multiplyScalar( throttle < 0 ? - 1 : 1 );
-		const room = ahead( pos, dir, o.maxSpeed * 4 );
-		const top = THREE.MathUtils.clamp( ( room - vehicle.radius ) * o.near, o.minSpeed, o.maxSpeed ) * boost;
-		want.copy( fwd ).multiplyScalar( throttle * top );
+		// The wanted move, then its speed: the room ahead sets the top speed,
+		// as the walk does; Shift slows down.
+		want.copy( fwd ).multiplyScalar( throttle ).addScaledVector( side, strafe );
+		want.y += lift;
+		if ( want.lengthSq() > 1 ) want.normalize();
+		let top = 0;
+		if ( want.lengthSq() > 1e-6 ) {
+
+			const room = ahead( pos, dir.copy( want ).normalize(), o.maxSpeed * 4 );
+			top = THREE.MathUtils.clamp( ( room - vehicle.radius ) * o.near, o.minSpeed, o.maxSpeed ) * ( slow ? o.slow : 1 );
+
+		}
+
+		want.multiplyScalar( top );
 		vel.lerp( want, 1 - Math.exp( - dt * o.response ) ); // no key: eases to a hover
 
 		// Never closer than the body radius; the part of the speed into the
@@ -135,7 +144,7 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 		const speed = vel.length(), share = Math.min( 1, speed / ( o.maxSpeed * 0.5 ) );
 		const k = 1 - Math.exp( - dt * 5 );
 		const forward = vel.dot( fwd ) / o.maxSpeed * o.tilt * ( o.plane ? 1 - share : 1 );
-		roll += ( - turn * o.bank * Math.max( share, 0.3 ) - roll ) * k;
+		roll += ( ( strafe * 0.6 - turn ) * o.bank * Math.max( share, 0.3 ) - roll ) * k; // into the turn, and toward a sideways move
 		pitch += ( - aim * ( o.plane ? 1 : o.nose ) + forward - pitch ) * k;
 		return share;
 

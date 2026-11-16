@@ -1,17 +1,22 @@
 // The flyer's controls (flyer.js), keyboard and touch in one reading.
-//   keys    Z / S on AZERTY (W / S on QWERTY, read by physical key) or up /
-//           down arrows: the nose. Q / D (A / D) or left / right: turn.
-//           Space forward, C back, Shift faster. The toggle key (V)
-//           boards or leaves.
-//   touch   input.touch: { turn, nose, throttle, fast }, analog values
-//           from -1 to 1 that a touch pad writes (flytouch.js).
-// read() sums both and clamps: { throttle, turn, nose, fast }.
+//   keys    read by physical key, so AZERTY and QWERTY both work:
+//             Space / C          up, down
+//             Z / S (W / S)      nose down, nose up
+//             Q / D (A / D)      turn left, right
+//             arrows             forward, back, sideways left, right
+//             Shift              slower
+//           The toggle key (V) boards or leaves.
+//   touch   input.touch: { throttle, strafe, lift, turn, nose, slow },
+//           analog values from -1 to 1 that a touch pad writes
+//           (flytouch.js).
+// read() sums both and clamps: { throttle, strafe, lift, turn, nose, slow }.
+// nose > 0 raises the nose, turn > 0 turns left, strafe > 0 moves right.
 // Event bus: none. Listens to window keydown, keyup and blur; calls
 // toggle() on the toggle key.
 
 const KEYS = {
-	noseUp: [ 'KeyW', 'ArrowUp' ], noseDown: [ 'KeyS', 'ArrowDown' ], left: [ 'KeyA', 'ArrowLeft' ], right: [ 'KeyD', 'ArrowRight' ],
-	fwd: [ 'Space' ], back: [ 'KeyC' ], fast: [ 'ShiftLeft', 'ShiftRight' ],
+	up: [ 'Space' ], down: [ 'KeyC' ], noseDown: [ 'KeyW' ], noseUp: [ 'KeyS' ], left: [ 'KeyA' ], right: [ 'KeyD' ],
+	fwd: [ 'ArrowUp' ], back: [ 'ArrowDown' ], strafeL: [ 'ArrowLeft' ], strafeR: [ 'ArrowRight' ], slow: [ 'ShiftLeft', 'ShiftRight' ],
 };
 const FLIGHT_KEYS = new Set( Object.values( KEYS ).flat() );
 const clamp = ( x ) => Math.max( - 1, Math.min( 1, x ) );
@@ -36,21 +41,23 @@ export function createFlyInput( { key, toggle, isActive } ) {
 	addEventListener( 'keyup', onKeyUp );
 	addEventListener( 'blur', onBlur );
 
-	const touch = { turn: 0, nose: 0, throttle: 0, fast: false };
+	const touch = { throttle: 0, strafe: 0, lift: 0, turn: 0, nose: 0, slow: false };
 	return {
 
 		touch,
 		read() {
 
 			return {
-				throttle: clamp( held( 'fwd' ) - held( 'back' ) * 0.4 + touch.throttle ),
+				throttle: clamp( held( 'fwd' ) - held( 'back' ) + touch.throttle ),
+				strafe: clamp( held( 'strafeR' ) - held( 'strafeL' ) + touch.strafe ),
+				lift: clamp( held( 'up' ) - held( 'down' ) + touch.lift ),
 				turn: clamp( held( 'left' ) - held( 'right' ) + touch.turn ),
 				nose: clamp( held( 'noseUp' ) - held( 'noseDown' ) + touch.nose ),
-				fast: !! held( 'fast' ) || touch.fast,
+				slow: !! held( 'slow' ) || touch.slow,
 			};
 
 		},
-		clear() { down.clear(); Object.assign( touch, { turn: 0, nose: 0, throttle: 0, fast: false } ); },
+		clear() { down.clear(); Object.assign( touch, { throttle: 0, strafe: 0, lift: 0, turn: 0, nose: 0, slow: false } ); },
 		dispose() {
 
 			removeEventListener( 'keydown', onKeyDown );
