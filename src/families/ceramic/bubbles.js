@@ -18,7 +18,18 @@ import { hash3 } from '../../core/hash.js';
 
 export function bubbleField( q, fp, cellM, density, salt = 0 ) {
 
-	const x = mod( q.div( cellM ), 4096 ).add( salt ); // mod: hashes stay exact
+	return bubbleAt( bubbleCells( q, cellM, salt ), fp, cellM, density, salt );
+
+}
+
+// The same in two steps, for a caller that puts the bubble in a gate():
+// the cell coordinates are taken before it (as a .toVar()), bubbleAt()
+// runs inside. Its fade is zero wherever fadeOn( cellM * 0.77, fp, 1 ) is
+// false (the radius is under 0.38 cells, a margin for rounding).
+export const bubbleCells = ( q, cellM, salt = 0 ) => mod( q.div( cellM ), 4096 ).add( salt ); // mod: hashes stay exact
+
+export function bubbleAt( x, fp, cellM, density, salt = 0 ) {
+
 	const cell = floor( x );
 	const h = hash3( cell.add( salt * 1.37 ) );
 	const on = step( h.z, density );
