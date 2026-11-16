@@ -15,8 +15,9 @@ body.film #ix-fly, body.film #ix-fly-btn { display: none; }
 #ix-fly-btn:hover { background: #2a2c31; }
 `;
 
-// label: the vehicle as the button names it ('the mosquito').
-export function addFlyHud( flyer, { label = 'the vehicle', key = 'V' } = {} ) {
+// label: the vehicle as the button names it ('the mosquito'). fly, land:
+// the button's verbs ('Steer', 'Leave' for the submarine).
+export function addFlyHud( flyer, { label = 'the vehicle', key = 'V', fly = 'Fly', land = 'Land' } = {} ) {
 
 	const style = document.createElement( 'style' );
 	style.textContent = css;
@@ -30,7 +31,7 @@ export function addFlyHud( flyer, { label = 'the vehicle', key = 'V' } = {} ) {
 	const fill = () => {
 
 		hint.innerHTML = `<b>${ name.KeyW } S</b> nose up, down &nbsp; <b>${ name.KeyA } D</b> turn &nbsp; <b>Space</b> forward &nbsp; <b>C</b> back &nbsp; <b>Shift</b> faster<br>`
-			+ `Drag to look around, scroll for the distance, <b>${ key }</b> to land`;
+			+ `Drag to look around, scroll for the distance, <b>${ key }</b> to ${ land.toLowerCase() }`;
 
 	};
 	fill();
@@ -46,7 +47,7 @@ export function addFlyHud( flyer, { label = 'the vehicle', key = 'V' } = {} ) {
 
 	}
 
-	const text = ( on ) => on ? `Land (${ key })` : `Fly ${ label } (${ key })`;
+	const text = ( on ) => on ? `${ land } (${ key })` : `${ fly } ${ label } (${ key })`;
 	if ( btn ) {
 
 		btn.textContent = text( false );

@@ -18,6 +18,8 @@
 //             camera walk does (walk.js): across the room at maxSpeed,
 //             along a stitch at a crawl. Never closer than the body radius
 //   chase     the camera follows behind (chase.js)
+//   bounds    { min, max } (Vector3): a box the vehicle stays in (the toy
+//             submarine keeps under the water of its tank)
 // While flying, the orbit controls and the camera walk hold still (app.js
 // passes move: false to the kit); the lens, AO and shadows keep working.
 // vehicle: { group, pose( t, flight, beat ), radius } (demo/vehicles/).
@@ -40,6 +42,7 @@ export const FLYER_DEFAULTS = Object.freeze( {
 	maxSpeed: 0.5, minSpeed: 0.008, near: 2.5, turnRate: 2.2, pitchRate: 1.1, maxPitch: 1.35, response: 3, boost: 3,
 	chase: 0.03, chaseMin: 0.008, chaseMax: 0.6, chaseLift: 0.3,
 	plane: true, bank: 0.7, nose: 0.3, tilt: 0.15, // nose: share of the aim a helicopter body shows
+	bounds: null,
 } );
 
 export function createFlyer( { vehicle, camera, controls, dom, collider = null, home, options = {} } ) {
@@ -134,6 +137,17 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 			}
 
 			pos.add( step );
+
+		}
+
+		if ( o.bounds ) {
+
+			// Out of the box: back in, and the speed out of it is dropped.
+			const before = dir.copy( pos );
+			pos.clamp( o.bounds.min, o.bounds.max );
+			if ( before.x !== pos.x ) vel.x = 0;
+			if ( before.y !== pos.y ) vel.y = 0;
+			if ( before.z !== pos.z ) vel.z = 0;
 
 		}
 

@@ -9,6 +9,8 @@
 //   arrows or ZQSD walk, Space and C up and down, a click focuses, F the
 //   lens (the camera kit, src/camera, through camerakit.js)
 //   ?nofx   no AO and no depth of field
+//   ?nofly  no toy submarine. Without it, a toy submarine floats in the
+//           tank; V or the button at the bottom right steers it (flyer.js)
 // window.__ix: renderer, scene, camera, ready, view( name ), setTime( s ),
 // refraction (core/refraction.js; strength 0 draws the true positions),
 // apparentPoint, waterBody, tank, LEVEL, TD (tests/refraction_gpu.mjs).
@@ -32,6 +34,9 @@ import { createBubbles } from '../src/core/bubbles.js';
 import { buildTank } from './aquarium/tank.js';
 import { createLife } from './aquarium/life.js';
 import { createShots } from './aquarium/shots.js';
+import { createSubmarine } from './vehicles/submarine.js';
+import { createFlyer } from './flyer.js';
+import { addFlyHud } from './flyhud.js';
 
 const TW = 1.2, TD = 0.8, TH = 0.5, LEVEL = 0.35; // tank (m)
 const params = new URLSearchParams( location.search );
@@ -148,6 +153,25 @@ const kit = createDemoKit( { renderer, scene, camera, controls, params, options:
 const { walk, adaptive, lens } = kit;
 kit.addEventListener( 'pixelRatioChanged', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );
 const stats = createStats( { renderer, camera, adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
+
+// The toy submarine, in the tank group so the water's mirrors cut it at
+// the level. It stays in the water: its centre a hull radius inside the
+// glass, over the sand and just under the surface.
+let vehicle = null;
+if ( ! params.has( 'nofly' ) ) {
+
+	const sub = createSubmarine();
+	tank.add( sub.group );
+	const r = sub.radius;
+	vehicle = createFlyer( { vehicle: sub, camera, controls, dom: renderer.domElement, collider: kit.collider,
+		home: new THREE.Vector3( 0.12, 0.2, 0.12 ), options: { name: 'submarine', idle: 'hover', plane: false, nose: 0.25, tilt: 0, bank: 0.12,
+			maxSpeed: 0.15, minSpeed: 0.01, near: 1.5, turnRate: 1.1, pitchRate: 0.8, response: 1.2, boost: 2.5,
+			chase: 0.2, chaseMin: 0.05, chaseMax: 0.8, chaseLift: 0.25,
+			bounds: { min: new THREE.Vector3( - TW / 2 + r, 0.03, - TD / 2 + r ), max: new THREE.Vector3( TW / 2 - r, LEVEL - 0.012, TD / 2 - r ) } } } );
+	vehicle.yaw = Math.PI; // toward the back wall: boarding shows the tank ahead
+	addFlyHud( vehicle, { label: 'the submarine', fly: 'Steer', land: 'Leave' } );
+
+}
 let clock = 0, last = performance.now();
 renderer.setAnimationLoop( () => {
 
@@ -161,11 +185,12 @@ renderer.setAnimationLoop( () => {
 	// Under water the haze tells the distance, not the lens: half the blur.
 	const under = camera.position.y < LEVEL && Math.abs( camera.position.x ) < TW / 2 && Math.abs( camera.position.z ) < TD / 2;
 	if ( lens ) lens.bokehScale = under ? 0.5 : 1;
-	kit.update( dt );
+	vehicle?.update( dt, clock ); // while steered, it moves the camera and the walk holds still
+	kit.update( dt, { move: ! vehicle?.active } );
 	stats.beginFrame();
 	draw();
 	stats.endFrame( camera.position.distanceTo( controls.target ) );
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, kit, life, flora, walk, adaptive, lens, focus: lens, fx, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };
+window.__ix = { renderer, scene, camera, controls, kit, vehicle, life, flora, walk, adaptive, lens, focus: lens, fx, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };
