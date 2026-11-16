@@ -1,110 +1,147 @@
-// A crab built by code, in the Infinitex crab-shell matter: a flattened
-// shell, two eyes on stalks, two claws and eight legs of three segments.
-// Each part is a rigid mesh in a small hierarchy; nothing is skinned.
-//   walk     sideways, as crabs do, back and forth along a segment of the
-//            floor. The legs of one side reach and pull in turn (two
-//            groups half a step apart), the other side pushes. A pause at
-//            each end, claws raised.
-//   scale    `size` is the width of the shell in meters.
-// It walks on a flat height: on a displaced floor (preset.displace) its
-// feet sink in the mounds or stand a few millimetres above the hollows.
-// update( t ) once per frame.
+// A crab built by code, in the Infinitex matter of a crab's shell: one
+// skinned mesh, one draw call, every part a rigid bone (no blending).
+//   body     crabshape.js: a toothed carapace wider than long, domed,
+//            grooved, pale below; eyes on stalks, mouth plates
+//   legs     four per side, five segments each, tapering, darker at the
+//            joints, pointed dactyls; placed by IK (crabrig.js)
+//   claws    an arm, a wrist, a swollen palm with a toothed fixed finger,
+//            a moving finger; the right claw a little larger
+//   walk     sideways along the segment from -> to, feet planted while the
+//            body passes over them, pauses with the claws raised and
+//            snapping, a turn in place at each end (crabrig.js)
+//   ground   ( x, z ) => floor height: the body and every foot follow it
+//            (seafloor.js gives the aquarium's displaced sand)
+//   scale    `size` is the width of the shell in meters
+// update( t ) once per frame. position: where the crab is (world).
 //
 // Event bus: none (driven by the page's frame loop).
 
 import * as THREE from 'three/webgpu';
 import { uv } from 'three/tsl';
 import { createMaterial } from '../../src/index.js';
+import { COLORS, createBuilder, shell, segment, ball, tube, palm, toGeometry } from './crabshape.js';
+import { legLayout, solveLeg, createWalk, DACTYL_BEND } from './crabrig.js';
 
-export function createCrab( { size = 0.06, from, to, y = 0, period = 18, preset = {} } ) {
+export function createCrab( { size = 0.06, from, to, y = 0, ground = () => y, period = 26, preset = {} } ) {
 
-	const ix = createMaterial( { family: 'scales', mode: 'quill', holes: 1, scale_mm: 1.2, size_variation: 0.9, depth: 0.6, wrinkles: 0.4, color: '#a8381c', groove_color: '#4a1608', color_variation: 0.25,
-		pattern: 0.6, pattern_color: '#d07a3a', pattern_mm: 8, roughness: 0.35, gloss: 0.4, seed: 38, underwater: 1, ...preset }, { coords: uv().mul( size ) } );
-	const part = ( g, parent, x = 0, y = 0, z = 0 ) => { g.computeTangents(); const m = new THREE.Mesh( g, ix.material ); m.position.set( x, y, z ); m.castShadow = true; parent.add( m ); return m; };
-	const limb = ( len, r0, r1 ) => { const g = new THREE.CapsuleGeometry( 1, 1, 3, 8 ); g.scale( ( r0 + r1 ) / 2, 1, ( r0 + r1 ) / 2 ); g.scale( 1, len / 3, 1 ); g.translate( 0, - len / 2, 0 ); return g; }; // the unit capsule is 3 high; the limb hangs from its top
-	const root = new THREE.Group();
-	const S = size;
-	// Shell: wider than long, flat, the front edge a little straighter.
-	const shellG = new THREE.SphereGeometry( 0.5, 28, 16 );
-	shellG.scale( S, S * 0.34, S * 0.72 );
-	const body = new THREE.Group();
-	root.add( body );
-	part( shellG, body );
+	const S = size, B = createBuilder(), legs = legLayout( S );
+	shell( B, S );
 	for ( const sx of [ - 1, 1 ] ) {
 
-		const stalk = part( limb( S * 0.12, S * 0.018, S * 0.014 ), body, sx * S * 0.14, S * 0.2, S * 0.3 );
-		stalk.rotation.x = Math.PI; // points up
-		part( new THREE.SphereGeometry( S * 0.03, 10, 8 ), stalk, 0, - S * 0.13, 0 );
+		// Eyes on stalks in the sockets, mouth plates below. No antennae: seen
+		// from the front they read as a line across the face.
+		const st = [ sx * S * 0.12, S * 0.03, S * 0.33 ], tip = [ sx * S * 0.15, S * 0.1, S * 0.37 ];
+		tube( B, 0, st, tip, S * 0.02, S * 0.015, COLORS.shell );
+		ball( B, 0, tip, S * 0.024, COLORS.eye );
+		tube( B, 0, [ sx * S * 0.035, - S * 0.065, S * 0.28 ], [ sx * S * 0.04, - S * 0.08, S * 0.32 ], S * 0.03, S * 0.024, COLORS.under, 0.35 );
 
 	}
 
-	// Legs: four per side, fanned. Each: coxa out, then a leg down, then a tip.
-	const legs = [];
-	for ( const sx of [ - 1, 1 ] ) for ( let k = 0; k < 4; k ++ ) {
+	legs.forEach( ( L, i ) => {
 
-		const hip = new THREE.Group();
-		hip.position.set( sx * S * 0.4, 0, S * ( 0.2 - k * 0.15 ) );
-		hip.rotation.y = sx * ( 0.5 - k * 0.33 ); // fan
-		body.add( hip );
-		const upper = part( limb( S * 0.42, S * 0.035, S * 0.028 ), hip );
-		const lower = part( limb( S * 0.46, S * 0.026, S * 0.012 ), upper, 0, - S * 0.42, 0 );
-		legs.push( { sx, k, hip, upper, lower } );
+		const b = 1 + i * 5, [ lc, a, c, p, d ] = L.len, r = L.r;
+		segment( B, b, lc, r[ 0 ], r[ 0 ] * 0.9, { knob: 0.2 } );
+		segment( B, b + 1, a, r[ 1 ], r[ 1 ] * 0.85, { flat: 0.55 } );
+		segment( B, b + 2, c, r[ 2 ], r[ 2 ] * 0.9, { knob: 0.25 } );
+		segment( B, b + 3, p, r[ 3 ], r[ 3 ] * 0.75, { flat: 0.6 } );
+		segment( B, b + 4, d, r[ 4 ], r[ 4 ] * 0.05, { tip: COLORS.tip, bend: DACTYL_BEND, knob: 0 } );
 
-	}
+	} );
 
-	// Claws: an arm forward, a palm, and two fingers.
-	const claws = [];
-	for ( const sx of [ - 1, 1 ] ) {
+	const claws = [ 1, - 1 ].map( ( sx, i ) => {
 
-		const sh = new THREE.Group();
-		sh.position.set( sx * S * 0.34, 0, S * 0.3 );
-		body.add( sh );
-		const arm = part( limb( S * 0.36, S * 0.04, S * 0.045 ), sh );
-		const palmG = new THREE.SphereGeometry( 0.5, 14, 10 );
-		palmG.scale( S * 0.2, S * 0.26, S * 0.14 );
-		const palm = part( palmG, arm, 0, - S * 0.44, 0 );
-		const f1 = part( limb( S * 0.2, S * 0.03, S * 0.008 ), palm, S * 0.04, - S * 0.08, 0 ), f2 = part( limb( S * 0.18, S * 0.024, S * 0.008 ), palm, - S * 0.04, - S * 0.08, 0 );
-		claws.push( { sx, sh, arm, f1, f2 } );
+		const b = 41 + i * 4, cs = S * ( sx > 0 ? 1.12 : 1 );
+		segment( B, b, cs * 0.3, cs * 0.045, cs * 0.05, { flat: 0.7, knob: 0.04 } );
+		segment( B, b + 1, cs * 0.14, cs * 0.05, cs * 0.052, { knob: 0.12, flat: 0.8 } );
+		palm( B, b + 2, cs );
+		segment( B, b + 3, cs * 0.24, cs * 0.036, cs * 0.004, { tip: COLORS.tip, bend: 0.14, knob: 0, flat: 0.7 } );
+		return { sx, b, cs, socket: new THREE.Vector3( sx * S * 0.27, - S * 0.04, S * 0.22 ) };
 
-	}
+	} );
 
-	const A = new THREE.Vector3( ...from ), B = new THREE.Vector3( ...to ), dir = B.clone().sub( A );
-	const len = dir.length();
-	dir.normalize();
-	// The crab's own x axis lies along the walk: it moves sideways.
-	root.rotation.y = Math.atan2( - dir.z, dir.x );
-	const stand = S * 0.42; // height of the shell above the feet
-	const smooth = ( x ) => x * x * ( 3 - 2 * x );
+	// The shell matter: fine warts and mottles over the vertex colours.
+	const ix = createMaterial( { family: 'scales', mode: 'quill', holes: 0, scale_mm: 0.9, size_variation: 0.6, depth: 0.5, wrinkles: 0.3, color: '#f2ece6', groove_color: '#a89488', color_variation: 0.15,
+		pattern: 0.5, pattern_color: '#d8c4b4', pattern_mm: 6, roughness: 0.35, gloss: 0.45, seed: 38, underwater: 1, micro: 0, ...preset }, { coords: uv() } );
+	ix.material.vertexColors = true;
+	const mesh = new THREE.SkinnedMesh( toGeometry( B ), ix.material );
+	const bones = Array.from( { length: 49 }, () => { const b = new THREE.Bone(); b.matrixAutoUpdate = false; mesh.add( b ); return b; } );
+	mesh.bind( new THREE.Skeleton( bones, bones.map( () => new THREE.Matrix4() ) ), new THREE.Matrix4() );
+	mesh.frustumCulled = false;
+	mesh.castShadow = true;
+
+	const walk = createWalk( { from, to, period, turnR: S * 0.6 } );
+	const stand = S * 0.27, Ls = S * 0.4, duty = 0.55, lift = S * 0.13;
+	const Mb = new THREE.Matrix4(), Mi = new THREE.Matrix4(), mats = Array.from( { length: 5 }, () => new THREE.Matrix4() ), M = new THREE.Matrix4();
+	const X = new THREE.Vector3(), Y = new THREE.Vector3(), Z = new THREE.Vector3(), F = new THREE.Vector3(), F2 = new THREE.Vector3(), pos = new THREE.Vector3();
+	const ease = ( u ) => u * u * ( 3 - 2 * u );
+	// Where leg L's foot stands in its stance number c (world).
+	const print = ( L, c, out ) => {
+
+		const P = walk.pose( ( c + duty / 2 - L.off ) * Ls ), yaw = walk.baseYaw + P.yaw, cs = Math.cos( yaw ), sn = Math.sin( yaw );
+		out.set( P.x + L.home.x * cs + L.home.z * sn, 0, P.z - L.home.x * sn + L.home.z * cs );
+		out.y = ground( out.x, out.z );
+		return out;
+
+	};
+	// A frame for a claw segment along dir, its top toward up.
+	const aim = ( dir, at ) => { X.copy( dir ).normalize(); Y.set( 0, 1, 0 ).addScaledVector( X, - X.y ).normalize(); Z.crossVectors( X, Y ); return M.makeBasis( X, Y, Z ).setPosition( at ); };
+	const set = ( i, m ) => { bones[ i ].matrix.multiplyMatrices( Mb, m ); bones[ i ].matrixWorldNeedsUpdate = true; };
 
 	return {
-		group: root, material: ix,
+		group: mesh, material: ix, position: pos,
 		update( t ) {
 
-			// Out for 42% of the period, a pause, back, a pause.
-			const u = ( t / period ) % 1;
-			const go = u < 0.42 ? 1 : u < 0.5 ? 0 : u < 0.92 ? - 1 : 0;
-			const d = u < 0.42 ? smooth( u / 0.42 ) : u < 0.5 ? 1 : u < 0.92 ? 1 - smooth( ( u - 0.5 ) / 0.42 ) : 0;
-			const step = d * len / ( S * 0.5 ) * Math.PI * 2; // one stride every half shell width
-			root.position.copy( A ).addScaledVector( dir, d * len );
-			root.position.y = y + stand;
-			body.position.y = go ? Math.abs( Math.sin( step ) ) * S * 0.015 : Math.sin( t * 1.3 ) * S * 0.01;
-			body.rotation.z = go ? Math.sin( step ) * 0.04 : 0;
-			for ( const L of legs ) {
+			const p = walk.progress( t ), moving = Math.min( 1, Math.abs( walk.progress( t + 0.05 ) - walk.progress( t - 0.05 ) ) / 0.1 / ( S * 0.4 ) );
+			const P = walk.pose( p ), yaw = walk.baseYaw + P.yaw, cs = Math.cos( yaw ), sn = Math.sin( yaw );
+			// The body over the floor: height and tilt from four samples.
+			const at = ( lx, lz ) => ground( P.x + lx * cs + lz * sn, P.z - lx * sn + lz * cs ), e = S * 0.35;
+			const hR = at( e, 0 ), hL = at( - e, 0 ), hF = at( 0, e ), hB = at( 0, - e );
+			X.set( cs, ( hR - hL ) / ( 2 * e ), - sn ).normalize();
+			Z.set( sn, ( hF - hB ) / ( 2 * e ), cs ).normalize();
+			Y.crossVectors( Z, X ).normalize();
+			Z.crossVectors( X, Y );
+			const bob = moving * S * 0.012 * Math.sin( p / Ls * Math.PI * 4 ) + ( 1 - moving ) * S * 0.006 * Math.sin( t * 1.3 );
+			pos.set( P.x, ( hR + hL + hF + hB ) / 4 + stand + bob, P.z );
+			Mb.makeBasis( X, Y, Z ).setPosition( pos );
+			Mi.copy( Mb ).invert();
+			bones[ 0 ].matrix.copy( Mb );
+			bones[ 0 ].matrixWorldNeedsUpdate = true;
 
-				const ph = step + ( L.k % 2 ) * Math.PI + ( L.sx > 0 ? 0 : Math.PI );
-				const reach = go ? Math.sin( ph ) : 0, lift = go ? Math.max( 0, Math.cos( ph ) ) : 0;
-				// Out and down: the upper segment leans out, the lower one comes back in.
-				L.upper.rotation.z = L.sx * ( 1.15 + reach * 0.22 * go * L.sx + lift * 0.3 );
-				L.lower.rotation.z = - L.sx * ( 1.25 + reach * 0.2 * go * L.sx - lift * 0.15 );
+			for ( let i = 0; i < legs.length; i ++ ) {
+
+				const L = legs[ i ], ph = p / Ls + L.off, c = Math.floor( ph ), f = ph - c;
+				print( L, c, F );
+				if ( f >= duty ) {
+
+					const w = ( f - duty ) / ( 1 - duty );
+					print( L, c + 1, F2 );
+					F.lerp( F2, ease( w ) );
+					F.y = ground( F.x, F.z ) + lift * Math.sin( Math.PI * w ) * moving;
+
+				}
+
+				solveLeg( L, F.applyMatrix4( Mi ), mats );
+				for ( let s = 0; s < 5; s ++ ) set( 1 + i * 5 + s, mats[ s ] );
 
 			}
 
+			// Claws: low and folded while walking; raised and snapping at rest.
 			for ( const C of claws ) {
 
-				const raise = go ? 0 : 0.5 + Math.sin( t * 2 + C.sx ) * 0.15;
-				C.sh.rotation.set( - 1.1 - raise * 0.5, C.sx * 0.5, C.sx * 0.5 );
-				const open = 0.12 + ( go ? 0 : 0.2 + Math.sin( t * 3 + C.sx ) * 0.15 );
-				C.f1.rotation.z = open; C.f2.rotation.z = - open;
+				const rest = 1 - moving, raise = rest * ( 0.65 + 0.35 * Math.sin( t * 1.7 + C.sx ) ), sx = C.sx;
+				const j = C.socket.clone();
+				const d1 = new THREE.Vector3( sx * 0.5, - 0.3 + 1.0 * raise, 0.8 ), d2 = new THREE.Vector3( - sx * 0.2, - 0.05 + 0.7 * raise, 1 ), d3 = new THREE.Vector3( - sx * 0.62, 0.05 + 0.6 * raise, 0.75 + 0.2 * raise );
+				for ( const [ k, d, len ] of [ [ 0, d1, C.cs * 0.3 ], [ 1, d2, C.cs * 0.14 ], [ 2, d3, 0 ] ] ) {
+
+					set( C.b + k, aim( d, j ) );
+					j.addScaledVector( X, len );
+
+				}
+
+				// The moving finger, hinged at the top of the palm's front.
+				const open = - 0.1 + rest * 0.45 * Math.max( 0, Math.sin( t * 2.6 + sx * 1.3 ) );
+				M.multiply( new THREE.Matrix4().makeRotationZ( open ).setPosition( C.cs * 0.24, C.cs * 0.045, 0 ) );
+				set( C.b + 3, M );
 
 			}
 
