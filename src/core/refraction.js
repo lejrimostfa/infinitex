@@ -96,10 +96,11 @@ export function apparentPoint( E, P, normal, offset, eta ) {
 
 }
 
-// Clip-space position for material.vertexNode.
-export function refractedVertex() {
+// Where the eye sees the world point P (a vec3 node): P itself when the
+// refraction is off, or for another eye. For a mesh that places its own
+// vertices (billboards, core/bubbles.js).
+export function refractedPoint( P ) {
 
-	const P = modelWorldMatrix.mul( vec4( positionLocal, 1 ) ).xyz;
 	const E = R.eye, N = R.normal;
 	const a = N.dot( E ).sub( R.offset ).max( 1e-6 ); // eye above the plane
 	const b = R.offset.sub( N.dot( P ) ); // point beyond it (> 0)
@@ -131,6 +132,14 @@ export function refractedVertex() {
 	const gate = R.on.mul( R.strength )
 		.mul( step( 0, b ) )
 		.mul( step( cameraPosition.sub( E ).length(), 1e-4 ) ); // this eye only
-	return cameraProjectionMatrix.mul( cameraViewMatrix.mul( vec4( mix( P, A, gate ), 1 ) ) );
+	return mix( P, A, gate );
+
+}
+
+// Clip-space position for material.vertexNode.
+export function refractedVertex() {
+
+	const P = modelWorldMatrix.mul( vec4( positionLocal, 1 ) ).xyz;
+	return cameraProjectionMatrix.mul( cameraViewMatrix.mul( vec4( refractedPoint( P ), 1 ) ) );
 
 }

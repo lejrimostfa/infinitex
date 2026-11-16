@@ -18,6 +18,7 @@
 
 import { BufferGeometry, BufferAttribute, Mesh, MeshBasicNodeMaterial } from 'three/webgpu';
 import { attribute, vec2, vec3, vec4, float, uv, fract, sin, cos, sqrt, mix, smoothstep, length, cameraProjectionMatrix, cameraViewMatrix } from 'three/tsl';
+import { refractedPoint } from './refraction.js';
 import { ixTime } from './clock.js';
 
 export function createBubbles( { box, count = 120, radius = [ 0.0008, 0.0026 ], sources = 3, speed = 0.12, seed = 1 } ) {
@@ -56,7 +57,9 @@ export function createBubbles( { box, count = 120, radius = [ 0.0008, 0.0026 ], 
 	const corner = uv().mul( 2 ).sub( 1 );
 	// Small at birth, full size after the first tenth of the rise.
 	const size = r.mul( smoothstep( 0, 0.1, up ).mul( 0.7 ).add( 0.3 ) );
-	const view = cameraViewMatrix.mul( vec4( centre, 1 ) ).add( vec4( corner.mul( size ), 0, 0 ) );
+	// Seen through the water like the rest (core/refraction.js): else the
+	// floor and the walls, which look nearer, pass in front of the bubbles.
+	const view = cameraViewMatrix.mul( vec4( refractedPoint( centre ), 1 ) ).add( vec4( corner.mul( size ), 0, 0 ) );
 
 	const m = new MeshBasicNodeMaterial();
 	m.vertexNode = cameraProjectionMatrix.mul( view );
