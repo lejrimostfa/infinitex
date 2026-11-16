@@ -13,19 +13,19 @@
         "startDist": 1,
         "frames": 613,
         "stopDist": 0.00010000020523637408,
-        "firstMs": 1.1,
+        "firstMs": 1,
         "staticMs": {
           "median": 0.1,
-          "mean": 0.098,
-          "p99": 0.2,
-          "max": 0.8,
+          "mean": 0.0975,
+          "p99": 0.3,
+          "max": 0.6,
           "n": 612
         },
         "animatedMs": {
           "median": 0,
-          "mean": 0.0682,
+          "mean": 0.07,
           "p99": 0.3,
-          "max": 0.7,
+          "max": 2.2,
           "n": 600
         },
         "animatedMinDist": 0.00003123902701345486,
@@ -58,33 +58,33 @@
           "farDist": 1.218
         },
         "lensMs": {
-          "median": 0.1,
-          "mean": 0.0846,
-          "p99": 0.3,
-          "max": 1.2,
+          "median": 0.5,
+          "mean": 0.3797,
+          "p99": 0.9,
+          "max": 1.7,
           "n": 1200
         },
         "dofMs": {
           "size": "1280x720",
           "off": {
-            "median": 5.3,
-            "mean": 5.3,
-            "p99": 5.7,
-            "max": 5.7,
+            "median": 5.4,
+            "mean": 5.4633,
+            "p99": 6.1,
+            "max": 6.1,
             "n": 30
           },
           "on": {
-            "median": 5.7,
-            "mean": 5.69,
-            "p99": 6.2,
-            "max": 6.2,
+            "median": 6.2,
+            "mean": 6.0033,
+            "p99": 6.5,
+            "max": 6.5,
             "n": 30
           },
           "offAgain": {
             "median": 5.3,
-            "mean": 5.26,
-            "p99": 5.5,
-            "max": 5.5,
+            "mean": 5.4233,
+            "p99": 6.1,
+            "max": 6.1,
             "n": 30
           }
         },
@@ -104,17 +104,17 @@
         "startDist": 1,
         "frames": 613,
         "stopDist": 0.00010000020523637408,
-        "firstMs": 1.1,
+        "firstMs": 1.2,
         "staticMs": {
           "median": 0.1,
-          "mean": 0.1011,
-          "p99": 0.3,
+          "mean": 0.0971,
+          "p99": 0.2,
           "max": 0.6,
           "n": 612
         },
         "animatedMs": {
           "median": 0,
-          "mean": 0.0663,
+          "mean": 0.066,
           "p99": 0.3,
           "max": 0.3,
           "n": 600
@@ -149,33 +149,33 @@
           "farDist": 1.218
         },
         "lensMs": {
-          "median": 0.1,
-          "mean": 0.084,
-          "p99": 0.3,
-          "max": 0.6,
+          "median": 0.5,
+          "mean": 0.3896,
+          "p99": 0.9,
+          "max": 2.5,
           "n": 1200
         },
         "dofMs": {
           "size": "1280x720",
           "off": {
-            "median": 6.6,
-            "mean": 6.6367,
-            "p99": 7,
-            "max": 7,
+            "median": 6.9,
+            "mean": 6.8133,
+            "p99": 7.9,
+            "max": 7.9,
             "n": 30
           },
           "on": {
-            "median": 7.6,
-            "mean": 7.6533,
-            "p99": 8.2,
-            "max": 8.2,
+            "median": 8.3,
+            "mean": 8.2533,
+            "p99": 8.7,
+            "max": 8.7,
             "n": 30
           },
           "offAgain": {
-            "median": 6.7,
-            "mean": 6.6867,
-            "p99": 7.3,
-            "max": 7.3,
+            "median": 6.9,
+            "mean": 6.8633,
+            "p99": 7.8,
+            "max": 7.8,
             "n": 30
           }
         },
@@ -195,12 +195,12 @@
         "startDist": 1,
         "frames": 613,
         "stopDist": 0.0001000002053105144,
-        "firstMs": 1.1,
+        "firstMs": 0.9,
         "staticMs": {
           "median": 0.1,
-          "mean": 0.0574,
+          "mean": 0.0577,
           "p99": 0.2,
-          "max": 0.8,
+          "max": 0.6,
           "n": 612
         },
         "check": "ok"
@@ -231,33 +231,33 @@
           "farDist": "nothing"
         },
         "lensMs": {
-          "median": 0,
-          "mean": 0.0523,
-          "p99": 0.2,
-          "max": 0.8,
+          "median": 0.2,
+          "mean": 0.2409,
+          "p99": 0.4,
+          "max": 1,
           "n": 1200
         },
         "dofMs": {
           "size": "1280x720",
           "off": {
-            "median": 3.7,
-            "mean": 3.7067,
-            "p99": 4.2,
-            "max": 4.2,
+            "median": 6.2,
+            "mean": 6.2733,
+            "p99": 8,
+            "max": 8,
             "n": 30
           },
           "on": {
-            "median": 4.1,
-            "mean": 4.18,
-            "p99": 5.3,
-            "max": 5.3,
+            "median": 7.9,
+            "mean": 7.55,
+            "p99": 10.3,
+            "max": 10.3,
             "n": 30
           },
           "offAgain": {
-            "median": 3.4,
-            "mean": 3.4433,
-            "p99": 3.8,
-            "max": 3.8,
+            "median": 5.7,
+            "mean": 5.7833,
+            "p99": 7,
+            "max": 7,
             "n": 30
           }
         },
@@ -277,12 +277,12 @@
         "startDist": 1,
         "frames": 613,
         "stopDist": 0.0001000002053105144,
-        "firstMs": 1.1,
+        "firstMs": 0.8,
         "staticMs": {
           "median": 0.1,
-          "mean": 0.0637,
+          "mean": 0.0554,
           "p99": 0.2,
-          "max": 0.5,
+          "max": 0.4,
           "n": 612
         },
         "check": "ok"
@@ -313,33 +313,33 @@
           "farDist": "nothing"
         },
         "lensMs": {
-          "median": 0,
-          "mean": 0.0544,
-          "p99": 0.2,
-          "max": 0.5,
+          "median": 0.2,
+          "mean": 0.2298,
+          "p99": 0.4,
+          "max": 0.7,
           "n": 1200
         },
         "dofMs": {
           "size": "1280x720",
           "off": {
-            "median": 4.7,
-            "mean": 4.7433,
-            "p99": 5.2,
-            "max": 5.2,
+            "median": 6,
+            "mean": 6.39,
+            "p99": 10,
+            "max": 10,
             "n": 30
           },
           "on": {
-            "median": 6,
-            "mean": 5.97,
-            "p99": 8.8,
-            "max": 8.8,
+            "median": 8.4,
+            "mean": 8.49,
+            "p99": 12.9,
+            "max": 12.9,
             "n": 30
           },
           "offAgain": {
-            "median": 4.4,
-            "mean": 4.3967,
-            "p99": 4.7,
-            "max": 4.7,
+            "median": 6.8,
+            "mean": 6.9967,
+            "p99": 11,
+            "max": 11,
             "n": 30
           }
         },
@@ -359,19 +359,19 @@
         "startDist": 1,
         "frames": 630,
         "stopDist": 0.00010000020812049979,
-        "firstMs": 1.3,
+        "firstMs": 1.4,
         "staticMs": {
           "median": 0.1,
-          "mean": 0.1216,
+          "mean": 0.1226,
           "p99": 0.3,
-          "max": 2.1,
+          "max": 3,
           "n": 629
         },
         "animatedMs": {
           "median": 0.1,
-          "mean": 0.0907,
-          "p99": 0.3,
-          "max": 0.4,
+          "mean": 0.0835,
+          "p99": 0.2,
+          "max": 0.5,
           "n": 600
         },
         "animatedMinDist": 0.0001368731978111912,
@@ -404,33 +404,33 @@
           "farDist": 0.462
         },
         "lensMs": {
-          "median": 0.1,
-          "mean": 0.0812,
-          "p99": 0.3,
-          "max": 0.9,
+          "median": 0.4,
+          "mean": 0.3734,
+          "p99": 0.8,
+          "max": 1.7,
           "n": 1200
         },
         "dofMs": {
           "size": "1280x720",
           "off": {
-            "median": 3.7,
-            "mean": 3.7033,
-            "p99": 4,
-            "max": 4,
+            "median": 4.9,
+            "mean": 4.6967,
+            "p99": 5.4,
+            "max": 5.4,
             "n": 30
           },
           "on": {
-            "median": 4.2,
-            "mean": 4.2033,
-            "p99": 4.5,
-            "max": 4.5,
+            "median": 5.6,
+            "mean": 5.6067,
+            "p99": 9.1,
+            "max": 9.1,
             "n": 30
           },
           "offAgain": {
-            "median": 3.7,
-            "mean": 3.7,
-            "p99": 4.4,
-            "max": 4.4,
+            "median": 3.9,
+            "mean": 4.0067,
+            "p99": 5,
+            "max": 5,
             "n": 30
           }
         },
@@ -450,18 +450,18 @@
         "startDist": 1,
         "frames": 630,
         "stopDist": 0.00010000020812049979,
-        "firstMs": 1.4,
+        "firstMs": 11.5,
         "staticMs": {
           "median": 0.1,
-          "mean": 0.1146,
+          "mean": 0.1243,
           "p99": 0.3,
-          "max": 0.9,
+          "max": 1.1,
           "n": 629
         },
         "animatedMs": {
           "median": 0.1,
-          "mean": 0.0863,
-          "p99": 0.3,
+          "mean": 0.0932,
+          "p99": 0.2,
           "max": 0.3,
           "n": 600
         },
@@ -495,31 +495,31 @@
           "farDist": 0.462
         },
         "lensMs": {
-          "median": 0.1,
-          "mean": 0.0763,
-          "p99": 0.2,
-          "max": 0.7,
+          "median": 0.4,
+          "mean": 0.3598,
+          "p99": 0.8,
+          "max": 1.4,
           "n": 1200
         },
         "dofMs": {
           "size": "1280x720",
           "off": {
-            "median": 4.2,
-            "mean": 4.2333,
-            "p99": 4.7,
-            "max": 4.7,
+            "median": 4.6,
+            "mean": 4.7867,
+            "p99": 5.7,
+            "max": 5.7,
             "n": 30
           },
           "on": {
-            "median": 5.2,
-            "mean": 5.1667,
-            "p99": 5.4,
-            "max": 5.4,
+            "median": 6.4,
+            "mean": 6.4367,
+            "p99": 8,
+            "max": 8,
             "n": 30
           },
           "offAgain": {
-            "median": 4.3,
-            "mean": 4.3167,
+            "median": 4.9,
+            "mean": 4.9767,
             "p99": 6.1,
             "max": 6.1,
             "n": 30
@@ -544,14 +544,14 @@
         "firstMs": 0.7,
         "staticMs": {
           "median": 0,
-          "mean": 0.0132,
+          "mean": 0.0129,
           "p99": 0.1,
-          "max": 0.1,
+          "max": 0.2,
           "n": 612
         },
         "animatedMs": {
           "median": 0,
-          "mean": 0.0098,
+          "mean": 0.011,
           "p99": 0.1,
           "max": 0.1,
           "n": 600
@@ -582,37 +582,37 @@
         },
         "nearToFar": {
           "fov": 40,
-          "maxStep": 0.815,
+          "maxStep": 0.749,
           "farDist": 101.116
         },
         "lensMs": {
           "median": 0,
-          "mean": 0.0137,
-          "p99": 0.1,
-          "max": 0.2,
+          "mean": 0.0458,
+          "p99": 0.2,
+          "max": 0.5,
           "n": 1200
         },
         "dofMs": {
           "size": "1280x720",
           "off": {
-            "median": 2.5,
-            "mean": 2.55,
-            "p99": 2.9,
-            "max": 2.9,
+            "median": 4.3,
+            "mean": 4.29,
+            "p99": 5.6,
+            "max": 5.6,
             "n": 30
           },
           "on": {
-            "median": 3.3,
-            "mean": 3.26,
-            "p99": 3.5,
-            "max": 3.5,
+            "median": 5.4,
+            "mean": 4.95,
+            "p99": 5.8,
+            "max": 5.8,
             "n": 30
           },
           "offAgain": {
-            "median": 2.5,
-            "mean": 2.5167,
-            "p99": 3.4,
-            "max": 3.4,
+            "median": 3.9,
+            "mean": 3.92,
+            "p99": 4.8,
+            "max": 4.8,
             "n": 30
           }
         },
@@ -635,16 +635,16 @@
         "firstMs": 0.7,
         "staticMs": {
           "median": 0,
-          "mean": 0.0147,
+          "mean": 0.0123,
           "p99": 0.1,
           "max": 0.1,
           "n": 612
         },
         "animatedMs": {
           "median": 0,
-          "mean": 0.01,
+          "mean": 0.008,
           "p99": 0.1,
-          "max": 0.2,
+          "max": 0.1,
           "n": 600
         },
         "animatedMinDist": 0.00010000000012426323,
@@ -673,37 +673,37 @@
         },
         "nearToFar": {
           "fov": 40,
-          "maxStep": 0.815,
+          "maxStep": 0.749,
           "farDist": 101.116
         },
         "lensMs": {
           "median": 0,
-          "mean": 0.0161,
-          "p99": 0.1,
-          "max": 0.2,
+          "mean": 0.0428,
+          "p99": 0.2,
+          "max": 0.6,
           "n": 1200
         },
         "dofMs": {
           "size": "1280x720",
           "off": {
-            "median": 4.1,
-            "mean": 4.1633,
-            "p99": 4.6,
-            "max": 4.6,
+            "median": 5,
+            "mean": 5.0733,
+            "p99": 6.7,
+            "max": 6.7,
             "n": 30
           },
           "on": {
-            "median": 4.9,
-            "mean": 4.9767,
-            "p99": 5.6,
-            "max": 5.6,
+            "median": 5.3,
+            "mean": 5.37,
+            "p99": 6,
+            "max": 6,
             "n": 30
           },
           "offAgain": {
-            "median": 4,
-            "mean": 4.0267,
-            "p99": 4.7,
-            "max": 4.7,
+            "median": 4.3,
+            "mean": 4.39,
+            "p99": 5.1,
+            "max": 5.1,
             "n": 30
           }
         },
@@ -723,10 +723,10 @@
         "startDist": 1,
         "frames": 613,
         "stopDist": 0.00010000020530943906,
-        "firstMs": 0.8,
+        "firstMs": 0.7,
         "staticMs": {
           "median": 0,
-          "mean": 0.0075,
+          "mean": 0.0069,
           "p99": 0.1,
           "max": 0.1,
           "n": 612
@@ -760,12 +760,35 @@
         },
         "lensMs": {
           "median": 0,
-          "mean": 0.0058,
+          "mean": 0.0193,
           "p99": 0.1,
-          "max": 0.1,
+          "max": 1.4,
           "n": 1200
         },
-        "dofMs": "no depth of field on this page",
+        "dofMs": {
+          "size": "1280x720",
+          "off": {
+            "median": 6.5,
+            "mean": 6.39,
+            "p99": 6.9,
+            "max": 6.9,
+            "n": 30
+          },
+          "on": {
+            "median": 7.2,
+            "mean": 7.0267,
+            "p99": 7.4,
+            "max": 7.4,
+            "n": 30
+          },
+          "offAgain": {
+            "median": 6.6,
+            "mean": 6.4833,
+            "p99": 7,
+            "max": 7,
+            "n": 30
+          }
+        },
         "check": "ok ok ok ok ok"
       },
       "errorsLens": []
@@ -782,10 +805,10 @@
         "startDist": 1,
         "frames": 613,
         "stopDist": 0.00010000020530943906,
-        "firstMs": 0.6,
+        "firstMs": 0.9,
         "staticMs": {
           "median": 0,
-          "mean": 0.0067,
+          "mean": 0.009,
           "p99": 0.1,
           "max": 0.1,
           "n": 612
@@ -819,12 +842,35 @@
         },
         "lensMs": {
           "median": 0,
-          "mean": 0.0061,
+          "mean": 0.0242,
           "p99": 0.1,
-          "max": 0.2,
+          "max": 0.5,
           "n": 1200
         },
-        "dofMs": "no depth of field on this page",
+        "dofMs": {
+          "size": "1280x720",
+          "off": {
+            "median": 6.5,
+            "mean": 6.4467,
+            "p99": 7.4,
+            "max": 7.4,
+            "n": 30
+          },
+          "on": {
+            "median": 7.3,
+            "mean": 7.1867,
+            "p99": 7.6,
+            "max": 7.6,
+            "n": 30
+          },
+          "offAgain": {
+            "median": 6.5,
+            "mean": 6.41,
+            "p99": 7.7,
+            "max": 7.7,
+            "n": 30
+          }
+        },
         "check": "ok ok ok ok ok"
       },
       "errorsLens": []

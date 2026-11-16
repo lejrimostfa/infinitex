@@ -50,7 +50,7 @@ export function setup( ix ) {
 		camera.updateMatrixWorld();
 
 	};
-	return { renderer, scene, camera, controls, kit, pose, exact, fwd, place, skinned };
+	return { ix, renderer, scene, camera, controls, kit, pose, exact, fwd, place, skinned };
 
 }
 
@@ -65,7 +65,7 @@ export async function dofCost( c, P, dir, frames ) {
 
 		nodeFrame.update();
 		const t0 = performance.now();
-		await kit.renderAsync();
+		if ( c.ix.draw ) c.ix.draw(); else await kit.renderAsync(); // the aquarium draws its own frame (waterline, then the kit's target post)
 		if ( device ) await device.queue.onSubmittedWorkDone();
 		else gl.readPixels( 0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px );
 		return performance.now() - t0;

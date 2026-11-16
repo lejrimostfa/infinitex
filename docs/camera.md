@@ -121,35 +121,37 @@ The kit is an `EventTarget`. Every event is a `CustomEvent`; read `e.detail`. UI
 
 Measured by `tests/camera_check.mjs` (headless Chromium, Apple M1 Max, 1280x720, pixel ratio 1). The browser timer is coarse (0.1 ms): the mean resolves smaller costs than the median.
 
-CPU per frame: the walk (`walk.update`, collision ray included) and the focus ray (`lens.update`). Mean, then 99th percentile and max, in ms. Same numbers on both backends.
+CPU per frame: the walk (`walk.update`, collision ray included) and the focus (`lens.update`, five rays of the autofocus area). Mean, then 99th percentile and max, in ms. Same numbers on both backends.
 
-| Page | Walk | Focus ray |
+| Page | Walk | Focus (five rays) |
 |---|---|---|
-| `index.html` (skinned knit mannequin) | 0.10 (0.2, 0.8) | 0.08 (0.3, 0.6) |
-| `character.html` (skinned, 115 000 triangles) | 0.11 (0.3, 1.7) | 0.08 (0.3, 0.8) |
-| `cubes.html?family=10` | 0.06 (0.2, 0.6) | 0.05 (0.2, 0.7) |
-| `livingroom.html` | 0.013 (0.1, 0.1) | 0.014 (0.1, 0.2) |
-| `aquarium.html` | 0.007 (0.1, 0.2) | 0.007 (0.1, 0.2) |
+| `index.html` (skinned knit mannequin) | 0.10 (0.3, 0.6) | 0.38 (0.9, 1.7) |
+| `character.html` (skinned, 115 000 triangles) | 0.12 (0.3, 3.0) | 0.37 (0.8, 1.7) |
+| `cubes.html?family=10` | 0.06 (0.2, 0.6) | 0.24 (0.4, 1.0) |
+| `livingroom.html` | 0.013 (0.1, 0.2) | 0.046 (0.2, 0.5) |
+| `aquarium.html` | 0.007 (0.1, 0.1) | 0.019 (0.1, 1.4) |
 
-The walk with the character animated every frame costs the same (0.09 mean, 0.3 max). The first walk call after the idle build is about 1 ms. Without the idle build, the first ray on the mannequin built its trees in 51 ms.
+With the centre ray only (`focusArea: false`) the focus cost about a fifth of that (0.08 on the mannequin). The walk with the character animated every frame costs the same (0.09 mean, 0.5 max). The first walk call after the idle build is about 1 ms. Without the idle build, the first ray on the mannequin built its trees in 51 ms.
 
-GPU frame with the depth of field off, then on (median ms, 1280x720, the camera 30 cm from the surface):
+Frame with the depth of field off, then on (median ms, 1280x720, the camera 30 cm from the surface, AO inside the lighting and shadow cascades on, waiting for the GPU each frame):
 
 | Page | WebGPU | WebGL2 |
 |---|---|---|
-| `index.html` | 5.2, 5.7 | 6.5, 7.3 |
-| `character.html` | 3.8, 4.3 | 4.2, 5.1 |
-| `cubes.html?family=10` | 3.6, 4.0 | noisy (4.2 to 5.6 both ways) |
-| `livingroom.html` | 2.5, 3.2 | noisy (4.4 off, 9.1 on) |
+| `index.html` | 5.4, 6.2 | 6.9, 8.3 |
+| `character.html` | 4.9 (3.9 again), 5.6 | 4.6, 6.4 |
+| `cubes.html?family=10` | 6.2, 7.9 | 6.0, 8.4 (noisy) |
+| `livingroom.html` | 4.3 (3.9 again), 5.4 | 5.0, 5.3 |
+| `aquarium.html` (target mode, after the waterline) | 6.5, 7.2 | 6.5, 7.3 |
 
-So the depth of field costs about 0.5 to 0.7 ms on WebGPU and about 1 ms on WebGL2 at 720p. With the lens off its passes are not drawn at all.
+So the depth of field costs about 0.7 to 1.7 ms at 720p. With the lens off its passes are not drawn at all. The costs of AO inside the lighting, the cascades and the depth of field at 1080p are in [performance.md](performance.md) (demo effects).
 
-The quality gate (`npm run gate`) gives the same numbers as before the kit: every metric within 3.3e-5, sheen ratios equal. Automated browsers get the lens off.
+The quality gate (`npm run gate`) gives the same numbers as main: every metric within 3.3e-5, sheen ratios equal. Automated browsers get the lens off. Screenshots of every demo page, kit against main at the same camera and time, are identical in the 3D view (lens off, and lens on with `?dof`: at most 0.07 % of pixels differ by more than 8 levels, on edges in the living room, from the focus easing).
 
 ## Traps
 
 - **Reversed depth is required for a near plane of 1e-6.** With a normal depth buffer, 1e-6 to 100 m leaves no precision far away and the depth test breaks. `RENDERER_OPTIONS` sets `reversedDepthBuffer: true`; it is a constructor option, so it cannot be added later. `applyCameraSettings()` warns and keeps the near plane at 1 mm when it is missing.
 - **Do not place the near plane by raycast.** A raycast against the skinned sweater to move the near plane cost 50 ms of CPU per frame. Reversed depth keeps it fixed.
+- **AO inside the lighting is one frame late.** The ambient AO a material reads is the one of the frame before. A moving camera hides it. A still frame (a film) calls `prepare( dist )` then `renderAsync( 2 )`.
 - **Automated browsers get the plain image.** The lens starts off under `navigator.webdriver`, so the quality gate, the films and the benches are unchanged. The demos also turn it off with `?nodof` and in film mode, and on with `?dof`.
 - **Headless or hidden tabs may not run the animation loop.** Drive `kit.update( dt )` by hand. Outside `setAnimationLoop`, three never advances its node frame: call `renderer._nodes.nodeFrame.update()` before each manual render, or the post passes skip every frame after the first.
 - **Skinned bounds.** A skinned mesh's bounding sphere is computed once, in the first pose, and grown by 25 %. A pose that leaves it is missed. Call `mesh.computeBoundingSphere()` after a big change of pose.

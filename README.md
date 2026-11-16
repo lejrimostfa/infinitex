@@ -134,7 +134,7 @@ const line = createWaterline( renderer, scene, camera, { glassZ: 0.4, prepare: (
 
 ## Camera kit
 
-The demos' camera is a library too: `infinitex/camera`. Walk keys, collisions that stop 0.1 mm from any surface (BVH, skinned characters included), a macro lens with depth of field focused on the surface at the screen centre, adaptive resolution and ambient occlusion. Each part can be turned off.
+The demos' camera is a library too: `infinitex/camera`. Walk keys, collisions that stop 0.1 mm from any surface (BVH, skinned characters included), a macro lens with depth of field focused on what the camera aims at, ambient occlusion inside the lighting, sun shadows in cascades that follow the focus, and adaptive resolution. Each part can be turned off.
 
 ```js
 import { createCameraStage, createCameraKit } from 'infinitex/camera';
