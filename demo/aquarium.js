@@ -26,7 +26,7 @@ import { createWaterSurface, daySky } from '../src/core/watersurface.js';
 import { createWaterline } from '../src/core/waterline.js';
 import { WALL_CONTACT } from '../src/core/meniscus.js';
 import { createMirror } from '../src/core/mirror.js';
-import { refraction, refractSurface, refractOff, apparentPoint } from '../src/core/refraction.js';
+import { refraction, refractSurface, refractOff, apparentPoint, refractedVertex } from '../src/core/refraction.js';
 import { createStage } from './scene.js';
 import { createStats } from './stats.js';
 import { createDemoKit } from './camerakit.js';
@@ -87,14 +87,28 @@ const marble = { family: 'stone', mode: 'marble', intent: 'white marble tank wal
 // the finer floor and its displacement cost under 0.2 ms per frame.
 slab( TW, TD, { ...sand, dune: 1, displace: params.has( 'flat' ) ? 0 : 1 }, ( m ) => { m.rotation.x = - Math.PI / 2; }, ( + params.get( 'seg' ) || 5 ) * 1e-3 ); // ?seg=20: the former 2 cm, to compare
 slab( TW, TH, marble, ( m ) => { m.position.set( 0, TH / 2, - TD / 2 ); } );
-// Front: a pane of glass (drawn by the waterline pass, core/waterline.js).
-slab( TD, TH, marble, ( m ) => { m.position.set( - TW / 2, TH / 2, 0 ); m.rotation.y = Math.PI / 2; } );
-slab( TD, TH, marble, ( m ) => { m.position.set( TW / 2, TH / 2, 0 ); m.rotation.y = - Math.PI / 2; } );
+// Front and both sides: panes of glass (drawn by the waterline pass,
+// core/waterline.js). They have no mesh. Seen from inside the water, a
+// pane shows the water's own haze, not the room: a plane of that colour
+// up to the level, facing inwards (so culled from outside, where the
+// eye looks through the glass). The walk and the focus go through it.
+for ( const [ w, x, z, ry ] of [ [ TW, 0, TD / 2, Math.PI ], [ TD, - TW / 2, 0, Math.PI / 2 ], [ TD, TW / 2, 0, - Math.PI / 2 ] ] ) {
+
+	const hm = new THREE.MeshBasicNodeMaterial();
+	hm.colorNode = waterBody.inscatter.mul( 0.55 );
+	hm.vertexNode = refractedVertex();
+	const m = new THREE.Mesh( new THREE.PlaneGeometry( w, LEVEL, Math.ceil( w / 0.02 ), Math.ceil( LEVEL / 0.02 ) ), hm );
+	m.position.set( x, LEVEL / 2, z );
+	m.rotation.y = ry;
+	m.userData.noFocus = true;
+	tank.add( m );
+
+}
 
 // The tank seen from outside: the slabs above face inwards only, so from
-// beside or behind the tank they were culled and the eye fell into the
+// behind the tank the back wall was culled and the eye fell into the
 // void (and the light shafts drew there in blocks). A marble shell gives
-// the three walls and the floor their thickness. It stays 1 mm behind the
+// the back wall and the floor their thickness. It stays 1 mm behind the
 // slabs (no depth fight), and in the scene, not in the tank group: it is
 // dry, and the water's mirrors do not need it.
 {
@@ -110,9 +124,8 @@ slab( TD, TH, marble, ( m ) => { m.position.set( TW / 2, TH / 2, 0 ); m.rotation
 		scene.add( m );
 
 	};
-	for ( const sx of [ - 1, 1 ] ) block( T, TH + T, TD + T, sx * ( TW / 2 + GAP + T / 2 ), ( TH - T ) / 2, - T / 2 ); // sides, down to under the floor
-	block( TW + 2 * GAP, TH + T, T, 0, ( TH - T ) / 2, - TD / 2 - GAP - T / 2 ); // back
-	block( TW + 2 * GAP, T, TD + GAP, 0, - GAP - T / 2, - GAP / 2 ); // under the sand
+	block( TW, TH + T, T, 0, ( TH - T ) / 2, - TD / 2 - GAP - T / 2 ); // back, down to under the floor
+	block( TW, T, TD + GAP, 0, - GAP - T / 2, - GAP / 2 ); // under the sand
 
 }
 
@@ -176,24 +189,24 @@ function view( name ) {
 // (core/meniscus.js): 2.9 mm up the glass; ?wall=ptfe or coatedGlass for
 // a pane the water does not wet, the edge dips and rolls over (convex).
 const wall = WALL_CONTACT[ params.get( 'wall' ) ] ?? WALL_CONTACT.glass;
-const glassLine = createWaterline( renderer, scene, camera, { glassZ: TD / 2, xMin: - TW / 2, xMax: TW / 2, yMin: 0, yMax: TH, contactDeg: wall, prepare } );
+const glassLine = createWaterline( renderer, scene, camera, { panes: [ { axis: 'z', at: TD / 2, min: - TW / 2, max: TW / 2, out: 1 }, { axis: 'x', at: - TW / 2, min: - TD / 2, max: TD / 2, out: - 1 }, { axis: 'x', at: TW / 2, min: - TD / 2, max: TD / 2, out: 1 } ], yMin: 0, yMax: TH, contactDeg: wall, prepare } );
 // The port's film is thinner and flatter than the meniscus on a pane.
 const lensLine = createWaterline( renderer, scene, camera, { lens: true, meniscus: 0.0008, power: 2.5, prepare } );
 addEventListener( 'resize', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );
-// Which pass: in front of the glass, the pane split; over or in the tank,
-// the camera port (it may cross the surface); anywhere else outside (beside
-// or behind the tank) a plain render. The port there drew its waterline,
+// Which pass: in front of a pane (the front or a side), the pane split;
+// over or in the tank, the camera port (it may cross the surface); behind
+// the back wall a plain render. The port there drew its waterline,
 // 3 cm from the eye, across the whole frame, far from any water.
 function draw() {
 
 	const p = camera.position;
 	// ?nofx: the frame as before, no AO and no depth of field.
-	if ( p.z > TD / 2 ) { if ( fx ) kit.render( glassLine.compose() ); else glassLine.render(); }
+	if ( p.z > TD / 2 || Math.abs( p.x ) > TW / 2 ) { if ( fx ) kit.render( glassLine.compose() ); else glassLine.render(); }
 	else if ( Math.abs( p.x ) < TW / 2 && Math.abs( p.z ) < TD / 2 ) { if ( fx ) kit.render( lensLine.compose() ); else lensLine.render(); }
 	else {
 
-		// Above the water, it is seen through the surface; beside the
-		// tank below the rim, only the marble walls are seen.
+		// Behind the wall: above the water, it is seen through the surface;
+		// below the rim, only the marble wall is seen.
 		if ( p.y > LEVEL ) refractSurface( p, LEVEL ); else refractOff();
 		prepare( camera );
 		renderer.setRenderTarget( null );

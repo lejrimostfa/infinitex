@@ -53,6 +53,7 @@ function perV( x, s ) {
 export function wettingFilm( c ) {
 
 	const { s, G, hit, waterY, wf, tt, rtB, h, power } = c;
+	const sampleB = c.sampleB ?? ( ( q ) => texture( rtB.texture, q ).rgb ); // the water pass; a pane with two of them gives its own
 	// Height over the line, in meniscus heights: < 0 under water, 0..1
 	// the film, > 1 dry glass.
 	const m = G.y.sub( waterY ).div( h );
@@ -66,7 +67,7 @@ export function wettingFilm( c ) {
 		const mm = m.clamp( 0, 1 );
 		const F = float( power ).mul( mm.mul( 2 ).add( 1 ) ).mul( nz.mul( 0.5 ).add( 0.75 ).add( wf.slope.y.mul( 2 ) ) );
 		const sM = vec2( s.x.add( wf.slope.x.mul( 0.01 ) ), s.y.add( mm.mul( F ).negate().sub( m ).div( perV( m, s ) ) ) ).clamp( 0.001, 0.999 );
-		const film = texture( rtB.texture, sM ).rgb.mul( 1.15 ).add( vec3( 0.04, 0.06, 0.06 ) );
+		const film = sampleB( sM ).mul( 1.15 ).add( vec3( 0.04, 0.06, 0.06 ) );
 		col = mix( col, film, smoothstep( - 0.02, 0.08, m ).mul( smoothstep( 1.0, 0.9, m ) ).mul( hit ) );
 		// A bright rim at the top, where the surface turns vertical and lets
 		// the sky in; a dark hairline at the foot, where the curvature flips.
@@ -86,6 +87,7 @@ export function wettingFilm( c ) {
 export function dippingBead( c ) {
 
 	const { s, G, dir, hit, waterY, rtA, rtB, h, lc, wallN, viewProj, reach } = c;
+	const sampleB = c.sampleB ?? ( ( q ) => texture( rtB.texture, q ).rgb );
 	// Depth under the still level, in dip depths: 0 the level, 1 the
 	// contact line on the pane, > 1 under water.
 	const k = waterY.sub( G.y ).div( h );
@@ -106,7 +108,7 @@ export function dippingBead( c ) {
 		const refl = texture( rtA.texture, vec2( q.x.mul( 0.5 ).add( 0.5 ), q.y.mul( - 0.5 ).add( 0.5 ) ).clamp( 0.001, 0.999 ) ).rgb;
 		// Refracted: bent down into the water, the water just under the line.
 		const sR = vec2( s.x, s.y.add( float( 1.25 ).sub( k ).div( perV( k, s ) ) ) ).clamp( 0.001, 0.999 );
-		const refr = texture( rtB.texture, sR ).rgb.mul( 0.9 );
+		const refr = sampleB( sR ).mul( 0.9 );
 		const cosI = dir.dot( n ).abs();
 		const Fr = float( 0.02 ).add( float( 0.98 ).mul( float( 1 ).sub( cosI ).pow( 5 ) ) );
 		const bead = mix( refr, refl, Fr );

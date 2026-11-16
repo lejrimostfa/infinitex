@@ -4,6 +4,12 @@
 // pixel takes one or the other by where its ray crosses the glass.
 //   glass     a vertical pane z = glassZ (world), x and y bounds; rays
 //             that miss it see the air pass (over the rim of the tank)
+//   panes     or several panes of one tank: [ { axis: 'x' | 'z', at,
+//             min, max (along the other axis), out: 1 | -1 (the side of
+//             the air) } ]. The eye sees two of them at most (a corner):
+//             each gets its own water pass, bent at its own plane, and
+//             a pixel takes the pane its ray enters first. One pane in
+//             view costs what it did; a corner costs one more pass.
 //   lens      a port lensD in front of the camera (lens: true): every
 //             ray crosses it, so the frame splits along the waterline
 //   level     the still level plus the ripples at that point, so the
@@ -35,13 +41,17 @@ export { WALL_CONTACT, meniscusHeight } from './meniscus.js';
 // meniscus: signed height (m), > 0 climbs, < 0 dips; by default from
 // tension and contactDeg (the wall, core/meniscus.js). reach: how far
 // the scene mirrored by a dipping edge lies (m).
-export function createWaterline( renderer, scene, camera, { lens = false, glassZ = 0, xMin = - 1, xMax = 1, yMin = 0, yMax = 1, lensD = 0.03, tension = 0.072, contactDeg = WALL_CONTACT.glass, meniscus = meniscusHeight( { tension, contactDeg } ), reach = 0.5, boost = 1, power = 5, prepare = null } = {}, W = waterBody ) {
+export function createWaterline( renderer, scene, camera, { lens = false, glassZ = 0, xMin = - 1, xMax = 1, panes = [ { axis: 'z', at: glassZ, min: xMin, max: xMax, out: 0 } ], yMin = 0, yMax = 1, lensD = 0.03, tension = 0.072, contactDeg = WALL_CONTACT.glass, meniscus = meniscusHeight( { tension, contactDeg } ), reach = 0.5, boost = 1, power = 5, prepare = null } = {}, W = waterBody ) {
 
 	const size = renderer.getDrawingBufferSize( new Vector2() );
 	const opts = { type: HalfFloatType };
-	const fwd = new Vector3(), port = new Vector3(), paneN = new Vector3(), paneP = new Vector3();
+	const fwd = new Vector3(), port = new Vector3(), paneP = new Vector3();
 	const target = () => new RenderTarget( size.x, size.y, { ...opts, depthTexture: new DepthTexture( size.x, size.y ) } );
 	const rtA = target(), rtB = target(), rtC = target();
+	const rtB2 = ! lens && panes.length > 1 ? target() : null; // the second pane of a corner
+	// The two panes in view: normal toward the eye, n . P on the plane, the
+	// axis along the pane and its bounds, and whether the slot is in use.
+	const slot = [ 0, 1 ].map( () => ( { n: uniform( new Vector3( 0, 0, 1 ) ), at: uniform( 0 ), along: uniform( new Vector3( 1, 0, 0 ) ), min: uniform( - 1 ), max: uniform( 1 ), on: uniform( 0 ) } ) );
 	const aspect = uniform( size.x / size.y );
 	const projInv = uniform( new Matrix4() ), camWorld = uniform( new Matrix4() ), camPos = uniform( new Vector3() ), viewProj = uniform( new Matrix4() );
 
@@ -51,7 +61,7 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 	const vp = projInv.mul( ndc );
 	const dir = camWorld.mul( vec4( vp.xyz.div( vp.w ), 0 ) ).xyz.normalize();
 	// Where it crosses the interface.
-	let G, hit;
+	let G, hit, second = float( 0 ), paneN = vec3( 0, 0, 1 );
 	if ( lens ) {
 
 		G = camPos.add( dir.mul( lensD ) );
@@ -59,11 +69,25 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 
 	} else {
 
-		const t = float( glassZ ).sub( camPos.z ).div( dir.z );
-		G = camPos.add( dir.mul( t.max( 0 ) ) );
-		hit = step( 0, t ).mul( step( xMin, G.x ) ).mul( step( G.x, xMax ) ).mul( step( yMin, G.y ) ).mul( step( G.y, yMax ) );
+		const cross = ( p ) => {
+
+			const t = p.at.sub( p.n.dot( camPos ) ).div( p.n.dot( dir ) );
+			const g = camPos.add( dir.mul( t.max( 0 ) ) ), u = p.along.dot( g );
+			return { t, g, hit: p.on.mul( step( 0, t ) ).mul( step( p.min, u ) ).mul( step( u, p.max ) ).mul( step( yMin, g.y ) ).mul( step( g.y, yMax ) ) };
+
+		};
+		const c0 = cross( slot[ 0 ] ), c1 = cross( slot[ 1 ] );
+		// A ray may cross both rectangles (in by one pane, out by the
+		// other): the nearer one is the pane it looks through.
+		second = c1.hit.mul( float( 1 ).sub( c0.hit.mul( step( c0.t, c1.t ) ) ) );
+		G = mix( c0.g, c1.g, second );
+		hit = c0.hit.max( c1.hit );
+		paneN = mix( slot[ 0 ].n, slot[ 1 ].n, second );
 
 	}
+
+	// The water pass of the pane the pixel looks through.
+	const sampleB = ( q ) => rtB2 ? mix( texture( rtB.texture, q ).rgb, texture( rtB2.texture, q ).rgb, second ) : texture( rtB.texture, q ).rgb;
 
 	const tt = ixTime.mul( W.speed );
 	// The same sea as the surface mesh, so the line meets its edge.
@@ -72,16 +96,16 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 	// The meniscus (core/meniscus.js): a film climbing the pane, or a
 	// convex edge dipping at it. Off the pane, the eye's side.
 	const h = Math.max( Math.abs( meniscus ), 1e-5 );
-	const wallN = lens ? camWorld.mul( vec4( 0, 0, 1, 0 ) ).xyz.normalize() : vec3( 0, 0, sign( camPos.z.sub( glassZ ) ) );
+	const wallN = lens ? camWorld.mul( vec4( 0, 0, 1, 0 ) ).xyz.normalize() : paneN;
 	const men = meniscus >= 0
-		? wettingFilm( { s, G, hit, waterY, wf, tt, rtB, h, power } )
-		: dippingBead( { s, G, dir, hit, waterY, rtA, rtB, h, lc: capillaryLength( tension ), wallN, viewProj, reach } );
+		? wettingFilm( { s, G, hit, waterY, wf, tt, rtB, sampleB, h, power } )
+		: dippingBead( { s, G, dir, hit, waterY, rtA, rtB, sampleB, h, lc: capillaryLength( tension ), wallN, viewProj, reach } );
 	const under = men.under.add( float( 1 ).sub( hit ).mul( step( camPos.y, W.level ) ) );
 	const A = texture( rtA.texture, s ).rgb;
 	// A camera port: the water side is seen by an eye in the water
 	// (core/underlens.js: sway, softness, suspended specks, vignette).
 	// Through an aquarium pane the eye is in the air: the plain pass.
-	const B = lens ? underwaterLens( rtB.texture, s, ixTime, { amount: W.lens, tint: W.inscatter, aspect } ) : texture( rtB.texture, s ).rgb;
+	const B = lens ? underwaterLens( rtB.texture, s, ixTime, { amount: W.lens, tint: W.inscatter, aspect } ) : sampleB( s );
 	let col = men.shade( mix( A, B, under ) );
 	// The glass itself: a faint green tint and a few percent of reflection.
 	col = mix( col, col.mul( vec3( 0.93, 0.98, 0.96 ) ), hit.mul( lens ? 0 : 1 ) );
@@ -92,13 +116,13 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 	// The same picture with its depth, for compose().
 	const matC = new NodeMaterial();
 	matC.fragmentNode = vec4( col, 1 );
-	matC.depthNode = mix( texture( rtA.depthTexture, s ).r, texture( rtB.depthTexture, s ).r, under.clamp( 0, 1 ) );
+	matC.depthNode = mix( texture( rtA.depthTexture, s ).r, rtB2 ? mix( texture( rtB.depthTexture, s ).r, texture( rtB2.depthTexture, s ).r, second ) : texture( rtB.depthTexture, s ).r, under.clamp( 0, 1 ) );
 	matC.depthFunc = AlwaysDepth;
 	const quadC = new QuadMesh( matC );
 
 	return {
 		rtA, rtB, rtC,
-		setSize( w, h ) { rtA.setSize( w, h ); rtB.setSize( w, h ); rtC.setSize( w, h ); aspect.value = w / h; },
+		setSize( w, h ) { rtA.setSize( w, h ); rtB.setSize( w, h ); rtB2?.setSize( w, h ); rtC.setSize( w, h ); aspect.value = w / h; },
 		render() { this.passes(); renderer.setRenderTarget( null ); quad.render( renderer ); },
 		// Colour and depth into rtC, linear (no tone mapping).
 		compose() { this.passes(); renderer.setRenderTarget( rtC ); quadC.render( renderer ); renderer.setRenderTarget( null ); return rtC; },
@@ -135,8 +159,29 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 				camera.getWorldDirection( fwd );
 				refractPlane( camera.position, port.copy( camera.position ).addScaledVector( fwd, lensD ), fwd.negate() );
 
-			} else refractPlane( camera.position, paneP.set( 0, 0, glassZ ), paneN.set( 0, 0, Math.sign( camera.position.z - glassZ ) || 1 ) );
-			renderer.setRenderTarget( rtB ); renderer.render( scene, camera );
+				renderer.setRenderTarget( rtB ); renderer.render( scene, camera );
+
+			} else {
+
+				// The panes whose air side holds the eye, two at most. None
+				// (the eye behind its only pane): that pane, from its side.
+				let seen = panes.filter( ( p ) => p.out && ( camera.position[ p.axis ] - p.at ) * p.out > 0 ).slice( 0, rtB2 ? 2 : 1 );
+				if ( ! seen.length ) seen = [ panes[ 0 ] ];
+				slot.forEach( ( u, i ) => {
+
+					const p = seen[ i ];
+					u.on.value = p ? 1 : 0;
+					if ( ! p ) return;
+					const sg = p.out || Math.sign( camera.position[ p.axis ] - p.at ) || 1;
+					if ( p.axis === 'z' ) { u.n.value.set( 0, 0, sg ); u.along.value.set( 1, 0, 0 ); paneP.set( 0, 0, p.at ); } else { u.n.value.set( sg, 0, 0 ); u.along.value.set( 0, 0, 1 ); paneP.set( p.at, 0, 0 ); }
+					u.at.value = sg * p.at; u.min.value = p.min; u.max.value = p.max;
+					refractPlane( camera.position, paneP, u.n.value );
+					renderer.setRenderTarget( i ? rtB2 : rtB ); renderer.render( scene, camera );
+
+				} );
+
+			}
+
 			refractOff();
 			camera.position.y = y; camera.updateMatrixWorld();
 			W.eyeUnder.value = prev;
