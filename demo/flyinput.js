@@ -2,8 +2,8 @@
 //   keys    read by physical key, so AZERTY and QWERTY both work:
 //             Space / C          up, down
 //             Z / S (W / S)      nose down, nose up
-//             Q / D (A / D)      turn left, right
-//             arrows             forward, back, sideways left, right
+//             Q / D (A / D)      sideways left, right
+//             arrows             forward, back, turn left, right
 //             Shift              slower
 //           The toggle key (V) boards or leaves.
 //   touch   input.touch: { throttle, strafe, lift, turn, nose, slow },
@@ -15,8 +15,8 @@
 // toggle() on the toggle key.
 
 const KEYS = {
-	up: [ 'Space' ], down: [ 'KeyC' ], noseDown: [ 'KeyW' ], noseUp: [ 'KeyS' ], left: [ 'KeyA' ], right: [ 'KeyD' ],
-	fwd: [ 'ArrowUp' ], back: [ 'ArrowDown' ], strafeL: [ 'ArrowLeft' ], strafeR: [ 'ArrowRight' ], slow: [ 'ShiftLeft', 'ShiftRight' ],
+	up: [ 'Space' ], down: [ 'KeyC' ], noseDown: [ 'KeyW' ], noseUp: [ 'KeyS' ], left: [ 'ArrowLeft' ], right: [ 'ArrowRight' ],
+	fwd: [ 'ArrowUp' ], back: [ 'ArrowDown' ], strafeL: [ 'KeyA' ], strafeR: [ 'KeyD' ], slow: [ 'ShiftLeft', 'ShiftRight' ],
 };
 const FLIGHT_KEYS = new Set( Object.values( KEYS ).flat() );
 const clamp = ( x ) => Math.max( - 1, Math.min( 1, x ) );

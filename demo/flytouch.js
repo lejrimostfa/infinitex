@@ -1,9 +1,9 @@
 // Touch controls of the flyer (flyer.js), shown on touch screens while a
 // vehicle is flown (body.flying; ?touch forces them on a desktop). They
 // follow the keys (flyinput.js):
-//   left stick    the arrows: forward, back, sideways
+//   left stick    the arrows: forward, back, turn
 //   right stick   Z / S / Q / D: up on the stick dips the nose (Z), down
-//                 raises it (S), left and right turn
+//                 raises it (S), left and right move sideways
 //   buttons       above the right stick: up (Space) and down (C); above
 //                 the left one: slow (Shift), all held
 //   look          a drag anywhere else on the scene looks around (chase.js)
@@ -40,8 +40,8 @@ export function addFlyTouch( flyer ) {
 
 	const pad = document.createElement( 'div' );
 	pad.id = 'ix-pad';
-	pad.innerHTML = '<div class="stick l"><small>move</small><div class="knob"></div></div>'
-		+ '<div class="stick r"><small>nose, turn</small><div class="knob"></div></div>'
+	pad.innerHTML = '<div class="stick l"><small>move, turn</small><div class="knob"></div></div>'
+		+ '<div class="stick r"><small>nose, side</small><div class="knob"></div></div>'
 		+ '<div class="btn up">▲</div><div class="btn down">▼</div><div class="btn slow">slow</div>';
 	document.body.appendChild( pad );
 
@@ -72,8 +72,8 @@ export function addFlyTouch( flyer ) {
 
 	}
 
-	stick( pad.querySelector( '.stick.l' ), ( x, y ) => { touch.strafe = x; touch.throttle = y; } );
-	stick( pad.querySelector( '.stick.r' ), ( x, y ) => { touch.turn = - x; touch.nose = - y; } ); // up dips the nose, as Z
+	stick( pad.querySelector( '.stick.l' ), ( x, y ) => { touch.turn = - x; touch.throttle = y; } );
+	stick( pad.querySelector( '.stick.r' ), ( x, y ) => { touch.strafe = x; touch.nose = - y; } ); // up dips the nose, as Z
 
 	// Held buttons.
 	const hold = ( cls, set ) => {

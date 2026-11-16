@@ -40,8 +40,8 @@ export function addFlyHud( flyer, { label = 'the vehicle', key = 'V', fly = 'Fly
 	const name = { KeyW: 'W', KeyA: 'A' };
 	const fill = () => {
 
-		hint.innerHTML = touch ? `<b>Left</b> move &nbsp; <b>Right</b> nose, turn &nbsp; <b>▲ ▼</b> up, down<br>Drag the scene to look around`
-			: `<b>Space C</b> up, down &nbsp; <b>${ name.KeyW } S</b> nose down, up &nbsp; <b>${ name.KeyA } D</b> turn &nbsp; <b>arrows</b> move &nbsp; <b>Shift</b> slower<br>`
+		hint.innerHTML = touch ? `<b>Left</b> move, turn &nbsp; <b>Right</b> nose, sideways &nbsp; <b>▲ ▼</b> up, down<br>Drag the scene to look around`
+			: `<b>Space C</b> up, down &nbsp; <b>${ name.KeyW } S</b> nose down, up &nbsp; <b>${ name.KeyA } D</b> sideways &nbsp; <b>arrows</b> move, turn &nbsp; <b>Shift</b> slower<br>`
 				+ `Drag to look around, scroll for the distance, <b>${ key }</b> to ${ land.toLowerCase() }`;
 
 	};

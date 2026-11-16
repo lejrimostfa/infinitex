@@ -2,8 +2,8 @@
 // the Knit page, the toy helicopter of All matters, more to come.
 // One controller, tuned per vehicle (FLYER_DEFAULTS):
 //   keys      (flyinput.js, with touch from flytouch.js) Space / C up and
-//             down, Z / S nose down and up, Q / D turn, arrows forward,
-//             back and sideways, Shift slower, V boards or leaves. The nose
+//             down, Z / S nose down and up, Q / D sideways, arrows
+//             forward, back and turn, Shift slower, V boards or leaves. The nose
 //             keeps its angle when the key is released.
 //   hover     no move key: the speed eases to zero and the vehicle hangs
 //             in place (a mosquito, a bee, a helicopter all can)
