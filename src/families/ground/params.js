@@ -29,6 +29,7 @@ export const GROUND_DEFAULTS = {
 	relief: 1, // height of the elements
 	ripple_mm: 70, // sand: ripple wavelength; snow: drift size
 	ripple: 0.6, // sand: ripple height; snow: drift height
+	dune: 0, // sand: low mounds 4 ripples wide, for a displaced floor (read when the material is built)
 	stones: 0.3, // soil: stones; gravel: sand in the gaps
 	roots: 0.4, // soil: root fibres; dust: lint fibres
 	specks: 0.5, // dark organic specks (soil), dark minerals (sand)
@@ -51,6 +52,7 @@ export const GROUND_SLIDERS = [
 	[ 'relief', 0, 2, 0.01 ],
 	[ 'ripple_mm', 5, 300, 1 ],
 	[ 'ripple', 0, 2, 0.01 ],
+	[ 'dune', 0, 2, 0.01 ],
 	[ 'stones', 0, 1, 0.01 ],
 	[ 'roots', 0, 1, 0.01 ],
 	[ 'specks', 0, 1, 0.01 ],
@@ -74,7 +76,7 @@ export function createGroundUniforms() {
 		mode: 'sand', // read when the graph is built
 		seed: uniform( 1 ), grainM: uniform( 3.5e-4 ), sizeVar: uniform( 0.5 ),
 		color: c(), color2: c(), color3: c(), relief: uniform( 1 ),
-		rippleM: uniform( 0.07 ), ripple: uniform( 0.6 ), stones: uniform( 0.3 ), roots: uniform( 0.4 ), specks: uniform( 0.5 ),
+		rippleM: uniform( 0.07 ), ripple: uniform( 0.6 ), dune: uniform( 0 ), stones: uniform( 0.3 ), roots: uniform( 0.4 ), specks: uniform( 0.5 ),
 		crackM: uniform( 3e-3 ), curl: uniform( 0.6 ), wet: uniform( 0.5 ), sparkle: uniform( 0.5 ),
 		bubbles: uniform( 0.5 ), cracks: uniform( 0.4 ), scratches: uniform( 0.5 ), cover: uniform( 0.6 ), cubic: uniform( 1 ),
 		roughness: uniform( 0.8 ),
@@ -87,7 +89,7 @@ export function applyGroundPreset( u, preset ) {
 
 	const p = { ...GROUND_DEFAULTS, ...preset };
 	u.mode = p.mode;
-	const set = { seed: p.seed, sizeVar: p.size_variation, relief: p.relief, ripple: p.ripple, stones: p.stones, roots: p.roots,
+	const set = { seed: p.seed, sizeVar: p.size_variation, relief: p.relief, ripple: p.ripple, dune: p.dune, stones: p.stones, roots: p.roots,
 		specks: p.specks, curl: p.curl, wet: p.wet, sparkle: p.sparkle, bubbles: p.bubbles, cracks: p.cracks,
 		scratches: p.scratches, cover: p.cover, cubic: p.cubic, roughness: p.roughness };
 	for ( const k in set ) u[ k ].value = set[ k ];

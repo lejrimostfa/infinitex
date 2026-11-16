@@ -9,7 +9,7 @@
 import { uv, float, normalView, tangentView, bitangentView } from 'three/tsl';
 import { footprint, composeRoughness, specularAA, perturbNormal } from '../../core/lod.js';
 import { applySurface } from '../../core/surface.js';
-import { buildSand } from './sand.js';
+import { buildSand, sandHeight } from './sand.js';
 import { buildGravel } from './gravel.js';
 import { buildSoil } from './soil.js';
 import { buildMud } from './mud.js';
@@ -26,6 +26,15 @@ const MODES = {
 
 // How much each matter drinks water (surface.js wetness).
 const POROSITY = { sand: 0.9, gravel: 0.6, soil: 1, mud: 0.8, snow: 0.3, frost: 0.2, ice: 0, crystals: 0.4, dust: 0.9 };
+
+// The relief large enough to move vertices (preset.displace), as a height
+// in meters along the normal, or null when the mode has none. Sand: its
+// wind ripples (a few millimetres). The other modes are not done.
+export function groundDisplace( u, p ) {
+
+	return u.mode === 'sand' ? sandHeight( p, u ) : null;
+
+}
 
 export function buildGroundNodes( u, opts = {} ) {
 

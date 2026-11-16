@@ -37,6 +37,37 @@ export function ripples( p, u ) {
 
 }
 
+// The ripples as a height, in meters above the troughs: the profile times
+// its amplitude and period. Its derivative along p.y is the slope above,
+// so a mesh displaced by it (preset.displace) and the normals agree.
+// No screen derivative inside: it runs in the vertex stage.
+export function sandHeight( p, u ) {
+
+	const R = ripples( p, u );
+	const h = R.prof.mul( R.amp ).mul( u.rippleM );
+	return u.dune.value > 0 ? h.add( dunes( p, u ) ) : h;
+
+}
+
+// Low mounds, four ripples wide and up to a third of a ripple period high
+// at dune = 1: what a current leaves on a pool floor. A height in meters.
+// Off by default (dune = 0, read when the material is built).
+export function dunes( p, u ) {
+
+	const L = u.rippleM.mul( 4 );
+	return fbm( p.div( L ).add( u.seed.add( 17.3 ) ), 3 ).mul( u.dune ).mul( L ).mul( 0.09 );
+
+}
+
+// Their slope, by differences a twentieth of a mound apart.
+function duneSlope( p, u ) {
+
+	const e = u.rippleM.mul( 0.2 );
+	const h = dunes( p, u );
+	return vec2( dunes( p.add( vec2( e, 0 ) ), u ).sub( h ), dunes( p.add( vec2( 0, e ) ), u ).sub( h ) ).div( e );
+
+}
+
 // L2 facets: conchoidal facets on each grain, the polished ones glint.
 // Fade: period 0.25 g, from 2 px. fq: the facet cells' coordinates, taken
 // before the branches (computed inside one, they round differently and
@@ -118,7 +149,7 @@ export function buildSand( p, fp, u ) {
 
 	const g = u.grainM, s = u.seed;
 	const R = ripples( p, u );
-	const trough = R.trough.toVar(), rippleSlope = R.slope.toVar();
+	const trough = R.trough.toVar(), rippleSlope = ( u.dune.value > 0 ? R.slope.add( duneSlope( p, u ) ) : R.slope ).toVar();
 	// Damp patches and drifts of colour over a few cm.
 	const patch = fbm( p.div( 0.05 ).add( s.mul( 3 ) ), 3 );
 	const damp = smoothstep( 0.5, 0.8, patch ).mul( 0.3 );

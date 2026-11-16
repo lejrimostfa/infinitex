@@ -61,12 +61,12 @@ const tank = new THREE.ClippingGroup();
 scene.add( tank );
 
 // A plane with UVs in metres, facing +z before it is placed.
-function slab( w, h, preset, place ) {
+function slab( w, h, preset, place, seg = 0.02 ) {
 
 	// 2 cm segments: refraction moves vertices (core/refraction.js). A line
 	// seen through a flat interface bends gently; 1 cm gave 4 times the
 	// triangles for no visible gain.
-	const g = new THREE.PlaneGeometry( w, h, Math.ceil( w / 0.02 ), Math.ceil( h / 0.02 ) );
+	const g = new THREE.PlaneGeometry( w, h, Math.ceil( w / seg ), Math.ceil( h / seg ) );
 	g.computeTangents();
 	const ix = createMaterial( { ...preset, underwater: 1 }, { coords: uv().mul( vec2( w, h ) ) } );
 	const m = new THREE.Mesh( g, ix.material );
@@ -78,7 +78,11 @@ function slab( w, h, preset, place ) {
 
 const sand = { family: 'ground', mode: 'sand', grain_mm: 0.35, color: '#d6bd92', color2: '#b8804f', color3: '#2b2622', ripple_mm: 90, ripple: 0.5, specks: 0.4, sparkle: 0.5, roughness: 0.8, seed: 2 };
 const marble = { family: 'stone', mode: 'marble', intent: 'white marble tank wall', color: '#d9d6cf', color2: '#8c8c88', roughness: 0.35, seed: 4 };
-slab( TW, TD, sand, ( m ) => { m.rotation.x = - Math.PI / 2; } );
+// The floor: the sand's ripples and low mounds move its vertices
+// (preset.displace; ?flat keeps the plane, same normals), so
+// it gets 5 mm segments: the lee side of a ripple is 2 cm wide. Measured:
+// the finer floor and its displacement cost under 0.2 ms per frame.
+slab( TW, TD, { ...sand, dune: 1, displace: params.has( 'flat' ) ? 0 : 1 }, ( m ) => { m.rotation.x = - Math.PI / 2; }, ( + params.get( 'seg' ) || 5 ) * 1e-3 ); // ?seg=20: the former 2 cm, to compare
 slab( TW, TH, marble, ( m ) => { m.position.set( 0, TH / 2, - TD / 2 ); } );
 // Front: a pane of glass (drawn by the waterline pass, core/waterline.js).
 slab( TD, TH, marble, ( m ) => { m.position.set( - TW / 2, TH / 2, 0 ); m.rotation.y = Math.PI / 2; } );

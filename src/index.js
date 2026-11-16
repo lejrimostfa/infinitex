@@ -13,7 +13,7 @@
 // UI code listens to these events and never reads the uniforms directly.
 
 import { MeshPhysicalNodeMaterial, MeshSSSNodeMaterial, Mesh, SkinnedMesh, FrontSide } from 'three/webgpu';
-import { float, uv, mix } from 'three/tsl';
+import { float, uv, mix, positionLocal, normalLocal } from 'three/tsl';
 import { createStitchColor } from './core/colormap.js';
 import { createKnitUniforms, applyKnitPreset, KNIT_DEFAULTS, KNIT_SLIDERS } from './families/knit/params.js';
 import { createLeatherUniforms, applyLeatherPreset, LEATHER_DEFAULTS, LEATHER_SLIDERS } from './families/leather/params.js';
@@ -43,7 +43,7 @@ import { buildPlasticNodes } from './families/plastic/shader.js';
 import { createStoneUniforms, applyStonePreset, STONE_DEFAULTS, STONE_SLIDERS } from './families/stone/params.js';
 import { buildStoneNodes, stoneMaterialKind } from './families/stone/shader.js';
 import { createGroundUniforms, applyGroundPreset, GROUND_DEFAULTS, GROUND_SLIDERS } from './families/ground/params.js';
-import { buildGroundNodes } from './families/ground/shader.js';
+import { buildGroundNodes, groundDisplace } from './families/ground/shader.js';
 import { createPileUniforms, applyPilePreset, PILE_DEFAULTS, PILE_SLIDERS } from './families/pile/params.js';
 import { buildPileNodes } from './families/pile/shader.js';
 import { createOrganicUniforms, applyOrganicPreset, ORGANIC_DEFAULTS, ORGANIC_SLIDERS, organicHairSpec } from './families/organic/params.js';
@@ -96,7 +96,7 @@ const FAMILIES = {
 	ceramic: { defaults: CERAMIC_DEFAULTS, uniforms: createCeramicUniforms, apply: applyCeramicPreset, build: buildCeramicNodes, sliders: CERAMIC_SLIDERS },
 	plastic: { defaults: PLASTIC_DEFAULTS, uniforms: createPlasticUniforms, apply: applyPlasticPreset, build: buildPlasticNodes, sliders: PLASTIC_SLIDERS },
 	stone: { defaults: STONE_DEFAULTS, uniforms: createStoneUniforms, apply: applyStonePreset, build: buildStoneNodes, sliders: STONE_SLIDERS, material: stoneMaterialKind },
-	ground: { defaults: GROUND_DEFAULTS, uniforms: createGroundUniforms, apply: applyGroundPreset, build: buildGroundNodes, sliders: GROUND_SLIDERS },
+	ground: { defaults: GROUND_DEFAULTS, uniforms: createGroundUniforms, apply: applyGroundPreset, build: buildGroundNodes, displace: groundDisplace, sliders: GROUND_SLIDERS },
 	organic: { defaults: ORGANIC_DEFAULTS, uniforms: createOrganicUniforms, apply: applyOrganicPreset, build: buildOrganicNodes, hair: organicHairSpec, sliders: ORGANIC_SLIDERS, material: organicMaterialKind },
 	leather: { defaults: LEATHER_DEFAULTS, uniforms: createLeatherUniforms, apply: applyLeatherPreset, build: buildLeatherNodes, sliders: LEATHER_SLIDERS },
 	decor: { defaults: DECOR_DEFAULTS, uniforms: createDecorUniforms, apply: applyDecorPreset, build: buildDecorNodes, sliders: DECOR_SLIDERS },
@@ -184,6 +184,18 @@ export class InfinitexMaterial extends EventTarget {
 		const kind = typeof impl.material === 'function' ? impl.material( this.uniforms ) : impl.material;
 		this.material = kind === 'sss' ? new MeshSSSNodeMaterial() : new MeshPhysicalNodeMaterial();
 		Object.assign( this.material, nodes );
+		// preset.displace: the family's large relief moves the vertices along
+		// the normal (impl.displace, a height in meters; ground sand so far).
+		// Real silhouettes, real depth for shadows, AO and depth of field. The
+		// normals already carry the same slope, so the gain should stay 1. The
+		// mesh needs a few vertices per bump.
+		if ( preset.displace && impl.displace ) {
+
+			const h = impl.displace( this.uniforms, coords ?? uv() );
+			if ( h ) this.material.positionNode = positionLocal.add( normalLocal.mul( h.mul( preset.displace === true ? 1 : preset.displace ) ) );
+
+		}
+
 		addMicroShadow( this.material ); // pores and cracks shadow the key light (core/microshadow.js)
 		addSlopeLight( this.material, slopeLight ); // faded slopes get the light of their normals (core/slopelight.js)
 
