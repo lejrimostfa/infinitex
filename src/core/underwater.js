@@ -36,6 +36,7 @@ export const waterBody = {
 	turbidity: uniform( 0.12 ), // scattering, 1/m, all colours
 	inscatter: uniform( new Color( '#2a8f96' ) ), // colour of the light the water scatters
 	caustics: uniform( 1 ),
+	shafts: uniform( 1 ), // strength of the light shafts (core/shafts.js), 0 for none
 	lens: uniform( 1 ), // the eye's own share under water (core/underlens.js): sway, softness, specks, vignette; 0 for a still, crisp picture
 	eyeUnder: uniform( - 1 ), // -1: from the camera height; 0 or 1: forced (split shots at the waterline)
 	depthScale: uniform( 10 ), // the demo's cubes stand for a scene 10 times larger

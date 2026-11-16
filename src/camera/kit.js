@@ -18,7 +18,8 @@
 //               (shadows.js)
 //   target      for a page that draws its own frame into a target with a
 //               depth texture (the aquarium's waterline): AO and depth of
-//               field on that target (targetpost.js), render( rt )
+//               field on that target (targetpost.js), render( rt ).
+//               shafts: light added there before the blur (src/core/shafts.js)
 //
 // The subject distance (the eased focus distance, or the orbit distance
 // without a lens) sets the AO radius and the shadow cascades.
@@ -46,7 +47,7 @@ export const KIT_DEFAULTS = Object.freeze( {
 	dof: true, lensKey: 'KeyF', maxFocus: 30, focusArea: true,
 	adaptive: true, ao: true, aoLit: true,
 	shadows: true, sun: null, shadowFar: 40,
-	target: null,
+	target: null, shafts: null,
 } );
 
 // Whether the lens (macro and depth of field) starts on. Automated browsers
@@ -73,7 +74,7 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 	// Always built, so a page can read max or hold it; it only acts when enabled.
 	const adaptive = createAdaptiveResolution( renderer, { enabled: !! o.adaptive } );
 	const dofLens = o.dof ? lens : null;
-	const post = o.target ? createTargetPost( renderer, camera, o.target, { lens: dofLens } )
+	const post = o.target ? createTargetPost( renderer, camera, o.target, { lens: dofLens, shafts: o.shafts } )
 		: o.ao ? createPost( renderer, scene, camera, { lens: dofLens, lit: o.aoLit } ) : null;
 	const dofOnly = ! post && o.dof ? createDofPipeline( renderer, scene, camera, lens ) : null;
 	// The sun: the given light, or the scene's first shadow-casting directional light.

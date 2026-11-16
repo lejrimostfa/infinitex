@@ -6,6 +6,8 @@
 //   AO      GTAO from that depth (normals rebuilt from it), over the
 //           colour: contacts of the cubes on the sand, the corners of the
 //           tank
+//   shafts  light added before the blur, such as the sun's shafts in the
+//           water (src/core/shafts.js)
 //   blur    depth of field (dof.js), the same lens as the other pages
 // One pipeline serves both waterlines: draw( line ) points it at that
 // line's target. drawTarget( rt ) takes a plain render of the scene: the
@@ -23,14 +25,19 @@ import { followLens } from './dof.js';
 
 // first: a target with a depth texture, to build the graph on (any later
 // target of the same kind can be drawn).
-export function createTargetPost( renderer, camera, first, { lens = null } = {} ) {
+// shafts: an object with sample( uv ) (a light node) and render( depth
+// texture ), such as createShafts() of src/core/shafts.js; its light is
+// added before the blur.
+export function createTargetPost( renderer, camera, first, { lens = null, shafts = null } = {} ) {
 
 	const pipeline = new THREE.RenderPipeline( renderer );
 	const colour = texture( first.texture ), depth = texture( first.depthTexture );
 	const aoPass = ao( depth, null, camera );
 	aoPass.resolutionScale = 0.5;
 	const strength = uniform( 0.8 );
-	const shaded = vec4( colour.sample( screenUV ).rgb.mul( mix( 1, aoPass.getTextureNode().sample( screenUV ).r, strength ) ), 1 );
+	let lit = colour.sample( screenUV ).rgb.mul( mix( 1, aoPass.getTextureNode().sample( screenUV ).r, strength ) );
+	if ( shafts ) lit = lit.add( shafts.sample( screenUV ) );
+	const shaded = vec4( lit, 1 );
 	const viewZ = perspectiveDepthToViewZ( depth.sample( screenUV ).r, reference( 'near', 'float', camera ), reference( 'far', 'float', camera ) );
 	pipeline.outputNode = followLens( pipeline, shaded, viewZ, lens );
 
@@ -45,6 +52,7 @@ export function createTargetPost( renderer, camera, first, { lens = null } = {} 
 			depth.value = rt.depthTexture;
 			aoPass.radius.value = THREE.MathUtils.clamp( dist * 0.12, 1e-5, 0.25 );
 			aoPass.thickness.value = aoPass.radius.value * 2;
+			shafts?.render( rt.depthTexture );
 			pipeline.render();
 
 		},

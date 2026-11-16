@@ -54,6 +54,7 @@ export function createLens( { camera, controls, renderer, surfaceAhead, dof = tr
 	let on = enabled, aimed = null, aimedObject = null, centre = null, logD = null, logM = null, weight = 1, inMacro = 0, macroOn = false;
 	let sentD = 0, sentObject = null, written = camera.fov; // the last fov this lens set
 	bus.baseFov = camera.fov; // the page's own field of view; a page may change it
+	bus.bokehScale = 1; // a page may soften the blur (the aquarium halves it under water)
 
 	const onKey = ( e ) => {
 
@@ -114,7 +115,7 @@ export function createLens( { camera, controls, renderer, surfaceAhead, dof = tr
 		// The bokeh step is in pixels of the drawing buffer: scale it so the
 		// blur keeps its size on screen when the pixel ratio changes.
 		const px = renderer ? renderer.getPixelRatio() : 1;
-		bokeh.value = on && dof ? 2.2 * px * THREE.MathUtils.lerp( 0.5, 1, weight ) : 0;
+		bokeh.value = on && dof ? 2.2 * px * THREE.MathUtils.lerp( 0.5, 1, weight ) * bus.bokehScale : 0;
 
 		// Macro lens: the field of view narrows as the subject comes close.
 		const want = on && macro ? 1 - smooth( Math.log( macroFull ), Math.log( macroFrom ), logM ) : 0;

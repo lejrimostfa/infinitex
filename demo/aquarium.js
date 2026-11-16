@@ -30,6 +30,8 @@ import { refraction, refractSurface, refractOff, apparentPoint } from '../src/co
 import { createStage } from './scene.js';
 import { createStats } from './stats.js';
 import { createDemoKit } from './camerakit.js';
+import { createShafts } from '../src/core/shafts.js';
+import { createBubbles } from '../src/core/bubbles.js';
 
 const TW = 1.2, TD = 0.8, TH = 0.5, LEVEL = 0.35; // tank (m)
 const params = new URLSearchParams( location.search );
@@ -213,8 +215,14 @@ view( params.get( 'view' ) ?? 'above' );
 // the tank (src/camera/targetpost.js). ?nofx: the frame as before, no AO
 // and no depth of field. No sun cascades here. The waterline targets
 // follow the pixel ratio (kit event).
+// The sun's light shafts in the water join the frame before the blur.
+// Strings of bubbles from three points of the floor (src/core/bubbles.js);
+// ?nobubbles. In the scene, not in the tank group: the mirrors skip them.
+if ( ! params.has( 'nobubbles' ) ) scene.add( createBubbles( { box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] }, count: 150, sources: [ [ - 0.36, 0.14 ], [ 0.02, - 0.22 ], [ 0.42, 0.2 ] ] } ) );
+// Light shafts in the tank's water (src/core/shafts.js); ?noshafts.
+const shafts = params.has( 'noshafts' ) ? null : createShafts( renderer, camera, { box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] } } );
 const fx = ! params.has( 'nofx' );
-const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 0.6, shadows: false, ao: fx, dof: fx, target: fx ? glassLine.rtC : null } } );
+const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 0.6, shadows: false, ao: fx, dof: fx, target: fx ? glassLine.rtC : null, shafts } } );
 const { walk, adaptive, lens } = kit;
 kit.addEventListener( 'pixelRatioChanged', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );
 const stats = createStats( { renderer, camera, adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
@@ -226,6 +234,9 @@ renderer.setAnimationLoop( () => {
 	clock += dt;
 	last = now;
 	setTime( clock );
+	// Under water the haze tells the distance, not the lens: half the blur.
+	const under = camera.position.y < LEVEL && Math.abs( camera.position.x ) < TW / 2 && Math.abs( camera.position.z ) < TD / 2;
+	if ( lens ) lens.bokehScale = under ? 0.5 : 1;
 	kit.update( dt );
 	stats.beginFrame();
 	draw();

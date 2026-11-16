@@ -1,6 +1,6 @@
 # Camera kit
 
-`infinitex/camera` (`src/camera/`) is the camera of the demos, as a library. A game that uses Infinitex materials gets the same close-up camera in a few lines: walk keys, collisions, a macro lens with depth of field, adaptive resolution and ambient occlusion. Each part can be turned off.
+`infinitex/camera` (`src/camera/`) is the camera of the demos, as a library. A game that uses Infinitex materials gets the same close-up camera in a few lines: walk keys, collisions, a macro lens with depth of field, ambient occlusion inside the lighting, sun shadows in cascades that follow the focus, and adaptive resolution. Each part can be turned off.
 
 ## Use it
 
@@ -17,7 +17,7 @@ let last = performance.now();
 renderer.setAnimationLoop( () => {
 
 	const now = performance.now();
-	kit.update( ( now - last ) / 1000 );   // walk, controls.update(), lens, AO radius
+	kit.update( ( now - last ) / 1000 );   // walk, controls.update(), lens, AO radius, shadow cascades
 	last = now;
 	kit.render();                          // AO, hair pass, depth of field
 
@@ -41,13 +41,20 @@ applyCameraSettings( { renderer, camera, controls } );   // near 1e-6, far 100, 
 | Speed scale | `speedScale` | Speed is 0.8 times the distance to the orbit target or to the surface ahead, whichever is smaller, per second, clamped to `minSpeed` and `maxSpeed`. The same keys walk a room or creep along a stitch. Off: `maxSpeed / 3` everywhere. | `walk.js` |
 | Collision | `collide` | A ray along the move finds the surface ahead. Each frame covers at most `1 - e^(-4 dt)` of the room left, so the camera slows down and stops 0.1 mm from any surface. It never goes through. | `collide.js`, `skinned.js` |
 | Macro lens | `macro` | The field of view follows the distance to the surface at the screen centre. Above `macroFrom` it is the camera's own. Between `macroFrom` and `macroFull` it narrows to `macroFov`, then holds. | `lens.js` |
-| Depth of field | `dof` | three's `DepthOfFieldNode`, focused on the same surface. The sharp zone is 1 times the focus distance at 1 cm and 3 times at 3 m, as with a real lens. | `lens.js`, `post.js` |
+| Depth of field | `dof` | three's `DepthOfFieldNode`, focused on the nearest surface of a small autofocus area around the centre. The sharp zone is 1 times the focus distance at 1 cm and 3 times at 3 m, as with a real lens. | `lens.js`, `dof.js` |
 | Adaptive resolution | `adaptive` | Lowers the pixel ratio by steps of 0.25 (down to 0.75) while the mean frame stays above 40 ms, raises it when the next step is predicted under 25 ms. | `adaptive.js` |
-| AO | `ao` | GTAO at half resolution, its radius 12 % of the camera distance. 3D hair strands draw in a pass of their own over it. | `post.js` |
+| AO | `ao`, `aoLit` | GTAO at half resolution, its radius 12 % of the subject distance. With `aoLit` the materials read the AO while they are lit: it dims the ambient light in full, then 55 % of it also dims the finished colour, which grounds objects in full sun. That ambient AO is the one of the frame before: a still frame must be drawn twice (`renderAsync( 2 )`). 3D hair strands draw in a pass of their own over it. | `post.js` |
+| Sun shadows | `shadows` | The sun's shadow map in three cascades (three's `CSMShadowNode`, 2048 texels each): up to 2.5 times the subject distance, up to 10 times, then the rest to `shadowFar`. They move with the focus, so the fine one is always on the subject: at 40 cm from a fruit a texel is about half a millimetre. Rebuilt when the distance moves by 12 %. | `shadows.js` |
+| Target mode | `target` | For a page that draws its own frame into a target with a depth texture (the aquarium's waterline mixes two scene passes). `render( rt )` applies GTAO from that depth (strength 0.8), the `shafts` light, then the depth of field. | `targetpost.js` |
 
-### The focus distance
+### The focus distance and the macro distance
 
-The macro lens and the depth of field read one distance: the surface under the screen centre, found every frame by the collision BVH. When the centre ray hits nothing, the orbit target stands in, with a deeper and weaker blur. The distance eases in log space (time constant 0.18 s), like a focus pull. The field of view eases again (0.35 s). So a switch from a near object to a far one, or back, never jumps: at 60 fps the field of view moves 0.75 degree per frame at most.
+Every frame the lens casts five rays through the collision BVH: the screen centre and four points 0.16 (in NDC) around it, as a camera's autofocus area. Hits beyond `maxFocus` (30 m) do not count.
+
+- **Focus distance**: the nearest of the five hits. A figure a little off centre wins over the landscape behind it. It drives the depth of field, and the kit uses it as the subject distance for the AO radius and the shadow cascades.
+- **Macro distance**: the centre ray only. The field of view adapts to the observed surface, not to something at the edge of the area.
+
+When the rays hit nothing, the orbit target stands in, with a deeper and weaker blur. Both distances ease in log space (time constant 0.18 s), like a focus pull. The field of view eases again (0.35 s). So a switch from a near object to a far one, or back, never jumps: at 60 fps the field of view moves under 1 degree per frame. `focusArea: false` casts the centre ray only.
 
 ### Collisions on skinned meshes
 
@@ -73,16 +80,27 @@ Skipped by the walk, the click and the focus: invisible meshes, meshes with `use
 | `lensOn` | `! navigator.webdriver` | whether macro and depth of field start on |
 | `lensKey` | `'KeyF'` | toggles the lens; `null` for none |
 | `adaptive` | `true` | adaptive pixel ratio |
+| `maxFocus` | `30` | m: farther hits do not count for the focus |
+| `focusArea` | `true` | five rays around the centre for the focus; `false`: the centre only |
 | `ao` | `true` | GTAO and hair pass. Off: `render()` draws the scene, through the depth of field if on |
+| `aoLit` | `true` | AO inside the lighting; `false`: AO over the finished colour |
+| `shadows` | `true` | sun shadows in cascades that follow the focus |
+| `sun` | first shadow-casting directional light of the scene | the light that gets the cascades |
+| `shadowFar` | `40` | m: end of the last cascade |
+| `target` | `null` | a target with a depth texture: target mode (see above) |
+| `shafts` | `null` | in target mode, light added before the blur: any `{ sample( uv ), render( depthTexture ) }`, such as `createShafts()` of `src/core/shafts.js` |
 
 `macro: false` and `dof: false` build no lens and cast no focus ray. `lensOn: false` builds them, off, and the F key turns them on.
 
 ## Methods and parts
 
-- `kit.update( dt, { move = true, dist } )`: once per frame. Runs the adaptive resolution, the walk, `controls.update()`, the lens and the AO radius. `move: false` holds the walk and the controls during a scripted camera path. `dist` overrides the AO distance.
-- `kit.render()`, `kit.renderAsync()`: draw the frame through the post pipeline. A page that draws itself (mirrors, waterlines) skips them and uses `ao: false, dof: false`.
+- `kit.update( dt, { move = true, dist } )`: once per frame. Runs the adaptive resolution, the walk, `controls.update()`, the lens, then `prepare()`. `move: false` holds the walk and the controls during a scripted camera path. `dist` (a number, or a function read after the lens) replaces the subject distance; the demos pass the orbit distance on the knit pages.
+- `kit.prepare( dist )`: AO radius and shadow cascades for a subject distance. A still frame (a film) calls it, then `renderAsync( 2 )`.
+- `kit.subject`: the subject distance of the last update.
+- `kit.render()`, `kit.renderAsync( times )`: draw the frame through the post pipeline. In target mode, `kit.render( rt )` with the frame the page drew (colour and depth).
+- `kit.lens.bokehScale`: a factor on the blur, set by the page (the aquarium halves it under water).
 - `kit.dispose()`: removes the key and pointer listeners.
-- Parts, for tests and special cases: `kit.walk`, `kit.lens` (`enabled`, `macro` 0 to 1, `focusDistance`, `baseFov`), `kit.post` (`enabled`, `scenePass`), `kit.adaptive` (`max`, `hold`), `kit.collider( origin, dir, far )`.
+- Parts, for tests and special cases: `kit.walk`, `kit.lens` (`enabled`, `macro` 0 to 1, `focusDistance`, `baseFov`), `kit.post` (`enabled`, `scenePass`, `aoPass`), `kit.cascades` (`csm`), `kit.adaptive` (`max`, `hold`), `kit.collider( origin, dir, far )`.
 - `kit.lens.baseFov`: the field of view outside macro. Set it when the game changes its own field of view.
 
 ## Events
@@ -93,7 +111,7 @@ The kit is an `EventTarget`. Every event is a `CustomEvent`; read `e.detail`. UI
 |---|---|---|
 | `focusStarted` | `{ object, point }` | a click starts a glide |
 | `focusEnded` | `{ object }` | the glide arrives |
-| `focusChanged` | `{ distance, object }` | the object under the screen centre changes, or the focus distance moves by 5 % |
+| `focusChanged` | `{ distance, object }` | the focused object changes, or the focus distance moves by 5 % |
 | `fovChanged` | `{ fov }` | the macro lens changed the field of view |
 | `macroChanged` | `{ macro }` | the macro lens goes in (past half way) or out |
 | `dofToggled` | `{ enabled }` | the lens goes on or off (F key or `kit.lens.enabled`) |
