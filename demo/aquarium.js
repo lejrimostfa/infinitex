@@ -130,16 +130,19 @@ function slab( w, h, preset, place, seg = 0.02, skirt = 0 ) {
 
 }
 
+const RIM = 0.012; // how far the sand's folded rim goes down (m); the panes' waterline pass starts there too
 const sand = { family: 'ground', mode: 'sand', grain_mm: 0.35, color: '#d6bd92', color2: '#b8804f', color3: '#2b2622', ripple_mm: 90, ripple: 0.5, specks: 0.4, sparkle: 0.5, roughness: 0.8, seed: 2 };
 const marble = { family: 'stone', mode: 'marble', intent: 'white marble tank wall', color: '#d9d6cf', color2: '#8c8c88', roughness: 0.35, seed: 4 };
 // The floor: the sand's ripples and low mounds move its vertices
 // (preset.displace; ?flat keeps the plane, same normals), so
 // it gets 5 mm segments: the lee side of a ripple is 2 cm wide. Measured:
 // the finer floor and its displacement cost under 0.2 ms per frame.
-slab( TW, TD, { ...sand, dune: 1, displace: params.has( 'flat' ) ? 0 : 1 }, ( m ) => { m.rotation.x = - Math.PI / 2; }, ( + params.get( 'seg' ) || 5 ) * 1e-3, 0.0005 ); // ?seg=20: the former 2 cm, to compare
+slab( TW, TD, { ...sand, dune: 1, displace: params.has( 'flat' ) ? 0 : 1 }, ( m ) => { m.rotation.x = - Math.PI / 2; }, ( + params.get( 'seg' ) || 5 ) * 1e-3, RIM ); // ?seg=20: the former 2 cm, to compare
 // The displaced sand stands about 2 cm over its plane. Without the folded
 // rim (addSkirt) the eye at floor height looked under it through a pane,
-// and saw the marble base as a second, white floor.
+// and saw the marble base as a second, white floor. The rim goes RIM
+// down, past the top of the base (which stands a hair inside the panes, so
+// the two never share a plane): no slit under the sand from any height.
 slab( TW, TH, marble, ( m ) => { m.position.set( 0, TH / 2, - TD / 2 ); } );
 // Front and both sides: panes of glass (drawn by the waterline pass,
 // core/waterline.js). They have no mesh. Seen from inside the water, a
@@ -165,7 +168,10 @@ for ( const [ w, x, z, ry ] of [ [ TW, 0, TD / 2, Math.PI ], [ TD, - TW / 2, 0, 
 // angle); its edges, where the eye looks through centimetres of glass,
 // show the green of soda-lime glass. Blended after the opaque scene, no
 // depth written: the effects (AO, depth of field) see through it. What the
-// plate does to the picture behind is in the waterline pass (`glass`).
+// plate does to the picture behind (it comes 2.7 mm nearer) is not drawn:
+// the waterline pass can do it (`glass`), but each pane then shifts the
+// tank along its own normal, and at a grazing angle that opened a wedge
+// in the corners, between the true corner and the shifted floor.
 // The walk and the focus go through it, like the water.
 const GLASS = { thickness: 0.008, ior: 1.52 };
 const paneMeshes = [];
@@ -230,7 +236,8 @@ const paneMeshes = [];
 
 	};
 	block( TW, TH + T, T, 0, ( TH - T ) / 2, - TD / 2 - GAP - T / 2 ); // back, down to under the floor
-	block( TW, T, TD + GAP, 0, - GAP - T / 2, - GAP / 2 ); // under the sand
+	const IN = 0.0003; // inside the three panes, behind the sand's rim
+	block( TW - 2 * IN, T, TD + GAP - IN, 0, - GAP - T / 2, - ( GAP + IN ) / 2 ); // under the sand
 
 }
 
@@ -295,7 +302,7 @@ function view( name ) {
 // (core/meniscus.js): 2.9 mm up the glass; ?wall=ptfe or coatedGlass for
 // a pane the water does not wet, the edge dips and rolls over (convex).
 const wall = WALL_CONTACT[ params.get( 'wall' ) ] ?? WALL_CONTACT.glass;
-const glassLine = createWaterline( renderer, scene, camera, { panes: [ { axis: 'z', at: TD / 2, min: - TW / 2, max: TW / 2, out: 1 }, { axis: 'x', at: - TW / 2, min: - TD / 2, max: TD / 2, out: - 1 }, { axis: 'x', at: TW / 2, min: - TD / 2, max: TD / 2, out: 1 } ], glass: GLASS, yMin: 0, yMax: TH, contactDeg: wall, prepare } );
+const glassLine = createWaterline( renderer, scene, camera, { panes: [ { axis: 'z', at: TD / 2, min: - TW / 2, max: TW / 2, out: 1 }, { axis: 'x', at: - TW / 2, min: - TD / 2, max: TD / 2, out: - 1 }, { axis: 'x', at: TW / 2, min: - TD / 2, max: TD / 2, out: 1 } ], yMin: - RIM, yMax: TH, contactDeg: wall, prepare } );
 // The port's film is thinner and flatter than the meniscus on a pane.
 const lensLine = createWaterline( renderer, scene, camera, { lens: true, meniscus: 0.0008, power: 2.5, prepare } );
 addEventListener( 'resize', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );
