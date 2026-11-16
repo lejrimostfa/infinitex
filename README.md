@@ -53,6 +53,8 @@ Or try it without installing anything: [knit](https://lejrimostfa.github.io/infi
 | `aquarium.html` | A tank of clear water. `?view=above`, `below`, `floor`, `glass` (the waterline through the pane) or `lens` (a camera half in the water). |
 | `livingroom.html` | Ten matters in one scene: an 80s room at sunset over a lava lake (wood strips, plaster, a knotted rug, beige plastic, a CRT, leather, oranges, the lava, a photosphere sun, a cable sweater). `?view=room`, `window`, `tv`, `fruit`, `rug` or `chair`. Geometry built by code in Blender: `blender/livingroom.py`. |
 
+The demos focus like a camera: the depth of field follows the object near the screen centre, the sharp zone shrinks as it comes close, and under 12 cm the field of view narrows to a macro lens (`demo/dof.js`; F or `?nodof` turns it off). Ambient occlusion acts inside the lighting and the sun casts its shadows in three cascades that follow the focus (`demo/post.js`, `demo/shadows.js`). Under water the camera port sways, softens and shows suspended specks (`src/core/underlens.js`).
+
 In every demo page: arrows or ZQSD (WASD on QWERTY) to walk along the view direction, Space and C to rise and sink, Shift to go faster, a click on an object to glide to it (`demo/walk.js`). The camera slows down near a surface and stops 0.1 mm from it, so it never goes through (`demo/collide.js`, BVH raycast with three-mesh-bvh).
 | `index.html` | A knitted mannequin with sliders, live stats and a "level view" that colours each level of detail. |
 

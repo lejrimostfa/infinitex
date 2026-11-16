@@ -287,9 +287,49 @@ What to keep in mind:
 - **Rounding.** Code inside a branch can round differently. Cell coordinates are taken as a variable just before the gate that reads them, or cell borders move by a pixel.
 - **Limits.** One machine (M1 Max). One preset per matter. The other families are not converted.
 
+## 10. Real LOD branches on every family, and the demo effects **[M]**
+
+16 November 2026, same machine and method as section 9. Nine agents converted the other 23 families and the surface states, each gate kept only when the image stayed the same and the preset got at least 10% faster.
+
+**Every matter full screen** (`tests/lod_branches.mjs`, 241 presets, 5 views, 1,205 views in all), sum of the frame times, branches off to on:
+
+| View | off (ms) | on (ms) | gain |
+|---|---|---|---|
+| 10 m | 1508 | 688 | 2.2 times |
+| 2.8 m | 1196 | 625 | 1.9 times |
+| 40 cm | 3406 | 1374 | 2.5 times |
+| 6 cm | 3386 | 1683 | 2.0 times |
+| 1 cm | 3366 | 1779 | 1.9 times |
+
+By family, all views together, on over off: skin and scales 0.22, leather 0.28, organic 0.31, ground and plant 0.32, metal 0.38, stone 0.44, transform 0.57, fibermat 0.59, ceramic 0.66, jelly 0.72, knit 0.74, woven 0.86, liquid 0.88, plastic 0.89, wood 0.93. No gain, and left as they were: pile, strands, molten, scifi, interlace, rope, decor.
+
+**All matters page** (`cubes.html`, 241 cubes in one scene, `?nobranches` against the default, pages alternated): 14.4 to 11.3 ms at the start view, 13.3 to 9.9 ms on the whole wall, 21.1 to 17.1 ms one meter from a row. 20 to 26%. Less than full screen: the cubes near the camera are knits, which gain little, and the rest of the frame is a fixed cost. This figure was taken before the timing method was fixed (see below): read it as an order of size.
+
+**Checks.** WebGPU, branches on against off: 1,205 views out of 1,205 under the limit. Against the images of the version before: 1,245 out of 1,245. WebGL2: two presets rounded differently inside a branch (suede at 1 cm, frosted glass at 1 cm). Their gates are `gateGpu()`: an app on the fallback calls `setLodFallback( true )` and those levels are built without a branch.
+
+**What the agents learned** (now in the comments of `core/lod.js`):
+- A material mask is as good a condition as a zoom fade: a state with no cover, the patina of a metal, the motif of a brocade.
+- Lines widened to a pixel never fade. Cactus spines and painted hairs use a distance bound instead.
+- Noise coordinates without a `mod` round differently inside a branch, as cell coordinates do.
+- Never read the tangent frame inside a gate: three derives it from screen derivatives.
+- A value computed before a gate and read after it stays live across the branch. Around one cheap noise a gate makes the shader slower: glossy plastic, the micro fibre octaves, oil paint, plaster.
+- The check draws a transform at progress 0 only. The liquid agent checked progress 0.5 and 1 with a copy of the script. Not in `tests/` yet.
+
+**Demo effects** (`demo/post.js`, `demo/dof.js`, `demo/shadows.js`), living room, cost per frame at 1080p, each against the frame without it:
+
+| Effect | cost |
+|---|---|
+| AO inside the lighting instead of over the colour | 0 to 6% |
+| Sun shadows in three cascades instead of one map | 2 to 17% (0.2 to 0.7 ms) |
+| Depth of field, close view with a blurred background | about 3.4 ms |
+
+- **Timing trap.** Outside the animation loop three never advances its node frame, so a pipeline skips its passes after the first frame, and the wait on the GPU queue is rounded to the display tick (8.3 ms at 120 Hz). The first figures were wrong for both reasons. The effect costs above come from frames drawn at 3840x2160 with the node frame advanced by hand, divided by 4.
+- **Screen-space contact shadows** (three's SSSNode) were tried and removed: dots on sunlit faces at half size, dither on rims at full size. The cascades give the contact.
+- **Not measured**: the effects on the All matters page with the fixed method, and any machine other than the M1 Max.
+
 ## TLDR
 
-On an M1 Max, a game scene entirely in Infinitex (13 materials) costs about 10 ms per frame at 1080p, against 3 ms with classic textures. That is about 100 fps on this machine, 40 on a recent MacBook Air, 25 on a base M1, and nothing playable on a phone as is. In memory, Infinitex has no textures, but its compiled shaders and its JavaScript weigh about 245 MB. That is as much as a set of compressed 2K textures, 3.5 times less than compressed 4K and 14 times less than raw 4K. For a game, keep Infinitex for the near view, bake the distance into textures, skip the faded levels instead of weighting them by zero, and fix the CPU ray of the 3D hair on skinned characters (6 to 22 ms). Skipping the faded levels is done for the ground family (section 9): the wide shot of the game scene goes from 11 ms to 6 ms.
+On an M1 Max, a game scene entirely in Infinitex (13 materials) costs about 10 ms per frame at 1080p, against 3 ms with classic textures. That is about 100 fps on this machine, 40 on a recent MacBook Air, 25 on a base M1, and nothing playable on a phone as is. In memory, Infinitex has no textures, but its compiled shaders and its JavaScript weigh about 245 MB. That is as much as a set of compressed 2K textures, 3.5 times less than compressed 4K and 14 times less than raw 4K. For a game, keep Infinitex for the near view, bake the distance into textures, skip the faded levels instead of weighting them by zero, and fix the CPU ray of the 3D hair on skinned characters (6 to 22 ms). Skipping the faded levels is done for every family where it pays (sections 9 and 10): about 2 times less on a matter full screen, 20 to 26% on the All matters page.
 
 ## 5. Demo frame rate on a Retina screen **[M]**
 
