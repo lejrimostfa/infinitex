@@ -35,7 +35,7 @@ From the text or the photo, write down in one short list:
 ### 4. Write it, coarse to fine
 
 - `params.js`: one key per real parameter, sizes in `_mm` or `_um`, colours as `'#rrggbb'`. Keep `defineParams`. Sliders for what a user will tune.
-- `levels.js`: one function per level, coarsest first. For each level:
+- `levels.js` (coarse levels) and `fine.js` (fine levels): one function per level, coarsest first. Keep adding levels until the contact sheet shows structure at 1 mm. For each level:
   - its period in metres, `w = fadeIn( period, fp, lo, hi )`;
   - a `gate( fadeOn( period, fp, lo ), off, build, shared )` with the same `lo`;
   - `off` is the level's average (colour, cavity, roughness), not zero;

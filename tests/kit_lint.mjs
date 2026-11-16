@@ -22,14 +22,14 @@ const CASES = [
 	[ 'clean template', null, null, () => {} ],
 	[ 'select()', 'select', 'error', ( d ) => edit( d, 'levels.js', 'const stone = pick( step( h.x, 1 / 3 ), u.color,', 'const stone = select( step( h.x, 1 / 3 ).greaterThan( 0 ), u.color,' ) ],
 	[ 'dFdx in a gate build', 'deriv-gate', 'error', ( d ) => edit( d, 'levels.js', 'const w = fadeIn( gf, fp, 1.0, 4.0 );', 'const w = fadeIn( gf, fp, 1.0, 4.0 ).mul( dFdx( p.x ).add( 1 ) );' ) ],
-	[ 'dFdy via a called function', 'deriv-gate', 'error', ( d ) => edit( d, 'levels.js', 'const w = fadeIn( P, fp, 2.0, 6.0 );', 'const w = fadeIn( P, fp, 2.0, 6.0 ).mul( dFdy( p.y ).add( 1 ) );' ) ],
-	[ 'texture() in a gate build', 'deriv-gate', 'error', ( d ) => edit( d, 'levels.js', 'const V = voronoi( q1, J1 );', 'const V = voronoi( q1.add( texture( u.map, q1 ).x ), J1 );' ) ],
-	[ 'footprint() in a gate build', 'deriv-gate', 'error', ( d ) => edit( d, 'levels.js', 'const aa = fp.div( u.grainM ).mul( 0.75 );', 'const aa = footprint( q1 ).div( u.grainM ).mul( 0.75 );' ) ],
+	[ 'dFdy via a called function', 'deriv-gate', 'error', ( d ) => edit( d, 'fine.js', 'const w = fadeIn( P, fp, 2.0, 6.0 );', 'const w = fadeIn( P, fp, 2.0, 6.0 ).mul( dFdy( p.y ).add( 1 ) );' ) ],
+	[ 'texture() in a gate build', 'deriv-gate', 'error', ( d ) => edit( d, 'fine.js', 'const V = voronoi( q1, J1 );', 'const V = voronoi( q1.add( texture( u.map, q1 ).x ), J1 );' ) ],
+	[ 'footprint() in a gate build', 'deriv-gate', 'error', ( d ) => edit( d, 'fine.js', 'const aa = fp.div( u.grainM ).mul( 0.75 );', 'const aa = footprint( q1 ).div( u.grainM ).mul( 0.75 );' ) ],
 	[ 'no footprint', 'footprint', 'error', ( d ) => edit( d, 'shader.js', 'const fp = footprint( p ).toVar( \'ix_fp\' );', 'const fp = float( 1e-4 );' ) ],
-	[ 'no fades', 'fade', 'error', ( d ) => { for ( const f of [ 'levels.js' ] ) { const p = join( d, f ); writeFileSync( p, readFileSync( p, 'utf8' ).replaceAll( 'fadeIn(', 'myWeight(' ) ); } } ],
+	[ 'no fades', 'fade', 'error', ( d ) => { for ( const f of [ 'levels.js', 'fine.js' ] ) { const p = join( d, f ); writeFileSync( p, readFileSync( p, 'utf8' ).replaceAll( 'fadeIn(', 'myWeight(' ) ); } } ],
 	[ 'gate without fadeOn', 'fadeon', 'warn', ( d ) => edit( d, 'levels.js', 'gate( fadeOn( u.polishM, fp, 2.0 ),', 'gate( u.scratches.greaterThan( 0 ),' ) ],
-	[ 'gate without shared', 'shared', 'warn', ( d ) => edit( d, 'levels.js', '() => polish( p, fp, u ), [ p, fp ] );', '() => polish( p, fp, u ) );' ) ],
-	[ 'sin hash', 'sin-hash', 'warn', ( d ) => edit( d, 'levels.js', 'const a = valueNoise(', 'const a = fract( sin( p.x.mul( 12.9 ) ).mul( 43758.5 ) ).add( valueNoise(' ) ],
+	[ 'gate without shared', 'shared', 'warn', ( d ) => edit( d, 'levels.js', '() => scratches( p, fp, u, stone ), [ p, fp, stone ] );', '() => scratches( p, fp, u, stone ) );' ) ],
+	[ 'sin hash', 'sin-hash', 'warn', ( d ) => edit( d, 'fine.js', 'const a = valueNoise(', 'const a = fract( sin( p.x.mul( 12.9 ) ).mul( 43758.5 ) ).add( valueNoise(' ) ],
 ];
 
 let bad = 0;

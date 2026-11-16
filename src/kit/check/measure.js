@@ -5,7 +5,8 @@
 //                 docs/performance.md section 2). Each frame reads one pixel
 //                 back, which waits for the GPU: an upper bound.
 //   contactSheet  the swatch seen from each gate height, one tile each,
-//                 tone mapped (ACES fit) and labelled: a PNG data URL.
+//                 tone mapped (ACES fit, one exposure for the sheet) and
+//                 labelled: a PNG data URL.
 
 import * as THREE from 'three/webgpu';
 
@@ -80,6 +81,7 @@ export async function contactSheet( { renderer, scene }, { swatch, hide }, heigh
 	for ( const m of hide ) m.visible = false;
 	swatch.visible = true;
 	const flip = !! renderer.backend.isWebGLBackend;
+	const tiles = [];
 	for ( let k = 0; k < heights.length; k ++ ) {
 
 		topDown( cam, heights[ k ] );
@@ -87,11 +89,23 @@ export async function contactSheet( { renderer, scene }, { swatch, hide }, heigh
 		await renderer.renderAsync( scene, cam );
 		const raw = await renderer.readRenderTargetPixelsAsync( rt, 0, 0, T, T );
 		const f = raw instanceof Uint16Array ? THREE.DataUtils.fromHalfFloat : ( x ) => x;
+		tiles.push( Float32Array.from( raw, f ) );
+
+	}
+
+	// One exposure for the whole sheet, from the farthest tile: its mean
+	// luminance maps to 0.3. Bright matters keep their fine tones out of the
+	// clipped top of the curve, and tiles stay comparable with each other.
+	let sum = 0;
+	for ( let i = 0; i < T * T; i ++ ) sum += 0.2126 * tiles[ 0 ][ i * 4 ] + 0.7152 * tiles[ 0 ][ i * 4 + 1 ] + 0.0722 * tiles[ 0 ][ i * 4 + 2 ];
+	const exposure = 0.3 / Math.max( 1e-4, sum / ( T * T ) );
+	for ( let k = 0; k < heights.length; k ++ ) {
+
 		const img = g.createImageData( T, T );
 		for ( let y = 0; y < T; y ++ ) for ( let x = 0; x < T; x ++ ) {
 
 			const s = ( ( flip ? T - 1 - y : y ) * T + x ) * 4, o = ( y * T + x ) * 4;
-			for ( let c = 0; c < 3; c ++ ) img.data[ o + c ] = srgb( aces( f( raw[ s + c ] ) ) );
+			for ( let c = 0; c < 3; c ++ ) img.data[ o + c ] = srgb( aces( tiles[ k ][ s + c ] * exposure ) );
 			img.data[ o + 3 ] = 255;
 
 		}
