@@ -2,16 +2,21 @@
 // at, a depth of field that shrinks like a real lens, and a macro field of
 // view when the camera comes very close to a surface.
 //
-//   focus     the surface under the screen centre, found every frame by the
-//             shared BVH collider (collide.js, about 0.02 ms a ray). The
-//             focus distance eases to it in log space (time constant
-//             0.18 s), like a focus pull, so a switch from a near object to
-//             a far one never jumps. Nothing under the centre: the orbit
-//             target, with a deep, weak blur that still shows the scene.
+//   focus     the nearest surface under five points around the screen
+//             centre, as a camera's autofocus area (focusArea; a figure a
+//             little off centre wins over the landscape behind it), nothing
+//             farther than maxFocus (30 m). Found every frame by the shared
+//             BVH collider (collide.js, about 0.02 ms a ray). The focus
+//             distance eases to it in log space (time constant 0.18 s),
+//             like a focus pull, so a switch from a near object to a far one
+//             never jumps. Nothing aimed at: the orbit target, with a deep,
+//             weak blur that still shows the scene. The kit also uses this
+//             distance for the AO radius and the shadow cascades.
 //   depth     the sharp zone is a share of the focus distance: 1 at 1 cm,
 //             3 at 3 m. At 3 m almost everything is sharp; at 1 cm only
 //             about a centimetre is.
-//   macro     driven by the same eased focus distance. Above macroFrom
+//   macro     driven by the surface at the screen centre only (the first
+//             ray of the area), eased the same way. Above macroFrom
 //             (12 cm) the field of view is the page's own (40 degrees in
 //             the demos). Between macroFrom and macroFull (3 cm) it
 //             narrows to macroFov (22 degrees), then holds. The change
@@ -36,13 +41,17 @@ const smooth = ( a, b, x ) => { const k = THREE.MathUtils.clamp( ( x - a ) / ( b
 
 // surfaceAhead: the collider of collide.js. dof, macro: which parts exist.
 // enabled: whether the lens starts on.
-export function createLens( { camera, controls, renderer, surfaceAhead, dof = true, macro = true, enabled = true, macroFov = 22, macroFrom = 0.12, macroFull = 0.03, key = 'KeyF' } ) {
+// The autofocus area, in NDC: the centre first (it also drives the macro).
+const AREA = [ [ 0, 0 ], [ 0.16, 0 ], [ - 0.16, 0 ], [ 0, 0.16 ], [ 0, - 0.16 ] ];
+
+export function createLens( { camera, controls, renderer, surfaceAhead, dof = true, macro = true, enabled = true, macroFov = 22, macroFrom = 0.12, macroFull = 0.03, maxFocus = 30, focusArea = true, key = 'KeyF' } ) {
 
 	const bus = new EventTarget();
 	const emit = ( type, detail ) => bus.dispatchEvent( new CustomEvent( type, { detail } ) );
 	const distance = uniform( 1 ), range = uniform( 1 ), bokeh = uniform( 0 );
 	const fwd = new THREE.Vector3(), toTarget = new THREE.Vector3();
-	let on = enabled, aimed = null, aimedObject = null, logD = null, weight = 1, inMacro = 0, macroOn = false;
+	const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+	let on = enabled, aimed = null, aimedObject = null, centre = null, logD = null, logM = null, weight = 1, inMacro = 0, macroOn = false;
 	let sentD = 0, sentObject = null, written = camera.fov; // the last fov this lens set
 	bus.baseFov = camera.fov; // the page's own field of view; a page may change it
 
@@ -69,20 +78,31 @@ export function createLens( { camera, controls, renderer, surfaceAhead, dof = tr
 	bus.update = ( dt ) => {
 
 		dt = Math.min( dt, 0.1 );
+		camera.updateMatrixWorld(); // the controls moved it; setFromCamera reads matrixWorld
 		camera.getWorldDirection( fwd );
+		aimed = null; aimedObject = null; centre = null;
 		if ( on ) {
 
-			// The centre ray: distance along the view axis to the first surface.
-			const h = surfaceAhead( camera.position, fwd, camera.far );
-			aimed = h < Infinity ? h : null;
-			aimedObject = aimed === null ? null : surfaceAhead.object;
+			// The autofocus area: the nearest hit within maxFocus. Ray 0 is the
+			// screen centre, which alone drives the macro lens.
+			const n = focusArea ? AREA.length : 1;
+			for ( let i = 0; i < n; i ++ ) {
 
-		} else { aimed = null; aimedObject = null; }
+				ray.setFromCamera( ndc.set( AREA[ i ][ 0 ], AREA[ i ][ 1 ] ), camera );
+				const h = surfaceAhead( ray.ray.origin, ray.ray.direction, maxFocus );
+				if ( h >= maxFocus ) continue;
+				if ( i === 0 ) centre = h;
+				if ( aimed === null || h < aimed ) { aimed = h; aimedObject = surfaceAhead.object; }
+
+			}
+
+		}
 
 		const fallback = Math.max( 1e-4, controls ? toTarget.copy( controls.target ).sub( camera.position ).dot( fwd ) : 1 );
-		const target = Math.log( Math.max( 1e-4, aimed ?? fallback ) );
 		const k = 1 - Math.exp( - dt / 0.18 );
-		logD = logD === null ? target : logD + ( target - logD ) * k;
+		const ease = ( log, to ) => log === null ? to : log + ( to - log ) * k;
+		logD = ease( logD, Math.log( Math.max( 1e-4, aimed ?? fallback ) ) );
+		logM = ease( logM, Math.log( Math.max( 1e-4, centre ?? fallback ) ) );
 		weight += ( ( aimed === null ? 0 : 1 ) - weight ) * k;
 		const d = Math.exp( logD );
 
@@ -97,7 +117,7 @@ export function createLens( { camera, controls, renderer, surfaceAhead, dof = tr
 		bokeh.value = on && dof ? 2.2 * px * THREE.MathUtils.lerp( 0.5, 1, weight ) : 0;
 
 		// Macro lens: the field of view narrows as the subject comes close.
-		const want = on && macro ? 1 - smooth( Math.log( macroFull ), Math.log( macroFrom ), logD ) : 0;
+		const want = on && macro ? 1 - smooth( Math.log( macroFull ), Math.log( macroFrom ), logM ) : 0;
 		inMacro += ( want - inMacro ) * ( 1 - Math.exp( - dt / 0.35 ) );
 		if ( want === 0 && inMacro < 1e-4 ) inMacro = 0;
 		const fov = THREE.MathUtils.lerp( bus.baseFov, macroFov, inMacro );

@@ -16,14 +16,9 @@ import { uv, vec2, float, floor, fract, clamp, smoothstep, step, sqrt, mix, norm
 import { footprint, fadeIn, fadeOn, gate, composeRoughness, specularAA, perturbNormal, pick } from '../../core/lod.js';
 import { hash1, valueNoise } from '../../core/hash.js';
 import { applySurface } from '../../core/surface.js';
-import { applyStates, STATES_DEFAULTS } from '../../core/states.js';
+import { applyStates, anyState } from '../../core/states.js';
 import { buildBrocade } from './brocade.js';
 import { applySheer } from './sheer.js';
-
-// A surface state is on (blood, burns, grease...): its amount keys are
-// the defaults without an underscore.
-const STATE_KEYS = Object.keys( STATES_DEFAULTS ).filter( ( k ) => ! k.includes( '_' ) );
-const anyState = ( s ) => STATE_KEYS.some( ( k ) => s[ k ]?.value > 0 );
 
 // Positive modulo (WGSL % keeps the sign of x).
 const pm = ( x, n ) => x.sub( n.mul( floor( x.div( n ) ) ) );

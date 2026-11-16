@@ -3,6 +3,8 @@
 //   ?dof       the lens starts on, even in an automated browser
 //   ?fullres   no adaptive resolution
 //   ?film      film mode: lens off, full resolution
+//   ?nolit     AO over the finished colour instead of inside the lighting
+//   ?nocsm     one sun shadow map instead of cascades that follow the focus
 // Automated browsers (tests, the gate, benches) get the plain image unless
 // they ask with ?dof. The F key toggles the lens on every page.
 // Event bus: the kit itself (see src/camera/kit.js); pages listen to it.
@@ -16,7 +18,10 @@ export function createDemoKit( { renderer, scene, camera, controls, params, opti
 	const film = params.has( 'film' );
 	return createCameraKit( {
 		renderer, scene, camera, controls,
-		options: { lensOn: lensWanted( params, film ), adaptive: ! film && ! params.has( 'fullres' ), ...options },
+		options: {
+			lensOn: lensWanted( params, film ), adaptive: ! film && ! params.has( 'fullres' ),
+			aoLit: ! params.has( 'nolit' ), shadows: ! params.has( 'nocsm' ), ...options,
+		},
 	} );
 
 }

@@ -9,6 +9,7 @@ import { createCameraStage } from '../src/camera/index.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { createMannequin } from './mannequin.js';
+import { setLodFallback, setLodBranches } from '../src/core/lod.js';
 
 // Rescale a geometry's UVs so one UV unit is one meter on the surface.
 export function uvToMeters( geometry, metersU, metersV ) {
@@ -22,6 +23,9 @@ export function uvToMeters( geometry, metersU, metersV ) {
 
 // Renderer, light, floor, camera and orbit controls. Shared by both demos.
 export async function createStage( { forceWebGL } ) {
+
+	setLodFallback( !! forceWebGL ); // gates that are exact on WebGPU only (core/lod.js)
+	setLodBranches( ! new URLSearchParams( location.search ).has( 'nobranches' ) ); // ?nobranches: every level computed, to measure what the branches save
 
 	const { renderer, camera, controls } = await createCameraStage( { forceWebGL, trackTimestamp: true } );
 	renderer.toneMapping = THREE.ACESFilmicToneMapping;

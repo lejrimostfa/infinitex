@@ -76,10 +76,31 @@ export function fadeOn( periodMeters, fp, lo = 2.0 ) {
 //
 // Returns { name: node }. No derivative (dFdx, dFdy, a texture sample with
 // implicit mips) may sit inside build(): take them before, like footprint().
+// More traps, found when every family was converted:
+//   lattice    noise coordinates without a mod ( fbm( p.div( x ) ) ) round
+//              differently inside a branch too: take them as a .toVar()
+//              before the gate, as for the cells.
+//   tangents   never read the tangent frame inside a gate (tangentWorld,
+//              tangentView, or anything built from them): on a mesh with
+//              no tangents three derives it from dFdx.
+//   live code  a value computed before the gate and read after it stays
+//              live across the branch. Around one cheap noise a gate can
+//              make the shader slower (seen on glossy plastic, on the
+//              micro fibre octaves, on oil paint). A gate must be measured.
 // setLodBranches( false ) builds every level unconditionally (the
 // reference of tests/lod_branches.mjs).
 let BRANCHES = true;
 export function setLodBranches( on ) { BRANCHES = !! on; }
+
+// A few gates are exact on WebGPU only: on the WebGL2 fallback the code
+// inside the branch rounds differently and the image moves (suede fibres
+// 9 um wide, the frosted glass pits). They use gateGpu(). An app on the
+// fallback calls setLodFallback( true ) before it builds its materials
+// (the demos do, demo/scene.js): those levels are then built without a
+// branch. The image is the same, WebGL2 only keeps its former cost there.
+let FALLBACK = false;
+export function setLodFallback( on ) { FALLBACK = !! on; }
+export function gateGpu( on, spec, build, shared = [] ) { return FALLBACK ? build() : gate( on, spec, build, shared ); }
 
 const isNode = ( v ) => v && v.isNode === true;
 const specSize = ( v ) => typeof v === 'number' || isNode( v ) ? 1 : Array.isArray( v ) ? v.length : v.size;

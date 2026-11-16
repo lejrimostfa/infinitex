@@ -45,6 +45,10 @@ const COLORS = { dusty_color: 'dustColor', muddy_color: 'mudColor', rusty_color:
 const SIZES = { dusty_um: [ 'dustM', 1e-6 ], muddy_mm: [ 'mudM', 1e-3 ], burnt_mm: [ 'burntM', 1e-3 ], rusty_mm: [ 'rustM', 1e-3 ],
 	frosted_um: [ 'frostM', 1e-6 ], bloody_mm: [ 'bloodM', 1e-3 ], sweaty_mm: [ 'sweatM', 1e-3 ], greasy_mm: [ 'greaseM', 1e-3 ] };
 
+// True when a state is on at build time (its amount uniform above 0). A
+// family reads it to choose a build, as woven does around its weave gate.
+export const anyState = ( s ) => KEYS.some( ( k ) => s[ k ]?.value > 0 );
+
 export function createStatesUniforms() {
 
 	const s = { seed: uniform( 1 ), bloodAge: uniform( 0.3 ) };

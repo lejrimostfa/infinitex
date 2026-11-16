@@ -53,7 +53,7 @@ const sunDir = SUN.clone().normalize();
 scene.environmentIntensity = 0.35; // dusk: the HDRI only as a fill
 // The sky through the window and the lake under it fill the room: warm
 // from above, red from below.
-scene.add( new THREE.HemisphereLight( 0xffb27a, 0x7a2a12, 1.1 ) );
+scene.add( new THREE.HemisphereLight( 0xffb27a, 0x7a2a12, 0.7 ) ); // low enough for creases and undersides to stay dark
 scene.fog = new THREE.Fog( 0x9a4a2a, 60, 700 ); // haze over the lake
 
 const key = scene.children.find( ( o ) => o.isDirectionalLight && o.castShadow );
@@ -163,12 +163,13 @@ function view( name ) {
 
 view( params.get( 'view' ) ?? 'room' );
 
-// The camera kit (walk, collisions, lens, adaptive resolution) and the
-// stats panel, as every demo. No AO pass: shadows and each matter's own
-// occlusion carry the contacts.
-const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 1.5, ao: false } } );
-const { walk, adaptive, lens } = kit;
-const stats = createStats( { renderer, camera, adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
+// The camera kit and the stats panel, as every demo: walk, collisions,
+// lens, adaptive resolution, one pipeline with AO in the lighting then the
+// blur, and sun shadows in three slices that follow the focus on the key
+// light (src/camera). ?nolit, ?nocsm, ?nodof.
+const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 1.5, sun: key } } );
+const { walk, adaptive, lens, post } = kit;
+const stats = createStats( { renderer, camera, adaptive, post, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
 let clock = 0, last = performance.now();
 renderer.setAnimationLoop( () => {
 
@@ -185,4 +186,4 @@ renderer.setAnimationLoop( () => {
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, kit, walk, adaptive, lens, focus: lens, view, setTime, matters, ready: true };
+window.__ix = { renderer, scene, camera, controls, kit, walk, adaptive, lens, focus: lens, post, view, setTime, matters, ready: true };

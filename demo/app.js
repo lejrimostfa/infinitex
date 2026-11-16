@@ -49,8 +49,9 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 	let dolly = null;
 	document.getElementById( 'dolly' ).onclick = () => { dolly = { t0: performance.now(), dur: 24000 }; };
 
-	// The camera kit: walk, collisions, lens, adaptive resolution, SSAO
-	// (src/camera). The walk and the controls hold still during the dolly.
+	// The camera kit: walk, collisions, lens, adaptive resolution, AO in the
+	// lighting, sun shadow cascades (src/camera). ?nolit, ?nocsm, ?nodof
+	// (camerakit.js). The walk and the controls hold still during the dolly.
 	const kit = createDemoKit( { renderer, scene, camera, controls, params } );
 	const { post, adaptive, walk, lens } = kit;
 	const stats = createStats( { renderer, camera, ix, fuzz, meshes, post, adaptive, backend: forceWebGL ? 'WebGL2' : 'WebGPU', levels: statsLevels } );
@@ -66,7 +67,7 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 
 	// Test and film hooks for Playwright (tests/).
 	window.__ix = {
-		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate, adaptive, kit, walk, lens, controls,
+		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate, adaptive, kit, walk, lens, focus: lens, controls,
 		ready: true,
 		async runGate( heights ) {
 
@@ -109,8 +110,8 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 			animate( t );
 			const d = film.pose( k );
 			film.overlay( d );
-			post.update( d );
-			await post.renderAsync();
+			kit.prepare( d ); // AO radius and shadow cascades
+			await kit.renderAsync( 2 ); // the AO of this pose (aoLit: one frame late)
 
 		},
 	};
@@ -139,8 +140,10 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 
 		}
 
-		kit.update( dt, { move: ! scripted, dist } );
-		dist ??= updateClip();
+		// The subject distance (AO radius, shadow cascades) is the orbit
+		// distance here, or the film's during the dolly.
+		kit.update( dt, { move: ! scripted, dist: dist ?? updateClip } );
+		dist = kit.subject;
 		stats.beginFrame();
 		// The frame draws to the screen. A background compile (demo/warmup.js,
 		// three r187 compileAsync) leaves its own target and MRT set while it

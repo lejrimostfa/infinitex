@@ -251,3 +251,19 @@ Other sizes in the code (fibre diameters, grain sizes, pore sizes, droplet sizes
 
 - FFmpeg, LGPL or GPL. https://ffmpeg.org
   Used in: `tests/film.mjs` (encodes the demo films; external tool, not bundled).
+
+## Underwater look: a three.js demo read frame by frame
+
+16 November 2026. A 30 s video relayed by the three.js account (x.com/threejs/status/2122361823320305680), an underwater world by Ricardo De Zoete built in The Sandbox Game Studio. No code is public. 19 frames at 1080p were read in a browser. What makes the picture, most important first:
+
+- **Haze, not blur.** Distance is told by a dense fog of one saturated colour: at a few meters only silhouettes remain. Edges stay sharp far away. There is little or no depth of field. So under water our depth of field should stay weak, and the haze carry the depth.
+- **Light shafts cut by the geometry.** Wide soft beams from the surface. In the cave shot the beam has a hard edge along the arch: it is shadowed, so either marched against the shadow map or a mesh cone fitted to the opening. In the open shots many thin streaks ride on the beams: a moving pattern (caustics or noise) multiplies them.
+- **One colour per place.** Turquoise, green, blue, violet, amber: fog colour, light colour and grading change together per zone.
+- **The hero stays out of the fog.** The red fish near the camera keeps its full saturation: the complement of the fog colour, so it reads at once.
+- **Occlusion and cast shadows are strong.** Dark contacts under the bones and in the cracks of the rock, sharp shadows of the plants on the wall. That contrast survives the haze near the camera and gives the scale.
+- **Bubbles are rings.** Bright crescents, not refracting spheres: sprites with a rim highlight.
+- **The surface from below** is a bright moving pattern, no Snell window.
+- **Life in instances.** Schools of small fish as flat silhouettes, jellyfish, swaying grass. Cheap, and it fills the depth.
+
+Not in Infinitex yet: light shafts, bubbles, colour presets per place, anything alive. Done after this reading: the eye's own share under water (`src/core/underlens.js`), AO and depth of field on the aquarium (`src/camera/targetpost.js`).
+

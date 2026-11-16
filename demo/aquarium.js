@@ -6,7 +6,8 @@
 //   ?view=above | below | floor | glass | lens   start from a preset camera
 //   ?wall=glass | cleanGlass | acrylic | coatedGlass | ptfe   the pane (meniscus)
 //   arrows or ZQSD walk, Space and C up and down, a click focuses, F the
-//   macro lens (the camera kit, src/camera, through camerakit.js)
+//   lens (the camera kit, src/camera, through camerakit.js)
+//   ?nofx   no AO and no depth of field
 // window.__ix: renderer, scene, camera, ready, view( name ), setTime( s ),
 // refraction (core/refraction.js; strength 0 draws the true positions),
 // apparentPoint, waterBody, tank, LEVEL, TD (tests/refraction_gpu.mjs).
@@ -152,8 +153,9 @@ addEventListener( 'resize', () => { const s = renderer.getDrawingBufferSize( new
 function draw() {
 
 	const p = camera.position;
-	if ( p.z > TD / 2 ) glassLine.render();
-	else if ( Math.abs( p.x ) < TW / 2 && Math.abs( p.z ) < TD / 2 ) lensLine.render();
+	// ?nofx: the frame as before, no AO and no depth of field.
+	if ( p.z > TD / 2 ) { if ( fx ) kit.render( glassLine.compose() ); else glassLine.render(); }
+	else if ( Math.abs( p.x ) < TW / 2 && Math.abs( p.z ) < TD / 2 ) { if ( fx ) kit.render( lensLine.compose() ); else lensLine.render(); }
 	else {
 
 		// Above the water, it is seen through the surface; beside the
@@ -161,7 +163,15 @@ function draw() {
 		if ( p.y > LEVEL ) refractSurface( p, LEVEL ); else refractOff();
 		prepare( camera );
 		renderer.setRenderTarget( null );
-		renderer.render( scene, camera );
+		if ( fx ) {
+
+			// A plain render into the pane's air target, then the same effects.
+			renderer.setRenderTarget( glassLine.rtA );
+			renderer.render( scene, camera );
+			renderer.setRenderTarget( null );
+			kit.render( glassLine.rtA );
+
+		} else renderer.render( scene, camera );
 
 	}
 
@@ -196,10 +206,15 @@ function glassPan( t, dur = 8 ) {
 
 view( params.get( 'view' ) ?? 'above' );
 // Stats panel (demo/stats.js): fps, frame and GPU time, triangles, draw calls.
-// The camera kit (walk, collisions, macro lens, adaptive pixel ratio).
-// The page draws itself (mirrors, waterlines), so no AO and no depth of
-// field. The waterline targets follow the pixel ratio (kit event).
-const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 0.6, ao: false, dof: false } } );
+// The camera kit (walk, collisions, lens, adaptive pixel ratio). The page
+// draws its own frame (mirrors, waterlines), so the kit runs in target
+// mode: AO and depth of field after the two passes of a waterline are
+// mixed (compose(), a target with depth), or after a plain render beside
+// the tank (src/camera/targetpost.js). ?nofx: the frame as before, no AO
+// and no depth of field. No sun cascades here. The waterline targets
+// follow the pixel ratio (kit event).
+const fx = ! params.has( 'nofx' );
+const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 0.6, shadows: false, ao: fx, dof: fx, target: fx ? glassLine.rtC : null } } );
 const { walk, adaptive, lens } = kit;
 kit.addEventListener( 'pixelRatioChanged', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );
 const stats = createStats( { renderer, camera, adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
@@ -218,4 +233,4 @@ renderer.setAnimationLoop( () => {
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, kit, walk, adaptive, lens, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };
+window.__ix = { renderer, scene, camera, controls, kit, walk, adaptive, lens, focus: lens, fx, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };

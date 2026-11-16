@@ -9,4 +9,7 @@ export { createWalk } from './walk.js';
 export { createCollider } from './collide.js';
 export { createLens } from './lens.js';
 export { createAdaptiveResolution } from './adaptive.js';
-export { createPost, createDofPipeline, withDof } from './post.js';
+export { createPost } from './post.js';
+export { createDofPipeline, withDof, followLens } from './dof.js';
+export { createTargetPost } from './targetpost.js';
+export { createSunCascades } from './shadows.js';

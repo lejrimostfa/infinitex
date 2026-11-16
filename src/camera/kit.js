@@ -9,10 +9,19 @@
 //               surface ahead
 //   macro       field of view from the page's own to 22 degrees between
 //               12 cm and 3 cm from the surface at the screen centre (lens.js)
-//   dof         depth of field focused on that surface (lens.js, post.js)
+//   dof         depth of field on the nearest surface of a small autofocus
+//               area around the centre (lens.js, dof.js)
 //   adaptive    pixel ratio lowered while frames are slow (adaptive.js)
-//   ao          GTAO and the 3D hair pass (post.js)
+//   ao          GTAO and the 3D hair pass (post.js). aoLit: the AO dims the
+//               ambient light inside the materials, not the finished colour
+//   shadows     the sun's shadows in three cascades that follow the focus
+//               (shadows.js)
+//   target      for a page that draws its own frame into a target with a
+//               depth texture (the aquarium's waterline): AO and depth of
+//               field on that target (targetpost.js), render( rt )
 //
+// The subject distance (the eased focus distance, or the orbit distance
+// without a lens) sets the AO radius and the shadow cascades.
 // Event bus: the kit is an EventTarget. It forwards, as CustomEvents with
 // the same detail, every event of its parts:
 //   focusStarted, focusEnded           walk.js (click to glide)
@@ -26,13 +35,18 @@ import { createCollider } from './collide.js';
 import { createWalk } from './walk.js';
 import { createLens } from './lens.js';
 import { createAdaptiveResolution } from './adaptive.js';
-import { createPost, createDofPipeline } from './post.js';
+import { createPost } from './post.js';
+import { createDofPipeline } from './dof.js';
+import { createTargetPost } from './targetpost.js';
+import { createSunCascades } from './shadows.js';
 
 export const KIT_DEFAULTS = Object.freeze( {
 	walk: true, collide: true, speedScale: true, minSpeed: 0.02, maxSpeed: 3,
 	macro: true, macroFov: 22, macroFrom: 0.12, macroFull: 0.03,
-	dof: true, lensKey: 'KeyF',
-	adaptive: true, ao: true,
+	dof: true, lensKey: 'KeyF', maxFocus: 30, focusArea: true,
+	adaptive: true, ao: true, aoLit: true,
+	shadows: true, sun: null, shadowFar: 40,
+	target: null,
 } );
 
 // Whether the lens (macro and depth of field) starts on. Automated browsers
@@ -54,18 +68,39 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 	const lens = wantLens ? createLens( {
 		camera, controls, renderer, surfaceAhead: collider, dof: o.dof, macro: o.macro, enabled: o.lensOn,
 		macroFov: o.macroFov, macroFrom: o.macroFrom, macroFull: o.macroFull, key: o.lensKey,
+		maxFocus: o.maxFocus, focusArea: o.focusArea,
 	} ) : null;
 	// Always built, so a page can read max or hold it; it only acts when enabled.
 	const adaptive = createAdaptiveResolution( renderer, { enabled: !! o.adaptive } );
-	const post = o.ao ? createPost( renderer, scene, camera, { lens: o.dof ? lens : null } ) : null;
-	const dofOnly = ! o.ao && o.dof ? createDofPipeline( renderer, scene, camera, lens ) : null;
+	const dofLens = o.dof ? lens : null;
+	const post = o.target ? createTargetPost( renderer, camera, o.target, { lens: dofLens } )
+		: o.ao ? createPost( renderer, scene, camera, { lens: dofLens, lit: o.aoLit } ) : null;
+	const dofOnly = ! post && o.dof ? createDofPipeline( renderer, scene, camera, lens ) : null;
+	// The sun: the given light, or the scene's first shadow-casting directional light.
+	const sun = o.shadows ? o.sun ?? scene.children.find( ( c ) => c.isDirectionalLight && c.castShadow ) : null;
+	const cascades = sun ? createSunCascades( { light: sun, camera, far: o.shadowFar } ) : null;
 
 	if ( walk ) forward( walk, [ 'focusStarted', 'focusEnded' ] );
 	if ( lens ) forward( lens, [ 'focusChanged', 'fovChanged', 'macroChanged', 'dofToggled' ] );
 	forward( adaptive, [ 'pixelRatioChanged' ] );
 
+	// Camera to subject, meters: the lens's eased focus distance, or the
+	// orbit distance without a lens.
+	const subject = () => lens ? lens.distance.value : controls ? camera.position.distanceTo( controls.target ) : 1;
+
+	// AO radius and shadow cascades for a subject distance (a still frame
+	// calls it alone, then renderAsync( 2 )).
+	function prepare( dist = subject() ) {
+
+		cascades?.update( dist );
+		if ( post && ! o.target ) post.update( dist );
+		kit.subject = dist;
+
+	}
+
 	// move: false holds the walk and the controls (a scripted camera path).
-	// dist: camera to surface for the AO radius, by default the orbit distance.
+	// dist: the subject distance, a number or a function read after the
+	// lens update; by default the lens's focus distance.
 	function update( dt, { move = true, dist = null } = {} ) {
 
 		adaptive.frame();
@@ -77,21 +112,25 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 		}
 
 		lens?.update( dt );
-		post?.update( dist ?? ( controls ? camera.position.distanceTo( controls.target ) : 1 ) );
+		prepare( typeof dist === 'function' ? dist() : dist ?? subject() );
 
 	}
 
-	function render() {
+	// rt: in target mode, the frame the page drew (colour and depth).
+	function render( rt = null ) {
 
-		if ( post ) post.render();
+		if ( o.target ) post.drawTarget( rt ?? o.target, kit.subject );
+		else if ( post ) post.render();
 		else if ( dofOnly ) dofOnly.render();
 		else renderer.render( scene, camera );
 
 	}
 
-	async function renderAsync() {
+	// times: 2 for a still frame with aoLit (its ambient AO is one frame late).
+	async function renderAsync( times = 1 ) {
 
-		if ( post ) await post.renderAsync();
+		if ( o.target ) { render(); return; }
+		if ( post ) await post.renderAsync( times );
 		else if ( dofOnly ) await dofOnly.renderAsync();
 		else await renderer.renderAsync( scene, camera );
 
@@ -104,6 +143,7 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 
 	}
 
-	return Object.assign( kit, { update, render, renderAsync, dispose, walk, lens, post, adaptive, collider, options: o } );
+	kit.subject = subject();
+	return Object.assign( kit, { update, prepare, render, renderAsync, dispose, walk, lens, post, adaptive, collider, cascades, options: o } );
 
 }

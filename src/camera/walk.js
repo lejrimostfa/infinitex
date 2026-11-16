@@ -160,6 +160,7 @@ export function createWalk( { camera, controls, scene, collider = null, dom = co
 
 	};
 
+	bus.surfaceAhead = surfaceAhead; // the BVH ray (the kit shares the same collider with lens.js)
 	return bus;
 
 }
