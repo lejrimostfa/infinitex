@@ -8,9 +8,7 @@
 //   segment   a leg segment along +x: flattened (taller than thick),
 //             tapering, a little swollen, darker at both joints, paler
 //             below; the dactyl ends in a curved point
-//   claw      a swollen palm with a fixed finger below, toothed on its
-//             inner edge; the moving finger is its own part (dactyl)
-//   eyes on stalks and mouth plates on the shell.
+//   claw, eyes, stalks: crabparts.js
 // S is the width of the shell (m). Coordinates: x to the crab's right,
 // y up, z forward (where the eyes are).
 //
@@ -26,11 +24,11 @@ export function createBuilder() {
 
 }
 
-const mix3 = ( a, b, t ) => a.map( ( c, i ) => c + ( b[ i ] - c ) * t );
-const sstep = ( a, b, x ) => { const t = Math.min( 1, Math.max( 0, ( x - a ) / ( b - a ) ) ); return t * t * ( 3 - 2 * t ); };
+export const mix3 = ( a, b, t ) => a.map( ( c, i ) => c + ( b[ i ] - c ) * t );
+export const sstep = ( a, b, x ) => { const t = Math.min( 1, Math.max( 0, ( x - a ) / ( b - a ) ) ); return t * t * ( 3 - 2 * t ); };
 
 // A grid of rows of points (each row a closed ring of n) into the builder.
-function rings( B, rows, n, bone, close = true ) {
+export function rings( B, rows, n, bone, close = true ) {
 
 	const base = B.pos.length / 3;
 	for ( const row of rows ) for ( const v of row ) { B.pos.push( ...v.p ); B.uv.push( ...v.uv ); B.col.push( ...v.c ); B.bone.push( bone ); }
@@ -140,66 +138,6 @@ export function segment( B, bone, len, r0, r1, { flat = 0.65, col = COLORS.leg, 
 	}
 
 	rings( B, rows, n, bone );
-
-}
-
-// A sphere (eyes) on bone, at c, radius r.
-export function ball( B, bone, c, r, col ) {
-
-	const rows = [];
-	for ( let i = 0; i <= 6; i ++ ) {
-
-		const v = i / 6 * Math.PI, row = [];
-		for ( let j = 0; j < 10; j ++ ) { const a = j / 10 * Math.PI * 2; row.push( { p: [ c[ 0 ] + Math.sin( v ) * Math.cos( a ) * r, c[ 1 ] + Math.cos( v ) * r, c[ 2 ] + Math.sin( v ) * Math.sin( a ) * r ], uv: [ a * r, v * r ], c: col } ); }
-		rows.push( row );
-
-	}
-
-	rings( B, rows, 10, bone );
-
-}
-
-// A tube from a to b on bone (stalks, mouth plates).
-export function tube( B, bone, a, b, r0, r1, col, flat = 1 ) {
-
-	const d = new THREE.Vector3( ...b ).sub( new THREE.Vector3( ...a ) ), len = d.length();
-	const X = d.clone().normalize(), Y = Math.abs( X.y ) > 0.9 ? new THREE.Vector3( 1, 0, 0 ) : new THREE.Vector3( 0, 1, 0 );
-	const Z = new THREE.Vector3().crossVectors( X, Y ).normalize();
-	Y.crossVectors( Z, X );
-	const start = B.pos.length / 3;
-	segment( B, bone, len, r0, r1, { flat, col, n: 6, nu: 3, knob: 0 } );
-	const M = new THREE.Matrix4().makeBasis( X, Y, Z ).setPosition( ...a ), v = new THREE.Vector3();
-	for ( let i = start; i < B.pos.length / 3; i ++ ) { v.fromArray( B.pos, i * 3 ).applyMatrix4( M ); v.toArray( B.pos, i * 3 ); }
-
-}
-
-// The palm and fixed finger of a claw along +x, its moving finger apart.
-// cs: the claw's size (m). The palm swells, the finger tapers to a point
-// with a few teeth on its inner (upper) edge, dark at the tip.
-export function palm( B, bone, cs ) {
-
-	const rows = [], n = 12, NU = 10;
-	for ( let i = 0; i <= NU; i ++ ) {
-
-		const u = i / NU, x = u * cs * 0.3, h = cs * 0.092 * Math.sqrt( Math.max( 0.02, 1 - ( 2 * u - 0.9 ) ** 2 ) ) * ( u < 0.1 ? 0.6 + 4 * u : 1 ), w = h * 0.68, row = [];
-		for ( let j = 0; j < n; j ++ ) { const a = j / n * Math.PI * 2; row.push( { p: [ x, Math.cos( a ) * h, Math.sin( a ) * w ], uv: [ x, a * h ], c: mix3( COLORS.leg, COLORS.under, sstep( 0.3, - 0.9, Math.cos( a ) ) * 0.6 ) } ); }
-		rows.push( row );
-
-	}
-
-	rings( B, rows, n, bone );
-	// Fixed finger: from the lower front of the palm, curving up a little.
-	const fr = [], NF = 8;
-	for ( let i = 0; i <= NF; i ++ ) {
-
-		const u = i / NF, x = cs * ( 0.23 + 0.23 * u ), r = cs * 0.04 * ( 1 - u ) + cs * 0.004, yc = - cs * 0.04 + cs * 0.035 * u * u, row = [];
-		const teeth = u > 0.1 && u < 0.8 ? Math.max( 0, Math.sin( u * Math.PI * 7 ) ) * cs * 0.012 : 0;
-		for ( let j = 0; j < 8; j ++ ) { const a = j / 8 * Math.PI * 2, cy = Math.cos( a ); row.push( { p: [ x, yc + cy * ( r + ( cy > 0.5 ? teeth : 0 ) ), Math.sin( a ) * r * 0.75 ], uv: [ x, a * r ], c: mix3( COLORS.leg, COLORS.tip, sstep( 0.35, 0.8, u ) ) } ); }
-		fr.push( row );
-
-	}
-
-	rings( B, fr, 8, bone );
 
 }
 

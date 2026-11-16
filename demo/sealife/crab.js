@@ -1,6 +1,6 @@
 // A crab built by code, in the Infinitex matter of a crab's shell: one
 // skinned mesh, one draw call, every part a rigid bone (no blending).
-//   body     crabshape.js: a toothed carapace wider than long, domed,
+//   body     crabshape.js and crabparts.js: a toothed carapace wider than long, domed,
 //            grooved, pale below; eyes on stalks, mouth plates
 //   legs     four per side, five segments each, tapering, darker at the
 //            joints, pointed dactyls; placed by IK (crabrig.js)
@@ -19,7 +19,8 @@
 import * as THREE from 'three/webgpu';
 import { uv } from 'three/tsl';
 import { createMaterial } from '../../src/index.js';
-import { COLORS, createBuilder, shell, segment, ball, tube, palm, toGeometry } from './crabshape.js';
+import { COLORS, createBuilder, shell, segment, toGeometry } from './crabshape.js';
+import { ball, tube, palm } from './crabparts.js';
 import { legLayout, solveLeg, createWalk, DACTYL_BEND } from './crabrig.js';
 
 export function createCrab( { size = 0.06, from, to, y = 0, ground = () => y, period = 26, preset = {} } ) {
