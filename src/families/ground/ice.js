@@ -11,9 +11,13 @@
 //   L2 strings   lines of tiny bubbles (20 to 100 um) frozen in columns;
 //                fine scratches (5 to 20 um) on the surface
 // Returns { color, slope, cavity, rough, s2, coat, coatRough } for shader.js.
+//
+// The faded details sit in gate()s (core/lod.js): side fractures, skate
+// scratches with their chips, fine scratches. Cracks and bubbles have no
+// fade (anti-aliased shapes only), so they always run.
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, clamp, mod, positionView, tangentView, bitangentView, normalView } from 'three/tsl';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate } from '../../core/lod.js';
 import { hash3 } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { fbm, fibres, line } from './grains.js';
@@ -52,15 +56,18 @@ export function buildIce( p, fp, u ) {
 	let color = mix( u.color3, u.color.mul( 0.4 ), cloud.mul( 0.3 ) );
 
 	// Fracture planes at 5 mm depth.
-	const pc = shift( 0.005 );
+	const pc = shift( 0.005 ).toVar();
 	const V = voronoi( pc.div( 0.05 ).add( s.mul( 4.7 ) ), 0.9 );
-	const eM = V.edge.mul( 0.05 );
-	const crackOn = smoothstep( 0.5, 0.62, fbm( pc.div( 0.05 ).add( 2.2 ), 2 ) ).mul( u.cracks.mul( 1.4 ) ).min( 1 );
+	const eM = V.edge.mul( 0.05 ).toVar();
+	const crackOn = smoothstep( 0.5, 0.62, fbm( pc.div( 0.05 ).add( 2.2 ), 2 ) ).mul( u.cracks.mul( 1.4 ) ).min( 1 ).toVar();
 	const crack = line( eM, u.crackM.mul( 0.25 ), fp ).mul( crackOn );
 	const plane = smoothstep( u.crackM.mul( 4 ), 0, eM ).pow( 2 ).mul( step( 0.5, hash3( V.id1 ).x ) ).mul( crackOn ).mul( 0.3 );
-	// Feathered edges: small side fractures along the main crack.
-	const side = line( fract( pc.dot( V.dir.yx.mul( vec2( 1, - 1 ) ) ).div( u.crackM.mul( 1.5 ) ) ).sub( 0.5 ).mul( u.crackM.mul( 1.5 ) ), u.crackM.mul( 0.08 ), fp )
-		.mul( smoothstep( u.crackM.mul( 2.5 ), 0, eM ) ).mul( crackOn ).mul( fadeIn( u.crackM, fp, 2.0, 5.0 ) );
+	// Feathered edges: small side fractures along the main crack. Skipped
+	// under 2 px per crack width.
+	const side = gate( fadeOn( u.crackM, fp, 2.0 ), { side: 0 }, () => ( {
+		side: line( fract( pc.dot( V.dir.yx.mul( vec2( 1, - 1 ) ) ).div( u.crackM.mul( 1.5 ) ) ).sub( 0.5 ).mul( u.crackM.mul( 1.5 ) ), u.crackM.mul( 0.08 ), fp )
+			.mul( smoothstep( u.crackM.mul( 2.5 ), 0, eM ) ).mul( crackOn ).mul( fadeIn( u.crackM, fp, 2.0, 5.0 ) ),
+	} ), [ fp, pc, V.dir, eM, crackOn ] ).side;
 	color = mix( color, u.color2, crack.max( plane ).max( side.mul( 0.7 ) ) );
 
 	// L1: bubbles at two depths.
@@ -83,17 +90,34 @@ export function buildIce( p, fp, u ) {
 	const str = B3.disc.mul( inCol ).mul( step( ps.x.sub( col.mul( colW ) ).sub( colW.mul( ch.y ) ).abs(), g.mul( 0.04 ) ) );
 	color = mix( color, mix( u.color.mul( 0.6 ), u.color3.mul( 0.5 ), B3.rim ).add( B3.spot.mul( 0.6 ) ), str );
 
-	// Scratches on the surface: frosted, white, rough.
-	const S1 = fibres( p, float( 0.06 ), u.crackM.mul( 0.3 ), u.scratches.mul( 0.6 ), fp, 3.3, 0.08 );
-	// A skate cut is not clean: frost chips break it into grains.
-	const chips = smoothstep( 0.3, 0.7, fbm( p.div( u.crackM.mul( 0.15 ) ).add( 4.1 ), 2 ) ).mul( fadeIn( u.crackM.mul( 0.15 ), fp, 2.0, 5.0 ) );
-	const S2 = fibres( p, float( 0.004 ), float( 1.2e-5 ), u.scratches, fp, 8.1, 0.05 );
-	const wS2 = fadeIn( float( 2.4e-5 ), fp, 1.0, 3.0 );
-	const scratch = S1.fiber.mul( float( 0.8 ).sub( chips.mul( 0.45 ) ) ).max( S2.fiber.mul( wS2 ).mul( 0.7 ) ).max( wS2.oneMinus().mul( u.scratches ).mul( 0.06 ) );
+	// Scratches on the surface: frosted, white, rough. Skipped where they
+	// are under 0.7 px wide: fibres() fades them out there.
+	const w1 = u.crackM.mul( 0.3 ).toVar();
+	const S1 = gate( fadeOn( w1.mul( 2 ), fp, 0.7 ), { cut: 0, slope: [ 0, 0 ] }, () => {
+
+		const F = fibres( p, float( 0.06 ), w1, u.scratches.mul( 0.6 ), fp, 3.3, 0.08 );
+		// A skate cut is not clean: frost chips break it into grains. Skipped
+		// under 2 px per chip.
+		const chips = gate( fadeOn( u.crackM.mul( 0.15 ), fp, 2.0 ), { chips: 0 }, () => ( {
+			chips: smoothstep( 0.3, 0.7, fbm( p.div( u.crackM.mul( 0.15 ) ).add( 4.1 ), 2 ) ).mul( fadeIn( u.crackM.mul( 0.15 ), fp, 2.0, 5.0 ) ),
+		} ), [ p, fp ] ).chips;
+		return { cut: F.fiber.mul( float( 0.8 ).sub( chips.mul( 0.45 ) ) ), slope: F.slope };
+
+	}, [ p, fp, w1 ] );
+	// Fine scratches, skipped under 1 px per 24 um (wS2; fibres' own fade
+	// starts lower, at 0.7 px, so wS2 is the one that zeroes them).
+	const wS2 = fadeIn( float( 2.4e-5 ), fp, 1.0, 3.0 ).toVar();
+	const S2 = gate( fadeOn( float( 2.4e-5 ), fp, 1.0 ), { cut: 0, slope: [ 0, 0 ] }, () => {
+
+		const F = fibres( p, float( 0.004 ), float( 1.2e-5 ), u.scratches, fp, 8.1, 0.05 );
+		return { cut: F.fiber.mul( wS2 ), slope: F.slope.mul( 0.3 ).mul( wS2 ) };
+
+	}, [ p, fp, wS2 ] );
+	const scratch = S1.cut.max( S2.cut.mul( 0.7 ) ).max( wS2.oneMinus().mul( u.scratches ).mul( 0.06 ) );
 	color = mix( color, u.color2.mul( 0.85 ), scratch );
 
 	const melt = vec2( fbm( p.div( 0.03 ).add( 1.7 ), 2 ), fbm( p.div( 0.03 ).add( 8.3 ), 2 ) ).sub( 0.5 ).mul( 0.04 );
-	const slope = melt.add( S1.slope.mul( 0.3 ) ).add( S2.slope.mul( 0.3 ).mul( wS2 ) );
+	const slope = melt.add( S1.slope.mul( 0.3 ) ).add( S2.slope );
 	const rough = mix( u.roughness, float( 0.55 ), scratch );
 	const s2 = float( 0.002 ).add( wS2.oneMinus().mul( u.scratches ).mul( 0.01 ) );
 	return { color, slope, cavity: crack.mul( 0.3 ), rough, s2, coat: float( 1 ).sub( scratch.mul( 0.7 ) ), coatRough: mix( float( 0.03 ), float( 0.4 ), scratch ) };

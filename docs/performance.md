@@ -217,7 +217,7 @@ Estimated gains **[E]**, to be validated by measurement.
 
 | Lever | Expected effect |
 |---|---|
-| Real branches on the pixel footprint, instead of fades weighted by zero | Distance falls back to the cost of the coarse level. The ground at 10 m would go from +8.5 ms to 1 or 2 ms. Biggest gain for a game scene. |
+| Real branches on the pixel footprint, instead of fades weighted by zero | **Done for the ground family on 16 November 2026, see section 9.** Measured: the soil ground at 10 m goes from 6.9 ms to 1.5 ms. The other families still fade by zero. |
 | Bake the distance: the same material rendered once into a texture (512² to 1K, BC7) at load time, Infinitex only within a radius around the camera | Cost of a PBR scene (about 3 ms) beyond 2 to 3 m. 1.4 MB per 1K BC7 texture. |
 | Graph tiers (near, mid, far): 2 or 3 compiled variants per material, chosen by size on screen | Distant cost divided by 2 to 5. Shader compilation and memory multiplied by 2 or 3. |
 | Surface states (rust, dust, mud, burnt) baked, or reserved for the near view | Up to -20 ms on the affected materials. |
@@ -252,9 +252,44 @@ The CPU is not the limit on any of these machines: under 1 ms per frame. There i
 
 On a phone, a playable version would need baked distance, a single Infinitex material at a time (the inspected object), rendering at about 1 Mpx and half precision.
 
+## 9. Real LOD branches on the ground family **[M]**
+
+16 November 2026. A faded detail level was computed, then weighted by zero. `gate()` in `src/core/lod.js` now puts a level inside a real branch, so the GPU skips it where its fade is zero. The nine ground matters use it, except frost.
+
+**Ground plane alone**, 1080p, no post-processing, M1 Max, WebGPU. Time per frame in ms, branches off then on, minimum of 3 runs (`tests/lod_branches.mjs`). A plain colour ground costs 0.8 ms.
+
+| Matter | 10 m | 40 cm | 1 cm |
+|---|---|---|---|
+| Soil | 6.9 to 1.5 | 17.5 to 6.0 | 17.6 to 6.9 |
+| Dust | 6.7 to 2.6 | 16.9 to 6.1 | 16.8 to 12.4 |
+| Snow | 5.3 to 1.6 | 13.2 to 4.5 | 13.1 to 7.5 |
+| Ice | 5.0 to 2.1 | 12.3 to 5.2 | 12.2 to 6.2 |
+| Gravel | 4.2 to 1.9 | 10.5 to 4.6 | 10.6 to 5.3 |
+| Cracked mud | 4.2 to 2.0 | 10.3 to 4.8 | 10.3 to 5.4 |
+| Salt, sugar | 2.9 to 1.9 | 6.5 to 4.0 | 6.5 to 4.4 |
+| Sand | 2.2 to 1.6 | 4.7 to 3.2 | 4.7 to 4.2 |
+| Frost | 2.1 to 2.1 | 4.3 to 4.3 | 4.3 to 4.3 |
+
+**Game scene** (`game.html`, section 3, post-processing on), before and after, pages alternated, minimum of 4 runs. Only the ground changed. The absolute values are higher than in section 3: other agents were using the GPU.
+
+| View | before | after |
+|---|---|---|
+| 10 m, wide shot | 11.0 | 6.0 |
+| 5 m | 12.2 | 8.2 |
+| 2.8 m, third person | 13.6 | 10.3 |
+| face at 37 cm (no ground in view) | 12.6 | 12.7 |
+
+What to keep in mind:
+- **The image does not change.** Branches on against off, and against the version before the change: 45 views out of 45 under 0.05% of differing pixels, on WebGPU and on the WebGL2 fallback.
+- **The near view gains too**, about 2 times, although every level is live there. A control with the same graph and no branch stays at the old cost, so the branch itself helps. Cause not established. Guess: the Metal compiler handles one very long block worse than several scoped ones.
+- **Cheap levels do not pay.** Frost is not converted: its gates were exact but neutral or slower. The mud pinholes stay outside a gate: inside one they differ slightly at 1 cm on WebGL2.
+- **The shader grows little**: soil goes from 2,858 to 3,072 lines of WGSL. A gate does not duplicate subtrees the way `select()` did.
+- **Rounding.** Code inside a branch can round differently. Cell coordinates are taken as a variable just before the gate that reads them, or cell borders move by a pixel.
+- **Limits.** One machine (M1 Max). One preset per matter. The other families are not converted.
+
 ## TLDR
 
-On an M1 Max, a game scene entirely in Infinitex (13 materials) costs about 10 ms per frame at 1080p, against 3 ms with classic textures. That is about 100 fps on this machine, 40 on a recent MacBook Air, 25 on a base M1, and nothing playable on a phone as is. In memory, Infinitex has no textures, but its compiled shaders and its JavaScript weigh about 245 MB. That is as much as a set of compressed 2K textures, 3.5 times less than compressed 4K and 14 times less than raw 4K. For a game, keep Infinitex for the near view, bake the distance into textures, skip the faded levels instead of weighting them by zero, and fix the CPU ray of the 3D hair on skinned characters (6 to 22 ms).
+On an M1 Max, a game scene entirely in Infinitex (13 materials) costs about 10 ms per frame at 1080p, against 3 ms with classic textures. That is about 100 fps on this machine, 40 on a recent MacBook Air, 25 on a base M1, and nothing playable on a phone as is. In memory, Infinitex has no textures, but its compiled shaders and its JavaScript weigh about 245 MB. That is as much as a set of compressed 2K textures, 3.5 times less than compressed 4K and 14 times less than raw 4K. For a game, keep Infinitex for the near view, bake the distance into textures, skip the faded levels instead of weighting them by zero, and fix the CPU ray of the 3D hair on skinned characters (6 to 22 ms). Skipping the faded levels is done for the ground family (section 9): the wide shot of the game scene goes from 11 ms to 6 ms.
 
 ## 5. Demo frame rate on a Retina screen **[M]**
 

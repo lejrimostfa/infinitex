@@ -62,10 +62,17 @@ export function fadeOn( periodMeters, fp, lo = 2.0 ) {
 //           scalar node, an array of 2 to 4 numbers or scalar nodes, or
 //           { node, size } for a vector node. At most 16 floats in all.
 //   build   () => { name: node }, the level itself. Runs inside the branch.
-//   shared  nodes that build() reads and that are also read outside (the
-//           coordinates, the footprint, a warped position). They are
-//           evaluated before the branch. Without this, a node first met
-//           inside the branch would be assigned only when it is taken.
+//   shared  .toVar() nodes that build() reads and that are also read
+//           outside (the coordinates, the footprint, a warped position).
+//           They are evaluated before the branch. Without this, a node
+//           first met inside the branch is computed there, then again
+//           after it: twice the work, and the second copy can round
+//           differently.
+//
+// Cell coordinates of a Voronoi or a grid ( mod( p.div( size ), 4096 ) )
+// are best taken as a .toVar() just before the gate that reads them, and
+// passed in `shared`: computed inside the branch they can round differently,
+// and some cell borders move by a pixel (seen on the sand facets).
 //
 // Returns { name: node }. No derivative (dFdx, dFdy, a texture sample with
 // implicit mips) may sit inside build(): take them before, like footprint().
@@ -112,7 +119,16 @@ export function gate( on, spec, build, shared = [] ) {
 
 	const M = Fn( () => {
 
-		for ( const s of shared ) s.toVar();
+		// A var is emitted where the stack meets it only if something else
+		// reads it too (three r187 StackNode skips a var read by nobody),
+		// so the var itself goes on the stack, not a copy of it.
+		for ( const s of shared ) {
+
+			if ( ! s.isVarNode ) throw new Error( 'infinitex gate: a shared node must be a .toVar()' );
+			s.toStack();
+
+		}
+
 		const o = pack( ( k ) => specParts( spec[ k ] ) ).toVar();
 		If( on, () => {
 
