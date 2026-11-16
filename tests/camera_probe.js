@@ -8,7 +8,9 @@
 import * as THREE from 'three/webgpu';
 import { DT, stats, setup, dofCost } from './camera_probe_util.js';
 
-// Walk forward (W held) into the surface at the screen centre.
+// Walk forward (W held) into the surface at the screen centre. Up to
+// 12 000 frames: another object close beside the path (walk.js sideLimit)
+// slows the approach.
 export async function walkCheck( ix ) {
 
 	const c = setup( ix );
@@ -24,7 +26,7 @@ export async function walkCheck( ix ) {
 	key( 'keydown' );
 	const times = [];
 	let still = 0, frames = 0;
-	for ( ; frames < 2000 && still < 30; frames ++ ) {
+	for ( ; frames < 12000 && still < 30; frames ++ ) {
 
 		const before = camera.position.clone();
 		const t0 = performance.now();
@@ -41,6 +43,19 @@ export async function walkCheck( ix ) {
 	// (a slanted approach stops sooner along the view).
 	const clearance = end?.normal ? end.distance * Math.abs( dir.dot( end.normal ) ) : null;
 	const out = { surface: hit0.name, startDist: + Math.min( 1, hit0.distance ).toFixed( 4 ), frames, stopDist: end ? end.distance : null, clearance, pad: end?.pad ?? 0, firstMs: + times[ 0 ].toFixed( 2 ), staticMs: stats( times.slice( 1 ) ) };
+
+	// Strafe (D held) 1 mm in front of the same surface: the ray along the
+	// move misses it, so only the nearest-object limit slows the camera.
+	// Without it the speed is at least minSpeed (2 cm/s).
+	c.place( hit0.point.clone().addScaledVector( dir, - 1e-3 - ( hit0.pad ?? 0 ) ), dir, 0.5 ); // a displaced surface (sand) rises up to pad
+	const from = camera.position.clone(), side = ( type ) => dispatchEvent( new KeyboardEvent( type, { code: 'KeyD' } ) );
+	const sideTimes = [];
+	side( 'keydown' );
+	for ( let i = 0; i < 30; i ++ ) { const t0 = performance.now(); kit.walk.update( DT ); sideTimes.push( performance.now() - t0 ); }
+	side( 'keyup' );
+	camera.updateMatrixWorld();
+	const after = c.exact( camera.position, dir );
+	out.side = { speed: camera.position.distanceTo( from ) / ( 30 * DT ), aheadAfter: after ? after.distance : null, ms: stats( sideTimes ) };
 
 	// Same walk with the scene animated every frame (skinned characters move):
 	// from 20 cm, 600 frames. The pose is set outside the timed call.

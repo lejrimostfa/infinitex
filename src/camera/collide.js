@@ -13,8 +13,15 @@
 // on first use.
 // Skipped: invisible meshes, noFocus meshes (a water surface) and GPU-moved
 // meshes (fuzz, hair), whose CPU geometry is not what is drawn.
+// Second query, surfaceAhead.near( point, far, skip ): distance to the
+// nearest solid surface in any direction (BVH closest point), other than
+// the mesh skip, for walk.js. The ray only sees what lies along the move,
+// so a strafe over the floor or along a wall needs this one to slow down. Skinned meshes use the rigid bone
+// copies here, a few mm off at the joints: fine for a speed limit.
+// Displaced surfaces count with their pad. Instanced meshes are skipped.
 // Event bus: none, a pure query called by walk.js and lens.js. After a
-// call, surfaceAhead.object is the mesh that was hit (or null).
+// call, surfaceAhead.object is the mesh that was hit (or null), and
+// surfaceAhead.near.point the nearest surface point (or null).
 
 import * as THREE from 'three/webgpu';
 import { MeshBVH } from 'three-mesh-bvh';
@@ -149,8 +156,56 @@ export function createCollider( scene, camera ) {
 
 	}
 
+	// Nearest point of one BVH to point (world), if closer than best (world).
+	// The search runs in the mesh's local space: a local distance L is at
+	// least L * smallest scale in the world, which sets the local cut-off.
+	const inv = new THREE.Matrix4(), local = new THREE.Vector3(), axis = new THREE.Vector3(), at = new THREE.Vector3(), found = {};
+	function closest( bvh, matrix, point, best, pad ) {
+
+		let s = Infinity;
+		for ( let i = 0; i < 3; i ++ ) s = Math.min( s, axis.setFromMatrixColumn( matrix, i ).length() );
+		if ( ! ( s > 0 ) ) return best;
+		local.copy( point ).applyMatrix4( inv.copy( matrix ).invert() );
+		if ( ! bvh.closestPointToPoint( local, found, 0, ( best + pad ) / s ) ) return best;
+		found.point.applyMatrix4( matrix );
+		const d = Math.max( 0, found.point.distanceTo( point ) - pad );
+		if ( d < best ) at.copy( found.point );
+		return Math.min( d, best );
+
+	}
+
+	// Distance from point to the nearest solid surface in any direction, up to
+	// far, skipping the mesh skip (walk.js: the one the move ray hit, which
+	// the ray already handles). A displaced surface (sand) is its flat mesh
+	// minus its pad, as in surfaceAhead.
+	function near( point, far, skip = null ) {
+
+		let best = far;
+		scene.traverseVisible( ( o ) => {
+
+			if ( o === skip || ! solid( o ) || o.isInstancedMesh ) return;
+			boundsOf( o );
+			const pad = padOf( o );
+			if ( point.distanceTo( sphere.center ) - sphere.radius - pad >= best ) return;
+			const t = treeOf( o );
+			if ( t.bvh ) best = closest( t.bvh, o.matrixWorld, point, best, pad );
+			else for ( const { bone, bvh, part } of t.bones ) {
+
+				boneMatrix( o, bone, part.matrixWorld );
+				best = closest( bvh, part.matrixWorld, point, best, pad );
+
+			}
+
+		} );
+		near.point = best < far ? at : null;
+		return best < far ? best : Infinity;
+
+	}
+
+	near.point = null;
 	surfaceAhead.object = null;
 	surfaceAhead.normal = null;
+	surfaceAhead.near = near;
 	return surfaceAhead;
 
 }
