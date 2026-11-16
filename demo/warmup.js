@@ -21,9 +21,80 @@ import { Vector2, Object3D } from 'three/webgpu';
 
 const _size = new Vector2();
 
+// Two parts of the pass's state that compileAsync does not keep. Its work
+// items run later, between frames; without them every matter compiled a
+// second time, synchronously, on its first real draw (200 to 1000 ms per
+// batch of 8):
+//   context  the scene pass carries the AO of the lighting (camera/post.js)
+//            in a context node, part of every render object's cache key
+//   lights   the hair pass draws the same scene with the same camera, so it
+//            shares the scene pass's lights node, and it sees no light (hair
+//            layer only): the items that ran after it compiled without sun,
+//            and three caches the environment key per draw count
+// Here each work item queued for the pass's target runs with both.
+function keepPassState( renderer, pass, lights ) {
+
+	if ( ! pass || renderer._ixPassState ) return;
+	renderer._ixPassState = true;
+	const begin = renderer._beginPreCompile, finish = renderer._finishPreCompile;
+	renderer._beginPreCompile = function ( state ) {
+
+		begin.call( this, state );
+		if ( state.renderTarget !== pass.renderTarget ) return;
+		if ( state.item ) {
+
+			// The lights, and the environment key three caches per draw count
+			// (computed by then with the hair pass's empty list).
+			state.item.lightsNode.setLights( lights );
+			this._nodes.callHashCache.delete( [ state.item.scene, state.item.lightsNode ] );
+
+		}
+
+		if ( pass.contextNode !== null ) {
+
+			state.ixContext = this.contextNode;
+			this.contextNode = pass._getContextNode( this );
+
+		}
+
+	};
+
+	renderer._finishPreCompile = function () {
+
+		const state = this._precompilationState;
+		if ( state && state.ixContext !== undefined ) {
+
+			this.contextNode = state.ixContext;
+			delete state.ixContext;
+
+		}
+
+		finish.call( this );
+
+	};
+
+}
+
+// The shadow of an opaque matter. three builds it from the material's whole
+// colour graph, for an alpha that only alpha tests and transparent shadows
+// read: one more shader per matter, built synchronously on its first draw
+// (about 20 ms each). An opaque matter without alpha test or mask casts the
+// plain shadow of its geometry instead, one pipeline shared by all (its
+// displacement, a fraction of a millimetre, is not in the shadow).
+function plainShadow( renderer, material ) {
+
+	const cache = renderer._cacheShadowNodes;
+	if ( ! cache || material.transparent || material.alphaTest > 0 || material.transmission > 0 || material.maskNode || material.maskShadowNode || material.castShadowNode || material.castShadowPositionNode ) return;
+	cache.set( material, { version: material.version, colorNode: null, depthNode: null, positionNode: null } );
+
+}
+
 export function streamMaterials( { renderer, scene, camera, pass, meshes, placeholder, batchSize = 8 } ) {
 
 	const bus = new EventTarget();
+	const lights = [];
+	scene.traverseVisible( ( o ) => { if ( o.isLight && ( ! pass?.getLayers() || o.layers.test( pass.getLayers() ) ) ) lights.push( o ); } );
+	keepPassState( renderer, pass, lights );
 	const real = new Map(), kids = new Map();
 	for ( const m of meshes ) {
 
@@ -96,6 +167,7 @@ export function streamMaterials( { renderer, scene, camera, pass, meshes, placeh
 	function swap( m ) {
 
 		m.material = real.get( m );
+		m.traverse( ( o ) => { if ( o.isMesh && o.castShadow ) plainShadow( renderer, o.material ); } );
 		for ( const c of kids.get( m ) ) m.add( c );
 
 	}
