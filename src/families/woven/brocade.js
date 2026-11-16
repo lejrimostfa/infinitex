@@ -19,9 +19,13 @@
 //   L3 strip:   rolling lines along the strip (about 12 um) and the gilt
 //               rubbed off on the highest points, showing the silver under it
 // Returns { mask, color, slope, metal, rough, s2, cavity, groundShade }.
+//
+// The floats, the file and the strip sit in a gate() (core/lod.js): they
+// run only inside the motif, where the mask is not zero. Outside it the
+// woven shader mixes them by zero.
 
 import { vec2, vec3, float, floor, fract, clamp, smoothstep, step, sqrt, mix, abs, cos, sin, atan, exp } from 'three/tsl';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, gate } from '../../core/lod.js';
 import { hash1, valueNoise } from '../../core/hash.js';
 
 const pm = ( x, n ) => x.sub( floor( x.div( n ) ).mul( n ) );
@@ -92,8 +96,8 @@ export function buildBrocade( p, fp, u ) {
 
 	const M = u.motifM, Pg = u.goldPickM;
 	// L1: rows of gold; the motif is read at the middle of each row.
-	const j = floor( p.y.div( Pg ) ), fy = fract( p.y.div( Pg ) );
-	const wRow = fadeIn( Pg, fp, 1.5, 4.0 );
+	const j = floor( p.y.div( Pg ) ).toVar(), fy = fract( p.y.div( Pg ) ).toVar();
+	const wRow = fadeIn( Pg, fp, 1.5, 4.0 ).toVar();
 	const pq = vec2( p.x, mix( p.y, j.add( 0.5 ).mul( Pg ), wRow ) ).div( M );
 	const A = motif( halfDrop( pq, 1.3 ) );
 	const B = filler( halfDrop( pq.add( vec2( 0.5, 0.325 ) ), 1.3 ) );
@@ -102,6 +106,17 @@ export function buildBrocade( p, fp, u ) {
 	const cut = clamp( line.negate().div( fp ).add( 0.5 ), 0, 1 ).mul( fadeIn( M.mul( 0.012 ), fp, 1.0, 3.0 ) );
 	const mask = fill.mul( float( 1 ).sub( cut ) ).toVar();
 	const groundShade = mix( float( 0.62 ), float( 1 ), smoothstep( 0.0, 1.0, d.div( Pg.mul( 1.2 ) ).max( 0 ) ).max( mask ) );
+	// Outside the motif (mask 0) the gate skips the ties, file and strip.
+	const off = { color: [ 0, 0, 0 ], slope: [ 0, 0 ], metal: 0, rough: 0, s2: 0, cavity: 0 };
+	const G = gate( mask.greaterThan( 0 ), off, () => floats( p, fp, u, j, fy, wRow ), [ p, fp, j, fy, wRow, mask ] );
+	return { mask, groundShade, ...G };
+
+}
+
+// L1 to L3 inside the motif: ties, file, wraps, strip.
+function floats( p, fp, u, j, fy, wRow ) {
+
+	const Pg = u.goldPickM;
 
 	// Ties: one ground end over the float, two ends further on each row,
 	// so the ties line up in a fine twill diagonal.
@@ -146,6 +161,6 @@ export function buildBrocade( p, fp, u ) {
 	const rough = mix( float( 0.24 ), float( 0.5 ), gap.max( tie ) );
 	const s2 = float( 1 ).sub( wFile ).mul( 0.07 ).add( float( 1 ).sub( wWrap ).mul( 0.02 ) );
 	const cavity = float( 1 ).sub( hs ).mul( 0.5 ).mul( wFile ).add( dip.mul( 0.3 ).mul( wTie ) );
-	return { mask, color, slope, metal, rough, s2, cavity, groundShade };
+	return { color, slope, metal, rough, s2, cavity };
 
 }

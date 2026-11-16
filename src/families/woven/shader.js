@@ -8,34 +8,33 @@
 // Optional, compiled only when the preset uses them: brocade.js (a gold
 // motif in floats over the cloth), sheer.js (voile: the gaps are holes).
 // Coordinates in meters: x across the warp (weft direction), y along it.
+//
+// The weave sits in a gate() (core/lod.js): past its fade only the mean
+// colour of the cloth is computed.
 
-import { uv, vec2, vec3, float, floor, fract, clamp, smoothstep, step, sqrt, mix, normalView, tangentView, bitangentView } from 'three/tsl';
-import { footprint, fadeIn, composeRoughness, specularAA, perturbNormal, pick } from '../../core/lod.js';
+import { uv, vec2, float, floor, fract, clamp, smoothstep, step, sqrt, mix, normalView, tangentView, bitangentView } from 'three/tsl';
+import { footprint, fadeIn, fadeOn, gate, composeRoughness, specularAA, perturbNormal, pick } from '../../core/lod.js';
 import { hash1, valueNoise } from '../../core/hash.js';
 import { applySurface } from '../../core/surface.js';
-import { applyStates } from '../../core/states.js';
+import { applyStates, STATES_DEFAULTS } from '../../core/states.js';
 import { buildBrocade } from './brocade.js';
 import { applySheer } from './sheer.js';
+
+// A surface state is on (blood, burns, grease...): its amount keys are
+// the defaults without an underscore.
+const STATE_KEYS = Object.keys( STATES_DEFAULTS ).filter( ( k ) => ! k.includes( '_' ) );
+const anyState = ( s ) => STATE_KEYS.some( ( k ) => s[ k ]?.value > 0 );
 
 // Positive modulo (WGSL % keeps the sign of x).
 const pm = ( x, n ) => x.sub( n.mul( floor( x.div( n ) ) ) );
 
-export function buildWovenNodes( u, opts = {} ) {
+// L1 to L3: the weave, its plies and fibers. c holds the cell coordinates
+// and the colours computed before the gate. Returns the colour, the sheen
+// colour, the slope, the cavity, the weights of L2 and L3, and for a
+// sheer cloth the thread mask and the crossings.
+function weave( p, fp, u, c ) {
 
-	const p = ( opts.coords ?? uv() ).toVar( 'ix_coords' );
-	const fp = footprint( p ).toVar( 'ix_fp' );
-
-	// L1: the cell and who is on top.
-	// Hand irregularity: threads are not ruled lines. A smooth domain warp
-	// makes each thread wander a little across its neighbours.
-	const wanderX = valueNoise( vec2( p.x.div( u.warpM ).mul( 0.15 ), p.y.div( u.slubM ) ).add( u.seed ) ).sub( 0.5 );
-	const wanderY = valueNoise( vec2( p.y.div( u.weftM ).mul( 0.15 ), p.x.div( u.slubM ) ).add( u.seed.add( 4.4 ) ) ).sub( 0.5 );
-	// A finer wobble, over one or two threads, so no border runs straight.
-	const fineX = valueNoise( vec2( p.x.div( u.warpM ).mul( 0.7 ), p.y.div( u.weftM ).mul( 0.6 ) ).add( 7.7 ) ).sub( 0.5 );
-	const fineY = valueNoise( vec2( p.y.div( u.weftM ).mul( 0.7 ), p.x.div( u.warpM ).mul( 0.6 ) ).add( 1.9 ) ).sub( 0.5 );
-	const cx = p.x.div( u.warpM ).add( wanderX.mul( 0.6 ).add( fineX.mul( 0.22 ) ).mul( u.irregular ) );
-	const cy = p.y.div( u.weftM ).add( wanderY.mul( 0.6 ).add( fineY.mul( 0.22 ) ).mul( u.irregular ) );
-	const i = floor( cx ), j = floor( cy );
+	const { cx, cy, i, j, warpCol, weftCol, farCol, w1 } = c;
 	const fx = fract( cx ), fy = fract( cy );
 	const herringOn = step( 0.5, u.herring );
 	const warpUp = ( ii, jj ) => {
@@ -87,7 +86,6 @@ export function buildWovenNodes( u, opts = {} ) {
 	const sl = pick( wu, slW, slF ), fillE = pick( wu, fillW, fillF );
 	const x = pick( wu, xw, xf );
 	const ax = x.abs();
-	const w1 = fadeIn( u.warpM.min( u.weftM ), fp, 2.0, 6.0 ).toVar();
 	// 1 on a thread, 0 in a gap between threads, antialiased over one pixel.
 	const inside = clamp( float( 0.5 ).sub( ax.sub( 1 ).mul( widthM ).mul( fillE ).mul( 0.5 ).div( fp ) ), 0, 1 ).toVar();
 	const xc = x.clamp( - 0.97, 0.97 );
@@ -124,22 +122,10 @@ export function buildWovenNodes( u, opts = {} ) {
 	const sFib = fx3.div( sqrt( float( 1 ).sub( fx3.mul( fx3 ) ) ) ).negate().mul( 0.25 ).clamp( - 1.5, 1.5 )
 		.mul( smoothstep( 0.0, 1.0, fl.min( float( 1 ).sub( fl ) ).mul( u.fiberM ).div( fp ) ) );
 
-	let slope = acrossDir.mul( sAcross ).add( alongDir.mul( sAlong ) ).mul( w1 )
+	const slope = acrossDir.mul( sAcross ).add( alongDir.mul( sAlong ) ).mul( w1 )
 		.add( g.mul( sPly.mul( w2 ).mul( inside ) ) ).add( g.mul( sFib.mul( w3 ).mul( inside ) ) );
-	const B = u.brocadeOn ? buildBrocade( p, fp, u ) : null;
-	if ( B ) slope = mix( slope, B.slope, B.mask );
-	const base = ( opts.baseNormal ?? normalView ).toVar( 'ix_base_normal' );
-	const normalNode = perturbNormal( base, slope, tangentView, bitangentView ).toVar( 'ix_normal' );
 
-	// Colour. Tartan: each thread takes the colour of its band in the sett.
-	const band = ( n ) => {
-
-		const k = pm( n, u.sett ).div( u.sett );
-		return mix( mix( u.tA, u.tB, step( 0.42, k ) ), u.tC, step( 0.74, k ).mul( step( k, 0.86 ) ) );
-
-	};
-	const warpCol = mix( opts.stitchColor ? opts.stitchColor.here : u.warpColor, band( i ), u.tartan );
-	const weftCol = mix( opts.stitchColor ? opts.stitchColor.here : u.weftColor, band( j ), u.tartan );
+	// Colour of the thread on top and of the one under it.
 	const topCol = pick( wu, warpCol, weftCol ), underCol = pick( wu, weftCol, warpCol );
 	const v = u.colorVar;
 	const tint = float( 1 ).add( hash1( vec2( tid, 9.7 ) ).sub( 0.5 ).mul( v ) )
@@ -155,14 +141,70 @@ export function buildWovenNodes( u, opts = {} ) {
 	const threadCol = fibCol.mul( tint ).mul( ao );
 	const gapCol = underCol.mul( 0.45 );
 	const cellCol = mix( gapCol, threadCol, inside );
+	return {
+		color: mix( farCol, cellCol, w1 ), sheen: mix( farCol, topCol, w1 ), slope,
+		cavity: float( 1 ).sub( hc.mul( inside ) ).mul( 0.6 ).add( dip.mul( 0.4 ) ).mul( w1 ),
+		w2, w3, inside, crossing: step( xw.abs(), 1 ).mul( step( xf.abs(), 1 ) ),
+	};
+
+}
+
+export function buildWovenNodes( u, opts = {} ) {
+
+	const p = ( opts.coords ?? uv() ).toVar( 'ix_coords' );
+	const fp = footprint( p ).toVar( 'ix_fp' );
+
+	// L1: the cell and who is on top.
+	// Hand irregularity: threads are not ruled lines. A smooth domain warp
+	// makes each thread wander a little across its neighbours.
+	const wanderX = valueNoise( vec2( p.x.div( u.warpM ).mul( 0.15 ), p.y.div( u.slubM ) ).add( u.seed ) ).sub( 0.5 );
+	const wanderY = valueNoise( vec2( p.y.div( u.weftM ).mul( 0.15 ), p.x.div( u.slubM ) ).add( u.seed.add( 4.4 ) ) ).sub( 0.5 );
+	// A finer wobble, over one or two threads, so no border runs straight.
+	const fineX = valueNoise( vec2( p.x.div( u.warpM ).mul( 0.7 ), p.y.div( u.weftM ).mul( 0.6 ) ).add( 7.7 ) ).sub( 0.5 );
+	const fineY = valueNoise( vec2( p.y.div( u.weftM ).mul( 0.7 ), p.x.div( u.warpM ).mul( 0.6 ) ).add( 1.9 ) ).sub( 0.5 );
+	// Cell coordinates, taken before the gate: the far colour of a tartan
+	// reads the band of the thread too.
+	const cx = p.x.div( u.warpM ).add( wanderX.mul( 0.6 ).add( fineX.mul( 0.22 ) ).mul( u.irregular ) ).toVar();
+	const cy = p.y.div( u.weftM ).add( wanderY.mul( 0.6 ).add( fineY.mul( 0.22 ) ).mul( u.irregular ) ).toVar();
+	const i = floor( cx ).toVar(), j = floor( cy ).toVar();
+
+	// Colour. Tartan: each thread takes the colour of its band in the sett.
+	// Outside the gate: a colour map is a texture read with implicit mips.
+	const band = ( n ) => {
+
+		const k = pm( n, u.sett ).div( u.sett );
+		return mix( mix( u.tA, u.tB, step( 0.42, k ) ), u.tC, step( 0.74, k ).mul( step( k, 0.86 ) ) );
+
+	};
+	const warpCol = mix( opts.stitchColor ? opts.stitchColor.here : u.warpColor, band( i ), u.tartan ).toVar();
+	const weftCol = mix( opts.stitchColor ? opts.stitchColor.here : u.weftColor, band( j ), u.tartan ).toVar();
 	// Far: the mean of the cell, warp share = up / repeat.
 	// The crimp hides part of the thread that is underneath: the face
 	// thread covers more than its share of the cells (measured on the 2 cm
 	// view of a 3/1 twill: 0.75 -> about 0.85).
 	const share0 = u.up.div( u.repeat );
 	const share = share0.add( share0.sub( 0.5 ).mul( 0.4 ) );
-	const farCol = mix( mix( weftCol, warpCol, share ), u.heatherColor, u.heather ).mul( u.fill.mul( 0.25 ).add( 0.6 ) );
-	let colorNode = mix( farCol, cellCol, w1 );
+	const farCol = mix( mix( weftCol, warpCol, share ), u.heatherColor, u.heather ).mul( u.fill.mul( 0.25 ).add( 0.6 ) ).toVar();
+	const w1 = fadeIn( u.warpM.min( u.weftM ), fp, 2.0, 6.0 ).toVar();
+
+	// Past the weave's fade (threads under 2 px) only the mean colour is
+	// left: the gate skips the weave, its plies and its fibers. Not with a
+	// surface state on: the long state code after the branch made those
+	// presets slower (blood 1.3 to 1.5 times, burns 1.1), so the weave is
+	// then built without a branch, as before.
+	const off = { color: { node: farCol, size: 3 }, sheen: { node: farCol, size: 3 }, slope: [ 0, 0 ], cavity: 0, w2: 0, w3: 0 };
+	if ( u.sheerOn ) Object.assign( off, { inside: 0, crossing: 0 } );
+	const level = () => weave( p, fp, u, { cx, cy, i, j, warpCol, weftCol, farCol, w1 } );
+	const W = anyState( u.states ) ? level() : gate( fadeOn( u.warpM.min( u.weftM ), fp, 2.0 ), off, level, [ p, fp, cx, cy, i, j, warpCol, weftCol, farCol, w1 ] );
+	const { w2, w3 } = W;
+
+	let slope = W.slope;
+	const B = u.brocadeOn ? buildBrocade( p, fp, u ) : null;
+	if ( B ) slope = mix( slope, B.slope, B.mask );
+	const base = ( opts.baseNormal ?? normalView ).toVar( 'ix_base_normal' );
+	const normalNode = perturbNormal( base, slope, tangentView, bitangentView ).toVar( 'ix_normal' );
+
+	let colorNode = W.color;
 	if ( B ) colorNode = mix( colorNode.mul( B.groundShade ), B.color, B.mask );
 
 	const s2 = float( 1 ).sub( w1 ).mul( 0.1 ).mul( u.flatten.add( 0.2 ) ).add( float( 1 ).sub( w2 ).mul( 0.03 ) ).add( float( 1 ).sub( w3 ).mul( 0.015 ) );
@@ -170,11 +212,11 @@ export function buildWovenNodes( u, opts = {} ) {
 	const roughnessNode = specularAA( composeRoughness( rough, B ? mix( s2, B.s2, B.mask ) : s2 ), normalNode );
 	const nodes = {
 		colorNode, normalNode, roughnessNode, metalnessNode: B ? B.metal.mul( B.mask ) : float( 0 ),
-		sheenNode: mix( farCol, topCol, w1 ).mul( u.sheenAmt ).mul( B ? float( 1 ).sub( B.mask ) : 1 ), sheenRoughnessNode: float( 0.5 ),
+		sheenNode: W.sheen.mul( u.sheenAmt ).mul( B ? float( 1 ).sub( B.mask ) : 1 ), sheenRoughnessNode: float( 0.5 ),
 	};
-	let cavity = float( 1 ).sub( hc.mul( inside ) ).mul( 0.6 ).add( dip.mul( 0.4 ) ).mul( w1 );
+	let cavity = W.cavity;
 	if ( B ) cavity = mix( cavity.max( float( 1 ).sub( B.groundShade ) ), B.cavity, B.mask );
-	if ( u.sheerOn ) applySheer( nodes, u, { inside, crossing: step( xw.abs(), 1 ).mul( step( xf.abs(), 1 ) ), w1 } );
+	if ( u.sheerOn ) applySheer( nodes, u, { inside: W.inside, crossing: W.crossing, w1 } );
 	applySurface( nodes, u.surface, { cavity, flatNormal: base, porosity: 1 } );
 	applyStates( nodes, u.states, { cavity, flatNormal: base, coords: p, fp } );
 	nodes.debug = { fp, w1, w2, w3, covered: float( 1 ) };
