@@ -2,12 +2,18 @@
 // characters through app.js; living room; aquarium). Works with the
 // page's OrbitControls: the mouse still orbits and zooms; this adds
 //   keys     arrows, or ZQSD on AZERTY / WASD on QWERTY (read by physical
-//            key, e.code, so both layouts work): move on the ground plane
-//            along the view. Space up, C down, Shift faster. Camera and
+//            key, e.code, so both layouts work): forward and back follow the
+//            view direction (looking down, forward goes down); left and
+//            right strafe. Space up, C down, Shift faster. Camera and
 //            orbit target move together, so orbiting stays centred.
 //            Speed follows the distance to the target (about 0.8 of it
 //            per second), so the same keys walk a room or creep along a
 //            stitch.
+//   walls    a ray along the move finds the surface ahead. Speed also
+//            follows that distance, and a step covers at most a share of
+//            the room left (exponential approach), so the camera slows
+//            down near a surface and never passes through it. The ray
+//            query and what it skips live in collide.js.
 //   click    a click (not a drag) on a mesh glides the camera to it: a
 //            small object is framed whole, a large one (floor, wall) is
 //            approached at the point clicked. The view direction is kept.
@@ -19,6 +25,7 @@
 // The page calls update( dt ) once per frame, before controls.update().
 
 import * as THREE from 'three/webgpu';
+import { createCollider } from './collide.js';
 
 const MOVE = {
 	ArrowUp: [ 0, 1 ], KeyW: [ 0, 1 ], ArrowDown: [ 0, - 1 ], KeyS: [ 0, - 1 ],
@@ -85,8 +92,10 @@ export function createWalk( { camera, controls, scene, dom = controls.domElement
 	}
 
 	const visible = ( o ) => { for ( let p = o; p; p = p.parent ) if ( ! p.visible ) return false; return true; };
-	const fwd = new THREE.Vector3(), right = new THREE.Vector3(), step = new THREE.Vector3();
+	const fwd = new THREE.Vector3(), right = new THREE.Vector3(), step = new THREE.Vector3(), dir = new THREE.Vector3();
+	const surfaceAhead = createCollider( scene, camera ); // collide.js: BVH raycast
 	const ease = ( k ) => k * k * ( 3 - 2 * k );
+	const MARGIN = 1e-4; // m, half of controls.minDistance in scene.js
 
 	bus.update = ( dt ) => {
 
@@ -114,16 +123,21 @@ export function createWalk( { camera, controls, scene, dom = controls.domElement
 		if ( down.has( 'Space' ) ) my += 1;
 		if ( down.has( 'KeyC' ) ) my -= 1;
 		if ( ! mx && ! my && ! mz ) return;
-		camera.getWorldDirection( fwd );
-		fwd.y = 0;
-		if ( fwd.lengthSq() < 1e-6 ) fwd.set( 0, 0, - 1 ).applyQuaternion( camera.quaternion ).setY( 0 );
-		fwd.normalize();
-		right.crossVectors( fwd, camera.up ).normalize();
+		camera.getWorldDirection( fwd ); // full view direction, pitch included
+		right.set( 1, 0, 0 ).applyQuaternion( camera.quaternion ); // camera right, also valid looking straight down
 		const d = camera.position.distanceTo( controls.target );
-		const speed = THREE.MathUtils.clamp( d * 0.8, minSpeed, maxSpeed ) * ( down.has( 'ShiftLeft' ) || down.has( 'ShiftRight' ) ? 3 : 1 );
-		step.set( 0, 0, 0 ).addScaledVector( fwd, mz ).addScaledVector( right, mx ).add( new THREE.Vector3( 0, my, 0 ) );
-		if ( step.lengthSq() > 1 ) step.normalize();
-		step.multiplyScalar( speed * dt );
+		step.set( 0, 0, 0 ).addScaledVector( fwd, mz ).addScaledVector( right, mx );
+		step.y += my;
+		if ( step.lengthSq() < 1e-12 ) return;
+		dir.copy( step ).normalize();
+		const want = Math.min( step.length(), 1 ); // keys held: 1, diagonals are not faster
+		const h = surfaceAhead( camera.position, dir, Math.max( d, maxSpeed ) * 2 );
+		const speed = THREE.MathUtils.clamp( Math.min( d, h ) * 0.8, minSpeed, maxSpeed ) * ( down.has( 'ShiftLeft' ) || down.has( 'ShiftRight' ) ? 3 : 1 );
+		// Never closer than MARGIN; each frame covers at most 1 - e^(-4 dt) of the room left.
+		const room = Math.max( 0, h - MARGIN );
+		const len = Math.min( want * speed * dt, room * ( 1 - Math.exp( - 4 * dt ) ) );
+		if ( len <= 0 ) return;
+		step.copy( dir ).multiplyScalar( len );
 		camera.position.add( step );
 		controls.target.add( step );
 
