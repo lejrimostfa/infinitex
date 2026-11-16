@@ -17,9 +17,12 @@
 //   L2 cells     adipocytes of cell_um (60 to 120 um): glossy polygonal
 //                drops of lipid packed in a net of bright thin walls
 // Returns { color, slope, cavity, rough, s2, coat, coatRough, glow }.
+//
+// Fat: the vessels, the lobules and the adipocytes sit in gate()s
+// (core/lod.js) and run only where they show.
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep } from 'three/tsl';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate } from '../../core/lod.js';
 import { hash1, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { rot2, cells, fbm, band, fibres, grains, warp2 } from './common.js';
@@ -97,24 +100,43 @@ export function buildFat( p, fp, u ) {
 	const lobes = voronoi( p.div( 0.03 ).add( s ), 0.9 );
 	const mem = band( lobes.edge.mul( 0.03 ), float( 1.2e-3 ).mul( valueNoise( p.div( 0.01 ) ).add( 0.2 ) ), fp ).mul( fadeIn( float( 0.03 ), fp, 1.5, 4.0 ) );
 	const pink = smoothstep( 0.55, 0.8, fbm( p.add( 3.3 ), float( 0.03 ), fp, 3, 5 ) ).mul( u.blush );
-	const V = fibres( p, u.featureM.mul( 8 ), u.featureM.mul( 0.04 ), u.density.mul( 0.5 ), fp, 4.1, 0.6 );
+	// Vessels fade out under 0.7 px of twice their width (fibres(): wide).
+	const V = gate( fadeOn( u.featureM.mul( 0.08 ), fp, 0.7 ), { fiber: 0, slope: [ 0, 0 ] }, () => {
+
+		const F = fibres( p, u.featureM.mul( 8 ), u.featureM.mul( 0.04 ), u.density.mul( 0.5 ), fp, 4.1, 0.6 );
+		return { fiber: F.fiber, slope: F.slope };
+
+	}, [ p, fp ] );
 	// L1: lobules, rounded domes in creases. L2: adipocytes, round drops.
-	const L = grains( p, u.sizeM, fp, 6.2, { gap: 0.06, radius: 0.46, round: 0.5, crown: 0.8, elong: 0.4, sizeVar: 0.4 } );
-	const A = grains( p, u.cellM, fp, 9.4, { gap: 0.04, radius: 0.5, round: 0.5, crown: 0.6, elong: 0.3 } );
-	const wL = fadeIn( u.sizeM, fp, 1.5, 4.0 ), wA = fadeIn( u.cellM, fp, 1.5, 4.0 );
+	// Each skipped under 1.5 px per grain, where its weight is 0.
+	const L = gate( fadeOn( u.sizeM, fp, 1.5 ), { tint: 1, crease: 0, slope: [ 0, 0 ], wL: 0 }, () => {
+
+		const G = grains( p, u.sizeM, fp, 6.2, { gap: 0.06, radius: 0.46, round: 0.5, crown: 0.8, elong: 0.4, sizeVar: 0.4 } );
+		const wL = fadeIn( u.sizeM, fp, 1.5, 4.0 );
+		return { tint: G.id.x.sub( 0.5 ).mul( u.colorVar ).mul( wL ).add( 1 ), crease: G.body.oneMinus().mul( wL ), slope: G.grad.mul( 0.12 ).mul( wL ), wL };
+
+	}, [ p, fp ] );
+	const A = gate( fadeOn( u.cellM, fp, 1.5 ), { tint: 1, wall: 0, slope: [ 0, 0 ], wA: 0 }, () => {
+
+		const G = grains( p, u.cellM, fp, 9.4, { gap: 0.04, radius: 0.5, round: 0.5, crown: 0.6, elong: 0.3 } );
+		const wA = fadeIn( u.cellM, fp, 1.5, 4.0 );
+		return { tint: G.h.mul( 0.08 ).add( 0.94 ).mul( wA ).add( wA.oneMinus() ), wall: G.body.oneMinus().mul( wA ), slope: G.grad.mul( 0.3 ).mul( wA ), wA };
+
+	}, [ p, fp ] );
+	const wL = L.wL, wA = A.wA;
 
 	let color = mix( u.color, u.color2, tone.sub( 0.2 ).max( 0 ).mul( 1.2 ).min( 1 ) );
 	color = mix( color, u.color.mul( vec3( 1.0, 0.72, 0.68 ) ), pink.mul( 0.6 ) );
-	color = color.mul( L.id.x.sub( 0.5 ).mul( u.colorVar ).mul( wL ).add( 1 ) ).mul( hash1( lobes.id1 ).sub( 0.5 ).mul( 0.16 ).add( 1 ) );
+	color = color.mul( L.tint ).mul( hash1( lobes.id1 ).sub( 0.5 ).mul( 0.16 ).add( 1 ) );
 	// Creases between lobules and membranes: translucent, greyer, pinker.
-	const crease = L.body.oneMinus().mul( wL );
+	const crease = L.crease;
 	color = mix( color, color.mul( vec3( 0.78, 0.66, 0.62 ) ), crease.mul( 0.6 ).max( mem.mul( 0.7 ) ) );
 	color = mix( color, u.color3, V.fiber.mul( 0.8 ) );
 	// Cells: drops a touch darker inside (light goes in), walls bright.
-	color = color.mul( A.h.mul( 0.08 ).add( 0.94 ).mul( wA ).add( wA.oneMinus() ) ).add( vec3( 0.04 ).mul( A.body.oneMinus() ).mul( wA ) );
+	color = color.mul( A.tint ).add( vec3( 0.04 ).mul( A.wall ) );
 
-	const slope = L.grad.mul( 0.12 ).mul( wL ).add( A.grad.mul( 0.3 ).mul( wA ) ).add( V.slope.mul( 0.2 ) ).mul( u.relief );
-	const cavity = crease.mul( 0.6 ).max( mem.mul( 0.5 ) ).max( A.body.oneMinus().mul( wA ).mul( 0.2 ) );
+	const slope = L.slope.add( A.slope ).add( V.slope.mul( 0.2 ) ).mul( u.relief );
+	const cavity = crease.mul( 0.6 ).max( mem.mul( 0.5 ) ).max( A.wall.mul( 0.2 ) );
 	const glow = color.mul( vec3( 1.1, 0.85, 0.6 ) );
 	const s2 = wL.oneMinus().mul( 0.03 ).add( wA.oneMinus().mul( 0.02 ) ).mul( u.relief );
 	return { color, slope, cavity, rough: u.roughness, s2, coat: u.wax, coatRough: float( 0.15 ), glow };
