@@ -11,6 +11,7 @@ import { createStats } from './stats.js';
 import { createAdaptiveResolution } from './adaptive.js';
 import { createWalk } from './walk.js';
 import { createFocus, dofWanted } from './dof.js';
+import { createSunCascades } from './shadows.js';
 
 const { vec3 } = TSL;
 
@@ -53,7 +54,11 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 	// Depth of field: the focus follows what the camera aims at (demo/dof.js).
 	// Off in film mode and with ?nodof; the F key toggles it.
 	const focus = createFocus( { camera, controls, scene, renderer, enabled: dofWanted( params, filmMode ) } );
-	const post = createPost( renderer, scene, camera, { focus } );
+	const post = createPost( renderer, scene, camera, { focus, lit: ! params.has( 'nolit' ) } ); // ?nolit: AO over the finished colour, as before
+	// Sun shadows in three slices that follow the camera distance
+	// (demo/shadows.js): fine texels on what is looked at. ?nocsm: one map.
+	const sun = scene.children.find( ( o ) => o.isDirectionalLight && o.castShadow );
+	const cascades = sun && ! params.has( 'nocsm' ) ? createSunCascades( { light: sun, camera, far: 40 } ) : null;
 	// Lower the pixel ratio while frames are slow (demo/adaptive.js).
 	const adaptive = createAdaptiveResolution( renderer, { enabled: ! filmMode && ! params.has( 'fullres' ) } );
 	const stats = createStats( { renderer, camera, ix, fuzz, meshes, post, adaptive, backend: forceWebGL ? 'WebGL2' : 'WebGPU', levels: statsLevels } );
@@ -69,7 +74,7 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 
 	// Test and film hooks for Playwright (tests/).
 	window.__ix = {
-		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate, adaptive, focus,
+		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate, adaptive, focus, controls,
 		ready: true,
 		async runGate( heights ) {
 
@@ -112,8 +117,9 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 			animate( t );
 			const d = film.pose( k );
 			film.overlay( d );
+			cascades?.update( d );
 			post.update( d );
-			await post.renderAsync();
+			await post.renderAsync( 2 ); // the AO of this pose
 
 		},
 	};
@@ -158,6 +164,7 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 		// yields: a frame drawn then built a pipeline for the wrong targets.
 		renderer.setRenderTarget( null );
 		renderer.setMRT( null );
+		cascades?.update( dist );
 		post.update( dist );
 		post.render();
 		stats.endFrame( dist );

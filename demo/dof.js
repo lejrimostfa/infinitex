@@ -1,8 +1,9 @@
 // Depth of field for the demo pages, with a focus that follows what the
 // camera aims at, and a macro lens when it comes very close.
 //
-//   focus     the mesh under the screen centre (a ray every 120 ms, or
-//             less often when the ray is slow). The focus distance eases
+//   focus     the nearest mesh in a small area around the screen centre
+//             (five rays every 120 ms, or less often when they are slow;
+//             nothing farther than maxFocus, 30 m). The focus distance eases
 //             to it, like a focus pull. Nothing under the centre: the
 //             orbit target, with a deep, weak blur that still shows the
 //             scene.
@@ -24,10 +25,10 @@
 //   dofToggled   { enabled }           F key or the enabled setter
 //   macroChanged { macro }             the macro lens goes on or off
 // The page calls update( dt ) once per frame, after controls.update(),
-// and draws through a pipeline whose output went through withDof().
+// and draws through demo/post.js, which ends with withDof().
 
 import * as THREE from 'three/webgpu';
-import { pass, uniform } from 'three/tsl';
+import { uniform } from 'three/tsl';
 import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
 
 // Whether a page starts with the effect on. Automated browsers (the tests,
@@ -36,7 +37,7 @@ export const dofWanted = ( params, filmMode = false ) => ! filmMode && ! params.
 
 const smooth = ( a, b, x ) => { const k = THREE.MathUtils.clamp( ( x - a ) / ( b - a ), 0, 1 ); return k * k * ( 3 - 2 * k ); };
 
-export function createFocus( { camera, controls, scene, renderer, enabled = true, macroFov = 22, macroFrom = 0.12, macroFull = 0.03 } ) {
+export function createFocus( { camera, controls, scene, renderer, enabled = true, macroFov = 22, macroFrom = 0.12, macroFull = 0.03, maxFocus = 30 } ) {
 
 	const bus = new EventTarget();
 	const distance = uniform( 1 ), range = uniform( 1 ), bokeh = uniform( 0 );
@@ -48,16 +49,27 @@ export function createFocus( { camera, controls, scene, renderer, enabled = true
 	let on = enabled, aimed = null, logD = null, weight = 1, macro = 0, macroOn = false;
 	let nextRay = 0, every = 120;
 
-	// What the screen centre shows: distance along the view axis, or null.
+	// What the camera aims at: the nearest mesh under five points around the
+	// screen centre, as a camera's autofocus area. A figure a little off
+	// centre wins over the landscape behind it. Distance in meters, or null.
+	const AREA = [ [ 0, 0 ], [ 0.16, 0 ], [ - 0.16, 0 ], [ 0, 0.16 ], [ 0, - 0.16 ] ];
+	const ok = ( h ) => h.object.isMesh && visible( h.object ) && ! h.object.userData.noFocus && ! h.object.userData.hairStrands;
 	function aim() {
 
 		const t = performance.now();
 		scene.updateMatrixWorld();
-		ray.setFromCamera( centre, camera );
-		const hit = ray.intersectObjects( scene.children, true ).find( ( h ) => h.object.isMesh && visible( h.object ) && ! h.object.userData.noFocus && ! h.object.userData.hairStrands );
+		let best = null;
+		for ( const [ x, y ] of AREA ) {
+
+			ray.setFromCamera( centre.set( x, y ), camera );
+			const hit = ray.intersectObjects( scene.children, true ).find( ok );
+			if ( hit && hit.distance < maxFocus && ( best === null || hit.distance < best ) ) best = hit.distance;
+
+		}
+
 		const cost = performance.now() - t;
-		every = cost > 4 ? 600 : cost > 1.5 ? 300 : 120; // a dense skinned mesh is slow to cross
-		return hit ? hit.distance : null;
+		every = cost > 6 ? 800 : cost > 2 ? 300 : 120; // a dense skinned mesh is slow to cross
+		return best;
 
 	}
 
@@ -125,19 +137,5 @@ export function createFocus( { camera, controls, scene, renderer, enabled = true
 export function withDof( color, viewZ, focus ) {
 
 	return dof( color, viewZ, focus.distance, focus.range, focus.bokeh );
-
-}
-
-// For a page with no post pass of its own: one scene pass, then the blur.
-// With the effect off the scene is drawn straight to the screen.
-export function createDofPipeline( renderer, scene, camera, focus ) {
-
-	const pipeline = new THREE.RenderPipeline( renderer );
-	const scenePass = pass( scene, camera );
-	pipeline.outputNode = withDof( scenePass, scenePass.getViewZNode(), focus );
-	return {
-		pipeline, scenePass,
-		render() { if ( focus.enabled ) pipeline.render(); else renderer.render( scene, camera ); },
-	};
 
 }

@@ -19,7 +19,9 @@ import { createStage } from './scene.js';
 import { createStats } from './stats.js';
 import { createAdaptiveResolution } from './adaptive.js';
 import { createWalk } from './walk.js';
-import { createFocus, createDofPipeline, dofWanted } from './dof.js';
+import { createFocus, dofWanted } from './dof.js';
+import { createPost } from './post.js';
+import { createSunCascades } from './shadows.js';
 import { createMannequin } from './mannequin.js';
 import { MATTERS, SWEATER } from './roomMatters.js';
 
@@ -54,7 +56,7 @@ const sunDir = SUN.clone().normalize();
 scene.environmentIntensity = 0.35; // dusk: the HDRI only as a fill
 // The sky through the window and the lake under it fill the room: warm
 // from above, red from below.
-scene.add( new THREE.HemisphereLight( 0xffb27a, 0x7a2a12, 1.1 ) );
+scene.add( new THREE.HemisphereLight( 0xffb27a, 0x7a2a12, 0.7 ) ); // low enough for creases and undersides to stay dark
 scene.fog = new THREE.Fog( 0x9a4a2a, 60, 700 ); // haze over the lake
 
 const key = scene.children.find( ( o ) => o.isDirectionalLight && o.castShadow );
@@ -164,15 +166,17 @@ function view( name ) {
 
 view( params.get( 'view' ) ?? 'room' );
 
-// Adaptive resolution and the stats panel, as every demo. No post pass:
-// shadows and each matter's own occlusion carry the contacts.
+// Adaptive resolution and the stats panel, as every demo.
 const adaptive = createAdaptiveResolution( renderer, { enabled: ! params.has( 'fullres' ) } );
-const stats = createStats( { renderer, camera, adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
 // Arrows or ZQSD to walk, a click to focus (walk.js).
 const walk = createWalk( { camera, controls, scene, maxSpeed: 1.5 } );
 // Depth of field on what the camera aims at (demo/dof.js); F or ?nodof.
 const focus = createFocus( { camera, controls, scene, renderer, enabled: dofWanted( params ) } );
-const lens = createDofPipeline( renderer, scene, camera, focus );
+// One pipeline (demo/post.js): AO in the lighting, then the blur. ?nolit draws AO over the finished colour.
+const post = createPost( renderer, scene, camera, { focus, lit: ! params.has( 'nolit' ) } );
+// Sun shadows in three slices that follow the focus (demo/shadows.js).
+const cascades = params.has( 'nocsm' ) ? null : createSunCascades( { light: key, camera, far: 40 } );
+const stats = createStats( { renderer, camera, adaptive, post, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
 let clock = 0, last = performance.now();
 renderer.setAnimationLoop( () => {
 
@@ -186,10 +190,12 @@ renderer.setAnimationLoop( () => {
 	sunDisc.lookAt( camera.position );
 	focus.update( dt );
 	stats.beginFrame();
-	lens.render();
+	cascades?.update( focus.distance.value );
+	post.update( focus.distance.value );
+	post.render();
 	stats.endFrame( camera.position.distanceTo( controls.target ) );
 	adaptive.frame();
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, walk, adaptive, focus, view, setTime, matters, ready: true };
+window.__ix = { renderer, scene, camera, controls, walk, adaptive, focus, post, view, setTime, matters, ready: true };
