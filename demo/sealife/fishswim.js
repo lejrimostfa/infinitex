@@ -6,10 +6,11 @@
 //   lanes     each fish keeps a slot along the loop and a place in its
 //             cross-section, both wander slowly; it surges ahead and drops
 //             back (speed changes); the whole school speeds up and slows
-//   apart     two fish never overlap: a smooth push between close pairs,
-//             twice, on the positions before the frame is built
-//   frame     nose along the velocity; the back leans into the turn (bank,
-//             from the side acceleration); the body bends into the curve
+//   apart     two fish keep out of each other: a smooth push between
+//             close pairs, measured in an ellipsoid along the heading
+//   frame     from where the fish means to go (before the push apart):
+//             nose along that velocity, nearly level (a third of the pitch); the back leans into the turn (bank, from the side
+//             acceleration, clamped); the body bends into the curve
 // Writes the InstancedMesh matrices and 8 floats per fish in one
 // interleaved buffer (WebGPU has 8 vertex buffers per draw):
 //   swim  = ( beat phase, bend 1/m, beat amplitude, pectoral phase )
@@ -69,35 +70,56 @@ export function createSwimmers( mesh, motion, o, rnd ) {
 		};
 
 	} );
-	const n = o.count, T = new THREE.Vector3(), N = new THREE.Vector3(), A = new THREE.Vector3(), B = new THREE.Vector3();
-	const P = [ 0, 1, 2 ].map( () => fish.map( () => new THREE.Vector3() ) );
-	const L = o.length, minD = L * 0.75;
+	const n = o.count, N = new THREE.Vector3(), A = new THREE.Vector3(), G = new THREE.Vector3();
+	const P = [ 0, 1, 2 ].map( () => fish.map( () => new THREE.Vector3() ) ), R = fish.map( () => new THREE.Vector3() ), T = fish.map( () => new THREE.Vector3() );
+	// A fish's room: an ellipsoid along its heading (semi-axes in body
+	// lengths: 1.05 along, 0.36 up, 0.2 across; one body each way plus a
+	// margin). A neighbour inside moves out across or up, never along.
+	const L = o.length, AX = [ 1.05 * L, 0.36 * L, 0.2 * L ];
 	// Loop fraction of fish f at time t (school speed swell plus its surge).
 	const uAt = ( f, t ) => t / o.period + 0.012 * Math.sin( t * 0.31 ) + f.slot + o.surge * L / path.length * Math.sin( t * f.w[ 2 ] + f.ph[ 2 ] );
 
-	function place( t, out ) {
+	function place( t, out, apart = true ) {
 
 		for ( let i = 0; i < n; i ++ ) {
 
 			const f = fish[ i ], u = uAt( f, t );
 			path.at( u + 0.001, A );
 			path.at( u, out[ i ] );
-			T.subVectors( A, out[ i ] ).normalize();
-			N.crossVectors( T, up ).normalize();
+			T[ i ].subVectors( A, out[ i ] ).normalize();
+			N.crossVectors( T[ i ], up ).normalize();
 			const across = f.lane[ 0 ] * ( 1 + 0.35 * Math.sin( t * f.w[ 0 ] + f.ph[ 0 ] ) ), lift = f.lane[ 1 ] + o.lanes[ 1 ] * 0.4 * Math.sin( t * f.w[ 1 ] + f.ph[ 1 ] );
 			out[ i ].addScaledVector( N, across ).addScaledVector( up, lift );
 
 		}
 
-		// Apart: a smooth push, (minD - d)^2, shared by the pair.
-		for ( let it = 0; it < 2; it ++ ) for ( let i = 0; i < n; i ++ ) for ( let j = i + 1; j < n; j ++ ) {
+		// Apart: four passes over the pairs.
+		if ( apart ) for ( let it = 0; it < 4; it ++ ) for ( let i = 0; i < n; i ++ ) for ( let j = i + 1; j < n; j ++ ) {
 
-			const a = out[ i ], b = out[ j ], m = minD * ( fish[ i ].size + fish[ j ].size ) / 2;
-			const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, d2 = dx * dx + dy * dy + dz * dz;
-			if ( d2 >= m * m || d2 < 1e-12 ) continue;
-			const d = Math.sqrt( d2 ), k = ( m - d ) * ( m - d ) / m / d * 0.5;
-			a.x -= dx * k; a.y -= dy * k; a.z -= dz * k;
-			b.x += dx * k; b.y += dy * k; b.z += dz * k;
+			const a = out[ i ], b = out[ j ], sz = ( fish[ i ].size + fish[ j ].size ) / 2;
+			const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+			if ( Math.abs( dx ) > AX[ 0 ] * sz || Math.abs( dz ) > AX[ 0 ] * sz || Math.abs( dy ) > AX[ 1 ] * sz ) continue;
+			// In the frame of whichever of the two it overlaps more: they face
+			// different ways where the loop turns.
+			let al = 0, vu = 0, ac = 0, e2 = 1;
+			for ( const Tf of [ T[ i ], T[ j ] ] ) {
+
+				G.crossVectors( Tf, up ).normalize();
+				const qa = ( dx * Tf.x + dy * Tf.y + dz * Tf.z ) / ( AX[ 0 ] * sz ), qv = dy / ( AX[ 1 ] * sz ), qc = ( dx * G.x + dz * G.z ) / ( AX[ 2 ] * sz );
+				const q2 = qa * qa + qv * qv + qc * qc;
+				if ( q2 < e2 ) { e2 = q2; al = qa; vu = qv; ac = qc; N.copy( G ); }
+
+			}
+
+			if ( e2 >= 1 ) continue;
+			// Out across and up only (they slide past, as an overtaking fish
+			// does): to the room's edge at this point along the body.
+			let r = Math.hypot( vu, ac ), uv = vu / r, uc = ac / r;
+			if ( r < 1e-6 ) { uv = 0; uc = ( i + j ) % 2 ? 1 : - 1; r = 0; }
+			const k = ( Math.sqrt( 1 - al * al ) - r ) * sz * 0.5;
+			G.copy( up ).multiplyScalar( uv * AX[ 1 ] ).addScaledVector( N, uc * AX[ 2 ] );
+			a.addScaledVector( G, - k );
+			b.addScaledVector( G, k );
 
 		}
 
@@ -107,19 +129,29 @@ export function createSwimmers( mesh, motion, o, rnd ) {
 	const buf = motion.array, dt = 0.05;
 	return function update( t ) {
 
-		place( t - dt, P[ 0 ] );
+		// Heading, bank and bend from where each fish means to go (no push);
+		// the push apart only shifts it.
+		place( t - dt, P[ 0 ], false );
+		place( t + dt, P[ 2 ], false );
+		place( t, P[ 1 ], false );
+		for ( let i = 0; i < n; i ++ ) R[ i ].copy( P[ 1 ][ i ] );
 		place( t, P[ 1 ] );
-		place( t + dt, P[ 2 ] );
 		for ( let i = 0; i < n; i ++ ) {
 
 			const f = fish[ i ];
 			V.subVectors( P[ 2 ][ i ], P[ 0 ][ i ] ).divideScalar( 2 * dt );
-			Acc.copy( P[ 2 ][ i ] ).add( P[ 0 ][ i ] ).addScaledVector( P[ 1 ][ i ], - 2 ).divideScalar( dt * dt );
+			Acc.copy( P[ 2 ][ i ] ).add( P[ 0 ][ i ] ).addScaledVector( R[ i ], - 2 ).divideScalar( dt * dt );
 			const v = Math.max( V.length(), 1e-4 );
+			// Nearly level: a third of the climb shows as pitch.
 			X.copy( V ).divideScalar( v );
-			Acc.addScaledVector( X, - Acc.dot( X ) ); // the side part
-			// Bank: the back leans toward the centre of the turn.
-			Y.copy( up ).addScaledVector( Acc, 1 / o.bankG ).normalize();
+			X.y *= 0.35;
+			X.normalize();
+			// Bank: the back leans toward the centre of the turn, from the
+			// horizontal side acceleration, at most 25 degrees (the pushes
+			// apart and the wander add jolts a fish does not roll for).
+			Z.crossVectors( X, up ).normalize();
+			const side = Acc.dot( Z ), lean = Math.max( - 0.47, Math.min( 0.47, side / o.bankG ) );
+			Y.copy( up ).addScaledVector( Z, lean ).normalize();
 			Z.crossVectors( X, Y ).normalize();
 			Y.crossVectors( Z, X );
 			M.makeBasis( X, Y, Z ).scale( S.setScalar( f.size ) ).setPosition( P[ 1 ][ i ] );
@@ -127,7 +159,8 @@ export function createSwimmers( mesh, motion, o, rnd ) {
 			// Beat phase from the distance swum: faster when it surges.
 			const dist = uAt( f, t ) * path.length, q = i * 8;
 			buf[ q ] = dist / ( 0.7 * L * f.size ) * Math.PI * 2 + f.ph[ 3 ];
-			buf[ q + 1 ] = Acc.dot( Z ) / ( v * v ) * f.size * 0.5;
+			// Bend into the curve; at most a tail offset of about a tenth of L.
+			buf[ q + 1 ] = Math.max( - 0.6, Math.min( 0.6, side / ( v * v ) * L ) ) / L * f.size * 0.5;
 			buf[ q + 2 ] = Math.min( 1.3, 0.55 + 0.45 * v / ( path.length / o.period ) );
 			buf[ q + 3 ] = t * o.pec * Math.PI * 2 + f.ph[ 3 ];
 			buf[ q + 4 ] = Z.x * f.size; buf[ q + 5 ] = Z.y * f.size; buf[ q + 6 ] = Z.z * f.size;
