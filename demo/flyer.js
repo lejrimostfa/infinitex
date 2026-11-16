@@ -81,6 +81,7 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 
 	}
 
+	const last = new THREE.Vector3( 0, 0, 1 ), from = new THREE.Vector3();
 	const fwd = new THREE.Vector3(), side = new THREE.Vector3(), dir = new THREE.Vector3(), want = new THREE.Vector3(), step = new THREE.Vector3();
 
 	// One frame of flight. Returns how fast it goes, 0 to 1.
@@ -109,24 +110,28 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 		vel.lerp( want, 1 - Math.exp( - dt * o.response ) ); // no key: eases to a hover
 
 		// Never closer than the body radius; the part of the speed into the
-		// surface is dropped, so the vehicle slides along it.
+		// surface is dropped, so the vehicle slides along it. The ray starts
+		// a few radii behind: a surface that moves into the vehicle (an
+		// animated arm) is still seen, and pushes it back out instead of
+		// swallowing it. Hovering, the last direction keeps that watch.
 		step.copy( vel ).multiplyScalar( dt );
-		const len = step.length();
-		if ( len > 1e-9 ) {
+		let len = step.length();
+		if ( len > 1e-9 ) dir.copy( step ).divideScalar( len ); else { dir.copy( last ); len = 0; }
+		last.copy( dir );
+		const back = vehicle.radius * 4;
+		let h = ahead( from.copy( pos ).addScaledVector( dir, - back ), dir, len + back + vehicle.radius * 2 ) - back;
+		// A face seen from its back (a leaf, a pane being left behind) does
+		// not push: the ray then starts at the vehicle, as before.
+		if ( h < 0 && bus.collider?.normal && bus.collider.normal.dot( dir ) > 0 ) h = ahead( pos, dir, len + vehicle.radius * 2 );
+		const free = h - vehicle.radius;
+		if ( free < len ) {
 
-			dir.copy( step ).divideScalar( len );
-			const h = ahead( pos, dir, len + vehicle.radius * 2 );
-			const free = Math.max( 0, h - vehicle.radius );
-			if ( free < len ) {
-
-				step.copy( dir ).multiplyScalar( free );
-				vel.addScaledVector( dir, - vel.dot( dir ) );
-
-			}
-
-			pos.add( step );
+			step.copy( dir ).multiplyScalar( free ); // negative: pushed back out
+			vel.addScaledVector( dir, - Math.max( 0, vel.dot( dir ) ) );
 
 		}
+
+		if ( len > 0 || free < 0 ) pos.add( step );
 
 		if ( o.bounds ) {
 

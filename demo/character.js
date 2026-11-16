@@ -1,57 +1,24 @@
-// Character demo: a game character whose texture is one atlas (Meshy and
-// the like). Some zones of its clothes or skin become procedural matter;
-// the atlas gives the colours and the zone masks, each zone gets its own
-// triangle group and material (zones.js), the rest keeps the game look.
-// ?c=<name> picks demo/characters/<name>.js (default: riveraine).
-// Models are not in git (the repo ignores *.glb): see each config.
-// URL flags: ?webgl, ?nofuzz, ?noao, ?film, ?stop=<stop>, ?noknit (original look).
+// Character demo: a game character whose texture is one atlas, with some
+// zones of its clothes turned into procedural matter (built by
+// charbuild.js, shared with the living room).
+// ?c=<name> picks demo/characters/<name>.js (default: riveraine, the one
+// published; the others stay on the author's disk).
+// URL flags: ?webgl, ?nofuzz, ?noao, ?film, ?fly (flyover film), ?nofly
+// (no mosquito), ?stop=<stop>, ?noknit (original look).
+// The tiger mosquito hovers in front of the knit sleeve; V or
+// the panel button flies it (flyer.js, flyhud.js).
 
 import * as THREE from 'three/webgpu';
-import { attribute, uv, smoothstep, positionGeometry } from 'three/tsl';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createMaterial } from '../src/index.js';
-import { baseFromStandard } from '../src/core/basematerial.js';
-import { projectKnitCoords, partCentroid } from '../src/tools/knitCoords.js';
-import { rigidCoords } from '../src/tools/rigidCoords.js';
-import { float } from 'three/tsl';
-import { atlasZones, groupByZone } from './zones.js';
+import { buildCharacter } from './charbuild.js';
+import { createMosquito } from './vehicles/mosquito.js';
+import { createFlyer } from './flyer.js';
+import { addFlyHud } from './flyhud.js';
+import './nav.js';
 import { createStage } from './scene.js';
 import { createFilm } from './film.js';
 import { createFlyover } from './flyover.js';
 import { startApp } from './app.js';
 import { addCharacterPicker } from './charpick.js';
-
-// Area-weighted normals shared by every vertex at one position: a noisy
-// remeshed export otherwise lights as triangle facets.
-function smoothNormals( g ) {
-
-	const P = g.attributes.position, N = g.attributes.normal, idx = g.index.array;
-	const key = ( i ) => `${ P.getX( i ).toFixed( 4 ) },${ P.getY( i ).toFixed( 4 ) },${ P.getZ( i ).toFixed( 4 ) }`;
-	const sum = new Map(), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
-	for ( let t = 0; t < idx.length; t += 3 ) {
-
-		a.fromBufferAttribute( P, idx[ t ] ); b.fromBufferAttribute( P, idx[ t + 1 ] ); c.fromBufferAttribute( P, idx[ t + 2 ] );
-		const n = c.sub( b ).cross( a.sub( b ) ); // length = twice the area
-		for ( let k = 0; k < 3; k ++ ) {
-
-			const s = key( idx[ t + k ] );
-			if ( ! sum.has( s ) ) sum.set( s, new THREE.Vector3() );
-			sum.get( s ).add( n );
-
-		}
-
-	}
-
-	for ( let i = 0; i < P.count; i ++ ) {
-
-		const n = sum.get( key( i ) );
-		if ( n ) { n.normalize(); N.setXYZ( i, n.x, n.y, n.z ); }
-
-	}
-
-	N.needsUpdate = true;
-
-}
 
 const params = new URLSearchParams( location.search );
 addCharacterPicker( params.get( 'c' ) ?? 'riveraine' );
@@ -62,102 +29,7 @@ const ctx = await createStage( { forceWebGL: params.has( 'webgl' ) } );
 const { scene, camera, controls } = ctx;
 ctx.updateClip = () => camera.position.distanceTo( controls.target );
 
-const gltf = await new GLTFLoader().loadAsync( cfg.model );
-scene.add( gltf.scene );
-gltf.scene.traverse( ( o ) => { if ( o.isMesh ) o.frustumCulled = false; } );
-const mixer = new THREE.AnimationMixer( gltf.scene );
-const clip = gltf.animations.find( ( a ) => a.name === cfg.idle ) ?? gltf.animations[ 0 ];
-mixer.clipAction( clip ).play();
-
-let body = null;
-gltf.scene.traverse( ( o ) => { if ( ! body && cfg.body( o ) ) body = o; } );
-const base = body.material;
-// A broken export (UVs squeezed into a strip) has a normal map that only
-// draws triangle facets: the config can drop it.
-if ( cfg.dropNormalMap ) base.normalMap = null;
-if ( cfg.smoothNormals ) smoothNormals( body.geometry );
-const V = ( x, y, z ) => new THREE.Vector3( x, y, z );
-const C = ( ...n ) => partCentroid( body, n );
-
-const zones = atlasZones( base.map.image, cfg.zones );
-if ( ! original ) projectKnitCoords( body, { regions: cfg.regions( C, V ), garment: zones.union } );
-const zoneTris = original ? cfg.zones.map( () => new Uint8Array( 0 ) ) : groupByZone( body.geometry, zones.masks, { where: cfg.zones.map( ( z ) => z.where ) } );
-
-// WebGPU allows 8 vertex buffers per pipeline. Skinning, normal, tangent,
-// uv and the atlas rotation already take 7: pack the knit coordinates and
-// up to two zone weights into one vec4, ixPack = ( u, v, zone 0, zone 1 ).
-if ( ! original ) {
-
-	const g = body.geometry, n = g.attributes.position.count, packed = new Float32Array( n * 4 );
-	for ( let i = 0; i < n; i ++ ) {
-
-		packed[ i * 4 ] = g.attributes.ixUV.getX( i );
-		packed[ i * 4 + 1 ] = g.attributes.ixUV.getY( i );
-		packed[ i * 4 + 2 ] = g.attributes.ixZone0?.getX( i ) ?? 0;
-		packed[ i * 4 + 3 ] = g.attributes.ixZone1?.getX( i ) ?? 0;
-
-	}
-
-	g.setAttribute( 'ixPack', new THREE.BufferAttribute( packed, 4 ) );
-	for ( const a of [ 'ixUV', 'ixZone0', 'ixZone1' ] ) if ( g.attributes[ a ] ) g.deleteAttribute( a );
-
-}
-
-const pack = attribute( 'ixPack', 'vec4' );
-const baseNodes = baseFromStandard( base, original ? {} : { atlasRot: attribute( 'ixAtlasRot', 'vec3' ) } );
-// zone.inner: a second matter inside the zone, drawn per pixel where
-// inner.mask( positionGeometry ) is 1 (leather edging on a coat, cut on
-// the rest shape so its borders are straight, not the mesh triangles).
-// It becomes the base the zone's family blends over.
-// The zone's own soft border (a fade to the game look) is dropped then:
-// its triangles draw the two matters only.
-const inner = ( z, m ) => z.inner ? float( 1 ).sub( z.inner.mask( positionGeometry ) ) : m;
-const innerBase = ( spec ) => {
-
-	const n = createMaterial( spec.preset, { coords: pack.xy } ).material;
-	return { color: n.colorNode, normal: n.normalNode, roughness: n.roughnessNode, metalness: n.metalnessNode ?? float( 0 ), under: false };
-
-};
-const materials = cfg.zones.map( ( z, k ) => createMaterial( z.preset, {
-	coords: pack.xy,
-	// ownColor: the zone keeps its preset colours (a broken atlas only
-	// gives flat triangles of colour).
-	colorMap: z.ownColor ? null : { map: base.map, uv: uv() },
-	mask: inner( z, smoothstep( 0.25, 0.75, k === 0 ? pack.z : pack.w ) ),
-	base: z.inner ? innerBase( z.inner ) : baseNodes,
-} ) );
-// Everything else keeps the game look, as nodes (the knit tangents would
-// bend the original normal map).
-const plain = new THREE.MeshStandardNodeMaterial();
-Object.assign( plain, { colorNode: baseNodes.color, normalNode: baseNodes.normal, roughnessNode: baseNodes.roughness, metalnessNode: baseNodes.metalness } );
-if ( baseNodes.emissive ) plain.emissiveNode = baseNodes.emissive;
-let fuzz = [];
-if ( ! original ) {
-
-	body.material = [ ...materials.map( ( m ) => m.material ), plain ];
-	if ( ! params.has( 'nofuzz' ) ) fuzz = cfg.zones.flatMap( ( z, k ) => z.fuzz ? [ materials[ k ].createFuzz( body, { triangles: zoneTris[ k ] } ) ] : [] );
-
-}
-
-// Rigid extras (mask parts, a rope), found by material name: own metric
-// coordinates, one family each, the game material as the base.
-const extras = ( original ? [] : cfg.extras ?? [] ).map( ( ex ) => {
-
-	let mesh = null;
-	gltf.scene.traverse( ( o ) => { if ( ! mesh && o.isMesh && ! o.isSkinnedMesh && o.material.name === ex.material ) mesh = o; } );
-	const old = mesh.material;
-	rigidCoords( mesh, { axis: V( 0, 0, 1 ), uvScale: ex.uvScale ?? null } );
-	const ix = createMaterial( ex.preset, {
-		coords: attribute( 'ixUV', 'vec2' ),
-		colorMap: old.map ? { map: old.map, uv: uv() } : null,
-		mask: float( 1 ),
-		base: baseFromStandard( old ),
-	} );
-	mesh.material = ix.material;
-	if ( ex.fuzz && ! params.has( 'nofuzz' ) ) fuzz.push( ix.createFuzz( mesh ) );
-	return { mesh, ix, name: ex.name };
-
-} );
+const { gltf, body, materials, extras, fuzz, zoneTris, mixer, clip, C, V } = await buildCharacter( { cfg, scene, original, fuzz: ! params.has( 'nofuzz' ) } );
 
 // Film anchor: the zone triangle closest to the stop's goal point.
 const stopName = params.get( 'stop' ) ?? cfg.defaultStop;
@@ -224,10 +96,31 @@ const film = params.has( 'fly' ) && cfg.flyover ? createFlyover( {
 
 controls.target.set( ...cfg.view.target );
 camera.position.set( ...cfg.view.camera );
+
+// The mosquito, in front of the left knit sleeve, facing it (the leather
+// apron covers the chest). Not in the
+// films (?film, ?fly): their shots stay as they were.
+let vehicle = null;
+if ( ! params.has( 'film' ) && ! params.has( 'fly' ) && ! params.has( 'nofly' ) ) {
+
+	const mosquito = createMosquito();
+	scene.add( mosquito.group );
+	// The upper arm as posed by the idle loop (the bind pose has the arms out).
+	mixer.setTime( 0 );
+	gltf.scene.updateMatrixWorld( true );
+	const at = ( n ) => gltf.scene.getObjectByName( n ).getWorldPosition( new THREE.Vector3() );
+	const sleeve = at( 'LeftArm' ).lerp( at( 'LeftForeArm' ), 0.5 );
+	vehicle = createFlyer( { vehicle: mosquito, camera, controls, dom: ctx.renderer.domElement,
+		home: sleeve.clone().add( V( 0, 0, 0.2 ) ), options: { name: 'mosquito', maxSpeed: 0.15, near: 1.2, turnRate: 1.8 } } );
+	vehicle.yaw = Math.PI; // facing the chest
+	addFlyHud( vehicle, { label: 'the mosquito' } );
+
+}
 const app = startApp( {
 	ctx, ix: materials[ 0 ], meshes: [ body ], fuzz, film, params,
 	panel: [ ...cfg.zones.map( ( z, k ) => ( { name: z.name, ix: materials[ k ] } ) ), ...extras.map( ( e ) => ( { name: e.name, ix: e.ix } ) ) ],
 	animate: ( t ) => mixer.setTime( t % clip.duration ),
+	vehicle,
 } );
 app.materials = materials;
 app.leather = materials[ 1 ];
