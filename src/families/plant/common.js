@@ -5,7 +5,9 @@
 //   cells    packed cells that bulge (epidermis, hymenium, squames): a
 //            Voronoi with lobed walls, a dome slope per cell
 //   ridge    a soft ridge profile and its slope, at least one pixel wide
-// All sizes in surface meters.
+// All sizes in surface meters. net() and cells() take their cell
+// coordinates (cq) from the caller when they run inside a gate()
+// (core/lod.js): computed before the branch, the cell borders stay put.
 
 import { vec2, float, mod, smoothstep } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
@@ -18,9 +20,9 @@ export { dir2, band, lines, fbm, scratches } from '../stone/common.js';
 // Lines on the borders of a warped Voronoi net of cell cellM, half width
 // halfW. Returns the line coverage (faded), a soft profile (for relief)
 // with its slope (g along dir), the Voronoi and the fade weight.
-export function net( p, fp, cellM, halfW, seed, warp = 0.35, lo = 3.0, hi = 9.0 ) {
+export function net( p, fp, cellM, halfW, seed, warp = 0.35, lo = 3.0, hi = 9.0, cq = null ) {
 
-	const q = mod( p.div( cellM ), 4096 ).add( seed );
+	const q = cq ?? mod( p.div( cellM ), 4096 ).add( seed );
 	const wq = vec2( valueNoise( q.mul( 1.3 ).add( 3.1 ) ), valueNoise( q.mul( 1.3 ).add( 8.7 ) ) ).sub( 0.5 ).mul( warp );
 	const V = voronoi( q.add( wq ), 0.9 );
 	const d = V.edge.mul( cellM );
@@ -41,9 +43,9 @@ export function net( p, fp, cellM, halfW, seed, warp = 0.35, lo = 3.0, hi = 9.0 
 // pieces (the walls wander). Returns the Voronoi, wall coverage of half
 // width wallM, a dome slope (meters per meter, scaled by bulge) and the
 // fade weight.
-export function cells( p, fp, cellM, wallM, seed, lobes = 0, bulge = 0.3 ) {
+export function cells( p, fp, cellM, wallM, seed, lobes = 0, bulge = 0.3, cq = null ) {
 
-	const q = mod( p.div( cellM ), 4096 ).add( seed );
+	const q = cq ?? mod( p.div( cellM ), 4096 ).add( seed );
 	let x = q;
 	if ( lobes > 0 ) {
 
