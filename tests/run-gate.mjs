@@ -5,10 +5,9 @@
 
 import { writeFileSync } from 'node:fs';
 import { launchBrowser } from './chromium.mjs';
+import { HEIGHTS, LIMITS } from './gate-limits.js';
 
 const PAGE_URL = process.env.IX_URL ?? 'http://localhost:5211/';
-const HEIGHTS = [ 0.5, 0.25, 0.12, 0.06, 0.03, 0.015, 0.008, 0.004, 0.002, 0.001 ];
-const LIMITS = { meanShift: 0.05, shimmer: 1.6, sheen: 0.1 };
 
 const backends = process.argv[ 2 ] ? [ process.argv[ 2 ] ] : [ 'webgpu', 'webgl' ];
 const browser = await launchBrowser();

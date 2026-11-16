@@ -145,6 +145,36 @@ renderer.setAnimationLoop( () => { kit.update( 1 / 60 ); kit.render(); } );
 
 With your own renderer: create it with `{ ...RENDERER_OPTIONS }` (reversed depth) and call `applyCameraSettings( { renderer, camera, controls } )`. Options, events, measured costs and traps: [docs/camera.md](docs/camera.md).
 
+## Make your own material
+
+First try a preset: most matters are one of the 241 ready presets with other sizes and colours. When no family has the structure of your matter, add one. It behaves like a built-in one: same zoom, same events, same checks.
+
+```bash
+npm run new-family -- cork            # in this repository: src/families/cork, from the terrazzo template
+npm run check-family -- src/families/cork
+npx infinitex-new-family cork         # in a game that installed Infinitex: ./families/cork
+npx infinitex-check families/cork     # lint, quality gate, frame cost, contact sheet, WebGPU and WebGL2
+```
+
+```js
+import { registerFamily, createMaterial } from 'infinitex';
+import cork from './families/cork/index.js';
+registerFamily( 'cork', cork );       // validated, emits familyRegistered on familyEvents
+const ix = createMaterial( { family: 'cork' }, { coords: uv().mul( 0.3 ) } );
+```
+
+A liquid in any closed container (a glass, a bottle, a vat), with meniscus, ripples, refraction and absorption by depth:
+
+```js
+import { createLiquidVolume, thinGlassMaterial } from 'infinitex';
+const wine = createLiquidVolume( { cavity: new THREE.LatheGeometry( innerProfile, 96 ), fill: 0.55, liquid: 'wine' } );
+glassMesh.add( wine.object );
+```
+
+The rules (footprint, fades, real branches, roughness from faded slopes), the measured numbers, the non-opaque kinds and the limits: **[docs/authoring.md](docs/authoring.md)**. See it at `check.html?family=/src/families/terrazzo/index.js` and `check.html?volume=1`.
+
+**Claude Code skill.** `.claude/skills/infinitex-material/` makes Claude follow this workflow when you ask for a material ("make me a cork material", "fais-moi un matériau", "fill this bottle with honey"). In a game project, copy that folder into your own `.claude/skills/`: `cp -r node_modules/infinitex/.claude/skills/infinitex-material .claude/skills/`. The check needs `npm i -D vite playwright-core` and a Chromium (`npx playwright install chromium`).
+
 ## How it works
 
 ```mermaid

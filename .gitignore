@@ -8,3 +8,4 @@ demo/assets/*.glb
 # Ours, built by code in Blender (blender/livingroom.py): public.
 !demo/assets/livingroom.glb
 *.mp4
+infinitex-check/

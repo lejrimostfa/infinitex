@@ -74,7 +74,12 @@ import { applyMicro } from './core/micro.js';
 import { addMicroShadow } from './core/microshadow.js';
 import { addSlopeLight } from './core/slopelight.js';
 import { footprint } from './core/lod.js';
+import { registerBuiltins, getFamily, listFamilies, familyDefaults } from './registry.js';
+import terrazzo from './families/terrazzo/index.js';
 export { setTime, ixTime } from './core/clock.js';
+export { registerFamily, listFamilies, familyEvents } from './registry.js';
+export { createLiquidVolume, LIQUIDS } from './core/liquidvolume.js';
+export { thinGlassMaterial } from './core/liquidshading.js';
 
 const FAMILIES = {
 	knit: { defaults: KNIT_DEFAULTS, uniforms: createKnitUniforms, apply: applyKnitPreset, build: buildKnitNodes, fuzz: buildFuzzNodes, sliders: KNIT_SLIDERS },
@@ -102,7 +107,12 @@ const FAMILIES = {
 	transform: { defaults: TRANSFORM_DEFAULTS, uniforms: createTransformUniforms, apply: applyTransformPreset, build: buildTransformNodes, sliders: TRANSFORM_SLIDERS },
 	molten: { defaults: MOLTEN_DEFAULTS, uniforms: createMoltenUniforms, apply: applyMoltenPreset, build: buildMoltenNodes, sliders: MOLTEN_SLIDERS },
 	liquid: { defaults: LIQUID_DEFAULTS, uniforms: createLiquidUniforms, apply: applyLiquidPreset, build: buildLiquidNodes, height: waterHeight, sliders: LIQUID_SLIDERS },
+	// The template of the material kit (docs/authoring.md), also a matter.
+	terrazzo,
 };
+// Built-ins go into the registry (src/registry.js), where registerFamily()
+// adds a game's own families next to them.
+registerBuiltins( FAMILIES );
 
 // Where mask = 0 the base material shows, where mask = 1 the family.
 function blendWithBase( nodes, base, mask ) {
@@ -132,8 +142,8 @@ export class InfinitexMaterial extends EventTarget {
 
 		super();
 		const family = preset.family ?? 'knit';
-		const impl = FAMILIES[ family ];
-		if ( ! impl ) throw new Error( `infinitex: unknown family "${ family }"` );
+		const impl = getFamily( family );
+		if ( ! impl ) throw new Error( `infinitex: unknown family "${ family }". Known: ${ listFamilies().map( ( f ) => f.name ).join( ', ' ) }. Add one with registerFamily( name, impl ).` );
 
 		this.family = family;
 		this.impl = impl;
@@ -286,4 +296,5 @@ export function createMaterial( preset, options ) {
 
 }
 
-export const families = Object.fromEntries( Object.entries( FAMILIES ).map( ( [ k, v ] ) => [ k, v.defaults ] ) );
+// name -> defaults. Live: a family added by registerFamily() shows up here.
+export const families = familyDefaults;
