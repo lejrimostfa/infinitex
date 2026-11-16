@@ -9,8 +9,8 @@ import * as THREE from 'three/webgpu';
 import { DT, stats, setup, dofCost } from './camera_probe_util.js';
 
 // Walk forward (W held) into the surface at the screen centre. Up to
-// 12 000 frames: on a floor seen at a grazing angle the nearest-surface
-// limit (walk.js sideLimit) makes the approach about ten times slower.
+// 12 000 frames: another object close beside the path (walk.js sideLimit)
+// slows the approach.
 export async function walkCheck( ix ) {
 
 	const c = setup( ix );
@@ -39,12 +39,15 @@ export async function walkCheck( ix ) {
 	key( 'keyup' );
 	camera.updateMatrixWorld();
 	const end = c.exact( camera.position, dir );
-	const out = { surface: hit0.name, startDist: + Math.min( 1, hit0.distance ).toFixed( 4 ), frames, stopDist: end ? end.distance : null, firstMs: + times[ 0 ].toFixed( 2 ), staticMs: stats( times.slice( 1 ) ) };
+	// Clearance perpendicular to the surface: what the kit keeps at MARGIN
+	// (a slanted approach stops sooner along the view).
+	const clearance = end?.normal ? end.distance * Math.abs( dir.dot( end.normal ) ) : null;
+	const out = { surface: hit0.name, startDist: + Math.min( 1, hit0.distance ).toFixed( 4 ), frames, stopDist: end ? end.distance : null, clearance, pad: end?.pad ?? 0, firstMs: + times[ 0 ].toFixed( 2 ), staticMs: stats( times.slice( 1 ) ) };
 
 	// Strafe (D held) 1 mm in front of the same surface: the ray along the
-	// move misses it, so only the nearest-surface limit slows the camera.
+	// move misses it, so only the nearest-object limit slows the camera.
 	// Without it the speed is at least minSpeed (2 cm/s).
-	c.place( hit0.point.clone().addScaledVector( dir, - 1e-3 ), dir, 0.5 );
+	c.place( hit0.point.clone().addScaledVector( dir, - 1e-3 - ( hit0.pad ?? 0 ) ), dir, 0.5 ); // a displaced surface (sand) rises up to pad
 	const from = camera.position.clone(), side = ( type ) => dispatchEvent( new KeyboardEvent( type, { code: 'KeyD' } ) );
 	const sideTimes = [];
 	side( 'keydown' );

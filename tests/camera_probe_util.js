@@ -30,7 +30,7 @@ export function setup( ix ) {
 
 	};
 	const visible = ( o ) => { for ( let p = o; p; p = p.parent ) if ( ! p.visible ) return false; return true; };
-	const solid = ( o ) => o.isMesh && visible( o ) && ! o.userData.noFocus && ! o.userData.hairStrands && ! [ o.material ].flat().some( ( m ) => m?.positionNode );
+	const solid = ( o ) => o.isMesh && visible( o ) && ! o.userData.noFocus && ! o.userData.hairStrands && [ o.material ].flat().every( ( m ) => ! m?.positionNode || m.userData?.ixDisplaceMax ); // a displaced surface counts by its flat mesh (pad: its bound)
 	const ray = new THREE.Raycaster();
 	const exact = ( origin, dir ) => {
 
@@ -38,7 +38,7 @@ export function setup( ix ) {
 		ray.near = 0;
 		ray.far = Infinity;
 		const hit = ray.intersectObjects( scene.children, true ).find( ( h ) => solid( h.object ) );
-		return hit ? { distance: hit.distance, point: hit.point.clone(), name: hit.object.name || hit.object.type } : null;
+		return hit ? { distance: hit.distance, point: hit.point.clone(), name: hit.object.name || hit.object.type, normal: hit.face ? hit.face.normal.clone().transformDirection( hit.object.matrixWorld ) : null, pad: [ hit.object.material ].flat()[ 0 ]?.userData?.ixDisplaceMax?.() ?? 0 } : null;
 
 	};
 	const fwd = () => camera.getWorldDirection( new THREE.Vector3() );

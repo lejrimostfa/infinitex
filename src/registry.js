@@ -12,6 +12,9 @@
 //     micro     optional, [ kind, finest level (m) ] for core/micro.js:
 //               kind is fibrous, granular, scratched, cellular or generic
 //     height, fuzz, hair   optional, as the built-in families
+//     displace, displaceMax   optional, together: a height node that moves
+//               the vertices (preset.displace), and its largest value in
+//               meters from the uniforms (the camera pads collisions by it)
 //   }
 //
 // Event bus: familyEvents (EventTarget) emits
@@ -27,7 +30,7 @@ export const familyEvents = new EventTarget();
 const NAME = /^[a-z][a-z0-9_]{1,31}$/;
 const MICRO = [ 'fibrous', 'granular', 'scratched', 'cellular', 'generic' ];
 const FN_KEYS = [ 'uniforms', 'apply', 'build' ];
-const OPT_FN_KEYS = [ 'height', 'fuzz', 'hair' ];
+const OPT_FN_KEYS = [ 'height', 'fuzz', 'hair', 'displace', 'displaceMax' ];
 
 const fail = ( name, msg ) => { throw new Error( `infinitex registerFamily("${ name }"): ${ msg }` ); };
 
@@ -41,6 +44,7 @@ export function validateFamily( name, impl ) {
 	if ( impl.defaults.family !== undefined && impl.defaults.family !== name ) fail( name, `impl.defaults.family is "${ impl.defaults.family }", it must be "${ name }" or absent` );
 	for ( const k of FN_KEYS ) if ( typeof impl[ k ] !== 'function' ) fail( name, `impl.${ k } must be a function` );
 	for ( const k of OPT_FN_KEYS ) if ( impl[ k ] !== undefined && typeof impl[ k ] !== 'function' ) fail( name, `impl.${ k } must be a function when given` );
+	if ( impl.displace && ! impl.displaceMax ) fail( name, 'impl.displaceMax is required with impl.displace: the camera collides with the flat mesh padded by it' );
 	const m = impl.material;
 	if ( m !== undefined && m !== 'sss' && m !== 'physical' && typeof m !== 'function' ) fail( name, 'impl.material must be "sss", "physical" or a function of the uniforms' );
 	if ( impl.sliders !== undefined ) {

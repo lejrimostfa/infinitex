@@ -71,6 +71,7 @@ const ix = createMaterial( { family: 'cork', chip_mm: 4 }, { coords: uv().mul( m
 | `micro` | no | `[ kind, finest_m ]`: the micro detail under the finest level (`core/micro.js`) |
 | `kind` | no | `opaque`, `transmissive` or `emissive`: what the check puts behind it |
 | `height`, `fuzz`, `hair` | no | relief, fibre shells, 3D strands, as the built-in families |
+| `displace`, `displaceMax` | no, together | `displace( u, p )`: a height node in meters that moves the vertices along the normal when the preset asks (`displace: 1`). `displaceMax( u )`: its largest value, a number from the uniforms. The CPU mesh stays flat, so the camera collides with it padded by `displaceMax` (src/camera/collide.js). `registerFamily` refuses `displace` without `displaceMax`. Keep the bound tight: the camera cannot come closer to the troughs than this. |
 
 Materials of a registered family behave like the built-ins: `materialReady` once, `paramsChanged` after each `set()`, and `pixel`, `relief`, `underwater` and the surface states work.
 

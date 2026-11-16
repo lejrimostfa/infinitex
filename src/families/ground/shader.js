@@ -36,6 +36,16 @@ export function groundDisplace( u, p ) {
 
 }
 
+// The largest height groundDisplace can give, in meters (CPU, from the
+// uniforms). Sand: ripples up to 0.1 * ripple of their period, mounds up to
+// 0.36 * dune of it (both start at 0 and only rise). The camera collides
+// with the flat mesh padded by this (src/camera/collide.js).
+export function groundDisplaceMax( u ) {
+
+	return u.mode === 'sand' ? u.rippleM.value * ( 0.1 * u.ripple.value + 0.36 * u.dune.value ) : 0;
+
+}
+
 export function buildGroundNodes( u, opts = {} ) {
 
 	const p = ( opts.coords ?? uv() ).toVar( 'ix_coords' );

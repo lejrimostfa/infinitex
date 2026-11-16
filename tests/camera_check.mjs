@@ -3,7 +3,7 @@
 // Per page and backend:
 //   load     no page error; a plain load keeps the lens off and the fov fixed
 //   walk     W held into the surface at the screen centre: the camera stops
-//            1e-4 m from it (exact three.js raycast, 5 % tolerance); cost
+//            1e-4 m from it, perpendicular to the surface (exact three.js raycast, 5 % tolerance); cost
 //            of walk.update (BVH collision included) per frame
 //   strafe   D held 1 mm from that surface: under 1 cm/s (the nearest
 //            surface limit), never through it
@@ -37,7 +37,7 @@ async function open( p, extra ) {
 
 }
 
-const probe = ( page, fn, arg ) => page.evaluate( async ( [ fn, arg ] ) => ( await import( '/tests/camera_probe.js' ) )[ fn ]( window.__ix, arg ), [ fn, arg ] );
+const probe = ( page, fn, arg, file = '/tests/camera_probe.js' ) => page.evaluate( async ( [ fn, arg, file ] ) => ( await import( file ) )[ fn ]( window.__ix, arg ), [ fn, arg, file ] );
 
 for ( const p of PAGES ) for ( const backend of [ 'webgpu', 'webgl' ] ) {
 
@@ -52,7 +52,12 @@ for ( const p of PAGES ) for ( const backend of [ 'webgpu', 'webgl' ] ) {
 		r.plain.check = check( r.plain.lensOn !== true && Math.abs( r.plain.fov - r.plain.base ) < 1e-6, `${ tag }: plain load changed the fov or turned the lens on` );
 		r.walk = await probe( page, 'walkCheck' );
 		const sd = r.walk.stopDist;
-		r.walk.check = check( sd !== null && Math.abs( sd - MARGIN ) / MARGIN < 0.05, `${ tag }: walk stopped at ${ sd } m` );
+		// MARGIN perpendicular to the surface (static meshes: the kit knows the
+		// normal), or along the view (skinned meshes); never closer than that.
+		// A displaced surface (sand) is measured to its flat mesh: add its bound.
+		const pad = r.walk.pad ?? 0, cl = r.walk.clearance === null ? null : r.walk.clearance - pad;
+		const near = ( x ) => x !== null && Math.abs( x - MARGIN ) / MARGIN < 0.05;
+		r.walk.check = check( sd !== null && sd > MARGIN * 0.95 && cl <= MARGIN * 1.05 && ( near( cl ) || near( sd - pad ) ), `${ tag }: walk stopped at ${ sd } m (clearance ${ cl } m)` );
 		const S = r.walk.side;
 		if ( S ) S.check = check( S.speed > 0 && S.speed < 0.01 && ( S.aheadAfter === null || S.aheadAfter > 0 ), `${ tag }: strafe 1 mm from the surface at ${ S.speed } m/s` );
 		if ( r.walk.animatedMinDist !== undefined ) r.walk.animatedCheck = check( r.walk.animatedMinDist > 0, `${ tag }: went through the animated character` );
@@ -76,6 +81,15 @@ for ( const p of PAGES ) for ( const backend of [ 'webgpu', 'webgl' ] ) {
 
 		} else check( false, `${ tag }: lens ${ L.error }` );
 
+		// Felt approach speed, wheel through a surface, orbit at a surface.
+		const A = r.approach = await probe( page, 'approachCheck', null, '/tests/camera_probe_approach.js' );
+		if ( ! A.error ) A.check = [
+			check( A.keysFelt.n < 3 ? A.keysFelt.beside > 0 : A.keysFelt.max < 1.3 && A.keysFelt.min > 0.3, `${ tag }: walk felt speed ${ A.keysFelt.min.toFixed( 2 ) } to ${ A.keysFelt.max.toFixed( 2 ) } per s` ),
+			check( ! A.wheel.crossed && A.wheel.stepMax / A.wheel.stepMin < 1.15, `${ tag }: wheel crossed ${ A.wheel.crossed }, step ${ A.wheel.stepMin.toFixed( 3 ) } to ${ A.wheel.stepMax.toFixed( 3 ) }` ),
+			check( A.orbit.every( ( x ) => x === 0 ), `${ tag }: orbit crossed a surface ${ A.orbit.join( ', ' ) } times` ),
+		].join( ' ' );
+		else check( false, `${ tag }: approach ${ A.error }` );
+
 		r.errorsLens = errors;
 		check( ! errors.length, `${ tag }: page errors (lens): ${ errors.join( ' | ' ) }` );
 		await page.close();
@@ -90,13 +104,15 @@ for ( const p of PAGES ) for ( const backend of [ 'webgpu', 'webgl' ] ) {
 	const w = r.walk ?? {}, L = r.lens ?? {};
 	console.log( `\n${ tag }` );
 	console.log( `  plain   lens ${ r.plain?.lensOn } fov ${ r.plain?.fov } ${ r.plain?.check }` );
-	console.log( `  walk    ${ w.surface } from ${ w.startDist } m, stop ${ w.stopDist?.toExponential( 4 ) } m in ${ w.frames } frames ${ w.check }; first call ${ w.firstMs } ms; ms/frame ${ JSON.stringify( w.staticMs ) }` );
+	console.log( `  walk    ${ w.surface } from ${ w.startDist } m, stop ${ w.stopDist?.toExponential( 4 ) } m (clearance ${ w.clearance?.toExponential( 3 ) } m, pad ${ ( w.pad ?? 0 ).toExponential( 2 ) } m) in ${ w.frames } frames ${ w.check }; first call ${ w.firstMs } ms; ms/frame ${ JSON.stringify( w.staticMs ) }` );
 	if ( w.side ) console.log( `  strafe  1 mm from the surface: ${ w.side.speed?.toExponential( 3 ) } m/s, ms/frame ${ JSON.stringify( w.side.ms ) } ${ w.side.check }` );
 	if ( w.animatedMs ) console.log( `  walk animated  ms/frame ${ JSON.stringify( w.animatedMs ) }, closest ${ w.animatedMinDist?.toExponential( 3 ) } m ${ w.animatedCheck }` );
 	if ( L.at1m ) {
 
 		console.log( `  fov     base ${ L.baseFov }: 1 m ${ L.at1m.fov }, 30 cm ${ L.at30cm.fov }, 3 cm ${ L.at3cm.fov } (step ${ L.at3cm.maxStep }), back ${ L.back1m.fov } (step ${ L.back1m.maxStep }), near to far ${ L.nearToFar.fov } (step ${ L.nearToFar.maxStep }, far ${ L.nearToFar.farDist }) ${ L.check }` );
 		console.log( `  focus   ms/frame ${ JSON.stringify( L.lensMs ) }` );
+		const A = r.approach;
+		if ( A && ! A.error ) console.log( `  approach walk felt ${ A.keysFelt.n < 3 ? 'not measured (an object closer beside the whole way)' : `${ A.keysFelt.min.toFixed( 2 ) } to ${ A.keysFelt.max.toFixed( 2 ) } /s` } (${ A.keysFelt.n } samples, ${ A.keysFelt.beside } with an object closer beside); wheel step ${ A.wheel.stepMin.toFixed( 3 ) } to ${ A.wheel.stepMax.toFixed( 3 ) }, crossed ${ A.wheel.crossed }, closest ${ A.wheel.minDist.toExponential( 2 ) } m; orbit crossings ${ A.orbit.join( ', ' ) } ${ A.check }` );
 		console.log( `  dof     ${ JSON.stringify( L.dofMs ) }` );
 
 	}

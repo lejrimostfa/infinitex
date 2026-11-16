@@ -5,16 +5,20 @@
 //            view direction (looking down, forward goes down); left and
 //            right strafe. Space up, C down, Shift faster. Camera and
 //            orbit target move together, so orbiting stays centred.
-//            Speed follows the distance to the target (about 0.8 of it
-//            per second), so the same keys walk a room or creep along a
-//            stitch (speedScale: false keeps maxSpeed / 3 everywhere).
+//            Speed follows the distance to the target and to the surface
+//            ahead (about 0.8 of it per second), so the same keys walk a
+//            room or creep along a stitch, and the approach feels the same
+//            at every scale. No minimum speed while a surface is ahead. In
+//            the macro band the step shrinks by zoomGain (lens.js), the
+//            share the narrowing field already adds (speedScale: false
+//            keeps maxSpeed / 3 everywhere).
 //   walls    a ray along the move finds the surface ahead. Speed also
 //            follows that distance, and a step covers at most a share of
 //            the room left (exponential approach), so the camera slows
 //            down near a surface and never passes through it. The
-//            nearest surface in any direction also limits the speed
-//            (sideLimit), so a strafe or a slide along the floor or a
-//            wall slows down near it too. The queries and what they
+//            nearest other object in any direction also limits the
+//            speed (sideLimit), so a strafe or a slide along the floor or
+//            a wall slows down near it too. The queries and what they
 //            skip live in collide.js (collider: null turns walls off).
 //   click    a click (not a drag) on a mesh glides the camera to it: a
 //            small object is framed whole, a large one (floor, wall) is
@@ -35,7 +39,7 @@ const MOVE = {
 };
 
 // collider: a createCollider() of collide.js, or null for no walls.
-export function createWalk( { camera, controls, scene, collider = null, dom = controls.domElement, minSpeed = 0.02, maxSpeed = 3, speedScale = true } ) {
+export function createWalk( { camera, controls, scene, collider = null, dom = controls.domElement, minSpeed = 0.02, maxSpeed = 3, speedScale = true, zoomGain = () => 1 } ) {
 
 	const bus = new EventTarget();
 	const emit = ( type, detail ) => bus.dispatchEvent( new CustomEvent( type, { detail } ) );
@@ -116,16 +120,17 @@ export function createWalk( { camera, controls, scene, collider = null, dom = co
 	const MARGIN = 1e-4; // m, half of controls.minDistance (stage.js)
 	const away = new THREE.Vector3();
 
-	// Speed limit from the nearest surface in any direction (the floor under
-	// a strafe, a wall beside it), which the ray along the move misses:
-	// 0.8 of that distance per second, like the ray. Only the part of the
-	// move that does not leave that surface is limited: a = 0 along it,
-	// a = 1 straight away from it (no limit). Moving toward it is the ray's
-	// job. Floor: MARGIN per second, so the camera is never stuck.
+	// Speed limit from the nearest other object in any direction (the floor
+	// under a strafe, a wall beside it), which the ray along the move misses:
+	// 0.8 of that distance per second, like the ray. The object the ray hit
+	// is skipped: walking into it keeps the felt speed of the ray alone.
+	// Only the part of the move that does not leave that surface is limited:
+	// a = 0 along it, a = 1 straight away from it (no limit). Floor: MARGIN
+	// per second, so the camera is never stuck.
 	function sideLimit( speed ) {
 
 		if ( ! speedScale || ! surfaceAhead.near ) return Infinity;
-		const c = surfaceAhead.near( camera.position, speed * 1.25 ); // farther, 0.8 c >= speed: no limit
+		const c = surfaceAhead.near( camera.position, speed * 1.25, surfaceAhead.object ); // farther, 0.8 c >= speed: no limit
 		if ( c === Infinity ) return Infinity;
 		const a = c > 1e-9 ? Math.max( 0, dir.dot( away.subVectors( camera.position, surfaceAhead.near.point ).divideScalar( c ) ) ) : 0;
 		return a >= 1 ? Infinity : Math.max( 0.8 * c / ( 1 - a ), MARGIN );
@@ -167,11 +172,18 @@ export function createWalk( { camera, controls, scene, collider = null, dom = co
 		dir.copy( step ).normalize();
 		const want = Math.min( step.length(), 1 ); // keys held: 1, diagonals are not faster
 		const h = surfaceAhead( camera.position, dir, Math.max( d, maxSpeed ) * 2 );
-		const near = speedScale ? Math.min( d, h ) * 0.8 : maxSpeed / 3;
-		let speed = THREE.MathUtils.clamp( near, minSpeed, maxSpeed );
+		// Felt speed: the distance shrinks by the same share each second, far
+		// or at a stitch. So no floor while a surface is ahead (a floor made the
+		// last 2 cm four times faster), and the macro lens share is taken out.
+		const near = speedScale ? Math.min( d, h ) * 0.8 * zoomGain( h ) : maxSpeed / 3;
+		const floor = speedScale && h < Infinity ? 0 : minSpeed;
+		let speed = THREE.MathUtils.clamp( near, floor, maxSpeed );
 		speed = Math.min( speed, sideLimit( speed ) ) * ( down.has( 'ShiftLeft' ) || down.has( 'ShiftRight' ) ? 3 : 1 );
-		// Never closer than MARGIN; each frame covers at most 1 - e^(-4 dt) of the room left.
-		const room = Math.max( 0, h - MARGIN );
+		// Never closer than MARGIN, perpendicular to the surface (a slanted
+		// approach stops sooner along the path, as approach.js does); each
+		// frame covers at most 1 - e^(-4 dt) of the room left.
+		const n = surfaceAhead.normal, cos = n ? Math.max( Math.abs( dir.dot( n ) ), 0.02 ) : 1;
+		const room = Math.max( 0, h - MARGIN / cos );
 		const len = Math.min( want * speed * dt, room * ( 1 - Math.exp( - 4 * dt ) ) );
 		if ( len <= 0 ) return;
 		step.copy( dir ).multiplyScalar( len );
