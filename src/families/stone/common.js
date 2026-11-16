@@ -1,5 +1,6 @@
 // Small blocks every stone mode shares. All sizes in surface meters.
 //   fbm        value noise octaves, the fine ones faded by the footprint
+//              (fbmGated: the faded ones skipped)
 //   band       a line of half width w around d = 0, anti-aliased
 //   lines      parallel lines (cleavage, twins, laminae), faded when the
 //              spacing gets near a pixel so they never moire
@@ -8,7 +9,7 @@
 //   tone       per cell colour jitter
 
 import { vec2, float, floor, fract, cos, sin, clamp, smoothstep, mod } from 'three/tsl';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
@@ -31,6 +32,35 @@ export function fbm( p, scaleM, fp, oct = 4, seed = 0 ) {
 	}
 
 	return sum.div( total ).add( 0.5 );
+
+}
+
+// Same sum, each octave in a gate() (core/lod.js), nested: once an octave
+// has faded, it and every finer one are skipped. The sum keeps the order
+// of fbm(), so the value is the same. It pays where most octaves are fine
+// for the view (granite, marble); elsewhere the branches cost more than
+// they save, so fbm() stays the default.
+export function fbmGated( p, scaleM, fp, oct = 4, seed = 0 ) {
+
+	let total = 0;
+	for ( let i = 0, amp = 0.5; i < oct; i ++, amp *= 0.5 ) total += amp;
+	const pv = p.isVarNode ? p : p.toVar();
+	const octaves = ( i, amp, sum ) => {
+
+		if ( i >= oct ) return sum;
+		const per = float( scaleM ).mul( 1 / ( 1 << i ) );
+		const s = sum.isVarNode ? sum : sum.toVar();
+		return gate( fadeOn( per, fp, 1.0 ), { sum: s }, () => {
+
+			const q = mod( pv.div( per ), 4096 ).add( vec2( seed * 1.7 + i * 5.3, seed * 3.1 + i * 2.9 ) );
+			const n = valueNoise( q ).sub( 0.5 ).mul( fadeIn( per, fp, 1.0, 3.0 ) );
+			return { sum: octaves( i + 1, amp * 0.5, s.add( n.mul( amp ) ) ) };
+
+		}, [ pv, fp, s ] ).sum;
+
+	};
+
+	return octaves( 0, 0.5, float( 0 ) ).div( total ).add( 0.5 );
 
 }
 

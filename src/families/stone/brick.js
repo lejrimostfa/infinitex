@@ -10,9 +10,12 @@
 //               mortar with its sand, tooled concave
 //   L2 clay     silt grains 20 to 60 um glinting, micro pores
 // color = brick, color2 = dark firing, color3 = mortar, color4 = grog.
+//
+// The sand, grog, specks and clay details sit in gate()s (core/lod.js) and
+// run only where they show.
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, clamp, mod, max, min } from 'three/tsl';
-import { fadeIn, surfaceGradient } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, grains, fbm } from './common.js';
@@ -51,24 +54,57 @@ export function buildBrick( p, fp, u ) {
 	const flash = smoothstep( 0.1, 1.0, lx.div( hx ).mul( flashSide ) ).mul( step( 0.6, hb.z ) );
 	const mott = fbm( p.add( hb.yz ), float( 0.03 ), fp, 4, 3 );
 	let bCol = mix( u.color, u.color2, fire.mul( 0.7 ).add( flash.mul( 0.5 ) ).min( 1 ) ).mul( mott.sub( 0.5 ).mul( u.colorVar ).mul( 2 ).add( 1 ) ).mul( hb.z.sub( 0.5 ).mul( u.colorVar ).add( 1 ) );
-	// Sand on the face, grog, dark iron specks.
-	const Sg = grains( p, float( 4e-4 ), fp, 0.0, 5 );
-	const sand = Sg.inside.mul( step( 0.8, Sg.h.y ) ).mul( Sg.w );
-	const gw = p.add( vec2( valueNoise( p.div( 8e-4 ) ), valueNoise( p.div( 8e-4 ).add( 3 ) ) ).sub( 0.5 ).mul( 6e-4 ) );
-	const Gg = grains( gw, float( 1.2e-3 ), fp, 0.3, 7 );
-	const grog = Gg.inside.mul( step( 0.82, Gg.h.y ) ).mul( Gg.w );
-	const SV = voronoi( mod( p.div( 1.5e-3 ), 4096 ).add( 6.1 ), 0.9 );
-	const speck = band( SV.toSeed.length().mul( 1.5e-3 ), hash1( SV.id1 ).mul( 2.5e-4 ).add( 8e-5 ), fp ).mul( step( 0.88, hash1( SV.id1.add( 4.4 ) ) ) ).mul( fadeIn( float( 3e-4 ), fp, 1.5, 4.0 ) );
+	// Sand on the face, grog, dark iron specks; each skipped past its fade.
+	// A sand grain or a grog lump weighted by zero has its colour unread.
 	// Sand: rounded quartz, white to yellow, a shadow ring where it sinks in.
 	// Glassy: dark rim where the clay grips it, clear body, a bright core.
-	const sandCol = mix( vec3( 0.55, 0.52, 0.48 ), vec3( 0.6, 0.45, 0.28 ), Sg.h.z ).mul( smoothstep( 0.0, 0.2, Sg.m ).mul( 0.5 ).add( 0.5 ) ).add( smoothstep( 0.18, 0.3, Sg.m ).mul( 0.06 ) );
+	const SG = gate( fadeOn( 4e-4, fp, 1.5 ), { sand: 0, sandCol: [ 0, 0, 0 ], slope: [ 0, 0 ] }, () => {
+
+		const Sg = grains( p, float( 4e-4 ), fp, 0.0, 5 );
+		const sand = Sg.inside.mul( step( 0.8, Sg.h.y ) ).mul( Sg.w );
+		const sandCol = mix( vec3( 0.55, 0.52, 0.48 ), vec3( 0.6, 0.45, 0.28 ), Sg.h.z ).mul( smoothstep( 0.0, 0.2, Sg.m ).mul( 0.5 ).add( 0.5 ) ).add( smoothstep( 0.18, 0.3, Sg.m ).mul( 0.06 ) );
+		return { sand, sandCol, slope: Sg.slope.mul( sand ) };
+
+	}, [ p, fp ] );
+	const sand = SG.sand.toVar(), sandCol = SG.sandCol;
+	const GG = gate( fadeOn( 1.2e-3, fp, 1.5 ), { grog: 0, tone: 0, slope: [ 0, 0 ] }, () => {
+
+		const gw = p.add( vec2( valueNoise( p.div( 8e-4 ) ), valueNoise( p.div( 8e-4 ).add( 3 ) ) ).sub( 0.5 ).mul( 6e-4 ) );
+		const Gg = grains( gw, float( 1.2e-3 ), fp, 0.3, 7 );
+		const grog = Gg.inside.mul( step( 0.82, Gg.h.y ) ).mul( Gg.w );
+		return { grog, tone: Gg.h.z, slope: Gg.slope.mul( grog ) };
+
+	}, [ p, fp ] );
+	const grog = GG.grog;
+	const svq = mod( p.div( 1.5e-3 ), 4096 ).add( 6.1 ).toVar();
+	const speck = gate( fadeOn( 3e-4, fp, 1.5 ), { speck: 0 }, () => {
+
+		const SV = voronoi( svq, 0.9 );
+		return { speck: band( SV.toSeed.length().mul( 1.5e-3 ), hash1( SV.id1 ).mul( 2.5e-4 ).add( 8e-5 ), fp ).mul( step( 0.88, hash1( SV.id1.add( 4.4 ) ) ) ).mul( fadeIn( float( 3e-4 ), fp, 1.5, 4.0 ) ) };
+
+	}, [ fp, svq ] ).speck;
 	bCol = mix( bCol, sandCol.mul( bCol.add( 0.6 ) ), sand.mul( 0.5 ) ); // fired into the face: tinted by the clay
-	bCol = mix( bCol, u.color4.mul( Gg.h.z.mul( 0.4 ).add( 0.8 ) ), grog.mul( 0.55 ) ).mul( float( 1 ).sub( speck.mul( 0.5 ) ) );
-	// Clay close up: silt glints and pores.
-	const SI = voronoi( mod( p.div( 4e-5 ), 4096 ).add( 2.7 ), 0.9 );
-	const silt = smoothstep( 0.05, 0.15, SI.edge ).mul( hash1( SI.id1 ).sub( 0.5 ) ).mul( fadeIn( float( 4e-5 ), fp, 2.0, 5.0 ) ).add( fbm( p, float( 2e-4 ), fp, 3, 4 ).sub( 0.5 ).mul( 0.5 ) );
-	const PV = voronoi( mod( p.div( 1.5e-4 ), 4096 ).add( 8.3 ), 0.9 );
-	const pore = band( PV.toSeed.length().mul( 1.5e-4 ), hash1( PV.id1 ).mul( 2e-5 ).add( 6e-6 ), fp ).mul( step( 0.7, hash1( PV.id1.add( 1.9 ) ) ) ).mul( fadeIn( float( 2e-5 ), fp, 1.5, 4.0 ) );
+	bCol = mix( bCol, u.color4.mul( GG.tone.mul( 0.4 ).add( 0.8 ) ), grog.mul( 0.55 ) ).mul( float( 1 ).sub( speck.mul( 0.5 ) ) );
+	// Clay close up: silt glints and pores. Skipped past the silt noise's
+	// fade (0.2 mm, from 1 px); the glints and pores past theirs (40 um,
+	// from 2 px).
+	const siq = mod( p.div( 4e-5 ), 4096 ).add( 2.7 ).toVar(), pvq = mod( p.div( 1.5e-4 ), 4096 ).add( 8.3 ).toVar();
+	const CL = gate( fadeOn( 2e-4, fp, 1.0 ), { silt: 0, pore: 0 }, () => {
+
+		const G = gate( fadeOn( 4e-5, fp, 2.0 ), { glint: 0, pore: 0 }, () => {
+
+			const SI = voronoi( siq, 0.9 );
+			const PV = voronoi( pvq, 0.9 );
+			return {
+				glint: smoothstep( 0.05, 0.15, SI.edge ).mul( hash1( SI.id1 ).sub( 0.5 ) ).mul( fadeIn( float( 4e-5 ), fp, 2.0, 5.0 ) ),
+				pore: band( PV.toSeed.length().mul( 1.5e-4 ), hash1( PV.id1 ).mul( 2e-5 ).add( 6e-6 ), fp ).mul( step( 0.7, hash1( PV.id1.add( 1.9 ) ) ) ).mul( fadeIn( float( 2e-5 ), fp, 1.5, 4.0 ) ),
+			};
+
+		}, [ fp, siq, pvq ] );
+		return { silt: G.glint.add( fbm( p, float( 2e-4 ), fp, 3, 4 ).sub( 0.5 ).mul( 0.5 ) ), pore: G.pore };
+
+	}, [ p, fp, siq, pvq ] );
+	const silt = CL.silt.toVar(), pore = CL.pore.toVar();
 	bCol = bCol.mul( silt.mul( 0.15 ).add( 1 ) ).mul( float( 1 ).sub( pore.mul( 0.5 ) ) );
 	bCol = mix( bCol, bCol.mul( 0.82 ), chip ); // the broken clay is a bit darker and dull
 
@@ -83,10 +119,10 @@ export function buildBrick( p, fp, u ) {
 	const mortH = u.recessM.negate().sub( tool.mul( float( 2 ).sub( tool ) ).mul( 1e-3 ) );
 	const brickH = bev.sub( 1 ).mul( 7e-4 ).sub( chip.mul( chipD ).mul( 0.6 ) );
 	const h = mix( mortH, brickH, brick );
-	const slope = surfaceGradient( h, p ).add( Sg.slope.mul( sand ).mul( 1.4 ) ).add( Gg.slope.mul( grog ).mul( 0.4 ) )
+	const slope = surfaceGradient( h, p ).add( SG.slope.mul( 1.4 ) ).add( GG.slope.mul( 0.4 ) )
 		.add( Ms.slope.mul( brick.oneMinus() ).mul( 0.5 ) ).add( vec2( silt, silt.negate() ).mul( 0.2 ) );
 	const rough = u.roughness.add( chip.mul( 0.08 ) ).add( brick.oneMinus().mul( 0.05 ) ).sub( sand.mul( 0.45 ) ).min( 1 ); // quartz grains glint
 	const cavity = brick.oneMinus().mul( 0.8 ).max( chip.mul( 0.5 ) ).max( pore.mul( 0.4 ) );
-	return { color: clamp( color, 0, 1 ), slope, cavity, rough, s2: Sg.w.oneMinus().mul( 0.03 ) };
+	return { color: clamp( color, 0, 1 ), slope, cavity, rough, s2: fadeIn( float( 4e-4 ), fp, 1.5, 4.0 ).oneMinus().mul( 0.03 ) };
 
 }
