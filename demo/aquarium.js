@@ -97,7 +97,7 @@ const mirrors = {
 	down: createMirror( { group: tank, level: LEVEL, side: - 1, hide } ),
 };
 const prepare = ( cam ) => { mirrors.up.render( renderer, cam ); mirrors.down.render( renderer, cam ); };
-const water = new THREE.Mesh( new THREE.PlaneGeometry( TW, TD ), createWaterSurface( sky, mirrors ) );
+const water = new THREE.Mesh( new THREE.PlaneGeometry( TW, TD, 240, 160 ), createWaterSurface( sky, mirrors, undefined, { spacing: TW / 240 } ) );
 water.rotation.x = - Math.PI / 2;
 water.position.y = LEVEL;
 water.renderOrder = 10; // after the opaque scene: it reads the screen

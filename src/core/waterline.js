@@ -24,7 +24,7 @@ import { vec2, vec3, vec4, float, uniform, texture, uv, smoothstep, mix, exp, st
 import { waterBody } from './underwater.js';
 import { ixTime } from './clock.js';
 import { valueNoise } from './hash.js';
-import { waveField } from '../families/liquid/waves.js';
+import { surfaceWaves } from './watersurface.js';
 
 export function createWaterline( renderer, scene, camera, { lens = false, glassZ = 0, xMin = - 1, xMax = 1, yMin = 0, yMax = 1, lensD = 0.03, meniscus = 0.002, boost = 1, power = 5, prepare = null } = {}, W = waterBody ) {
 
@@ -54,9 +54,8 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 	}
 
 	const tt = ixTime.mul( W.speed );
-	const wf = waveField( vec2( G.x, G.z ).mul( W.depthScale ), float( 1e-4 ), {
-		lmax: W.sizeM, lmin: W.featureM, angle: W.angle, steep: W.amount.mul( 0.14 ), t: tt, rate: W.speed, seed: W.seed, count: 8, spreadDeg: 180,
-	} );
+	// The same sea as the surface mesh, so the line meets its edge.
+	const wf = surfaceWaves( vec2( G.x, G.z ), float( 1e-5 ), W );
 	const waterY = W.level.add( wf.h.div( W.depthScale ).mul( boost ) );
 	// Height over the water line, in meniscus heights: < 0 under water,
 	// 0..1 the film climbing the glass, > 1 dry glass.

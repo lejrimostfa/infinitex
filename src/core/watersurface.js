@@ -13,12 +13,16 @@
 //              screen behind the surface: not squeezed into the cone, a
 //              cheap stand-in); outside, total internal reflection: a
 //              planar mirror of the pool, rippled.
+//   shape      the plane is displaced by the same waves (vertex stage,
+//              waves shorter than the mesh spacing faded out), so its edge
+//              on a pane follows the meniscus (core/waterline.js) instead
+//              of reading as a flat plate under it. Give it segments.
 // mirrors: { up, down } from core/mirror.js, rendered by the app.
 // sky(dir) is the app's sky (the same function draws the background), so
 // reflections and the window match what is above.
 
 import { MeshBasicNodeMaterial, DoubleSide } from 'three/webgpu';
-import { vec2, vec3, vec4, float, positionWorld, cameraPosition, reflect, mix, smoothstep, step, sqrt, viewportSharedTexture, screenUV } from 'three/tsl';
+import { vec2, vec3, vec4, float, positionWorld, positionLocal, modelWorldMatrix, modelWorldMatrixInverse, cameraPosition, reflect, mix, smoothstep, step, sqrt, viewportSharedTexture, screenUV } from 'three/tsl';
 import { ixTime } from './clock.js';
 import { footprint } from './lod.js';
 import { waterBody } from './underwater.js';
@@ -26,15 +30,25 @@ import { waveField } from '../families/liquid/waves.js';
 
 const N_WATER = 1.33;
 
-export function createWaterSurface( sky, mirrors = {}, W = waterBody ) {
+// The sea of a water body at world xz q (m), waves under the footprint fq
+// (m) faded. One sea for the surface, its shape, the caustics and the
+// waterline. h / W.depthScale is the height in world metres.
+export function surfaceWaves( q, fq, W = waterBody ) {
+
+	const t = ixTime.mul( W.speed );
+	return waveField( q.mul( W.depthScale ), fq.mul( W.depthScale ), {
+		lmax: W.sizeM, lmin: W.featureM, angle: W.angle, steep: W.amount.mul( 0.14 ), t, rate: W.speed, seed: W.seed, count: 12, spreadDeg: 180,
+	} );
+
+}
+
+// spacing: the mesh's segment size (m), the shortest wave it can carry.
+export function createWaterSurface( sky, mirrors = {}, W = waterBody, { spacing = 0.005 } = {} ) {
 
 	const P = positionWorld;
 	const q = vec2( P.x, P.z );
 	const fq = footprint( q );
-	const t = ixTime.mul( W.speed );
-	const wf = waveField( q.mul( W.depthScale ), fq.mul( W.depthScale ), {
-		lmax: W.sizeM, lmin: W.featureM, angle: W.angle, steep: W.amount.mul( 0.14 ), t, rate: W.speed, seed: W.seed, count: 12, spreadDeg: 180,
-	} );
+	const wf = surfaceWaves( q, fq, W );
 	const n = vec3( wf.slope.x.negate(), 1, wf.slope.y.negate() ).normalize(); // up, rippled
 	const V = cameraPosition.sub( P ).normalize(); // toward the eye
 	const above = mix( step( W.level, cameraPosition.y ), float( 1 ).sub( W.eyeUnder ), step( 0, W.eyeUnder ) ); // eyeUnder forces a side
@@ -77,6 +91,10 @@ export function createWaterSurface( sky, mirrors = {}, W = waterBody ) {
 	const fromBelow = mix( mirror, air, leaves.mul( float( 1 ).sub( Fb ) ) );
 
 	const m = new MeshBasicNodeMaterial( { side: DoubleSide, transparent: false } );
+	// Shape: lift each vertex by the wave height, world up taken to local.
+	const wp = modelWorldMatrix.mul( vec4( positionLocal, 1 ) );
+	const hv = surfaceWaves( vec2( wp.x, wp.z ), float( spacing ), W ).h.div( W.depthScale );
+	m.positionNode = positionLocal.add( modelWorldMatrixInverse.mul( vec4( 0, hv, 0, 0 ) ).xyz );
 	m.colorNode = vec4( mix( fromBelow, fromAbove, above ), 1 );
 	m.toneMapped = true;
 	return m;
