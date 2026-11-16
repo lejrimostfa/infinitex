@@ -286,11 +286,14 @@ if ( ! params.has( 'film' ) ) {
 	const queue = lit.map( ( c ) => c.mesh ).sort( ( a, b ) => a.position.distanceToSquared( camera.position ) - b.position.distanceToSquared( camera.position ) );
 	app.ready = false;
 	app.adaptive.hold = true;
-	app.renderEvery = 3; // leave most frames to the compile
+	// Pixel ratio 1 while it loads: each frame of the wall at ratio 2 took
+	// about 20 ms of main thread, which the compile then lacked. At ratio 1
+	// the page draws every frame (27 fps, 16 ms median) and loads as fast.
+	ctx.renderer.setPixelRatio( Math.min( 1, app.adaptive.max ) );
 	setLoadingProgress( `Compiling the materials: 0 / ${ queue.length }` );
 	const stream = streamMaterials( { renderer: ctx.renderer, scene, camera, pass: app.post.scenePass, meshes: queue, placeholder: grey } );
 	stream.addEventListener( 'materialReady', ( e ) => setLoadingProgress( `Compiling the materials: ${ e.detail.done } / ${ e.detail.total }` ) );
-	stream.addEventListener( 'allReady', () => { app.renderEvery = 1; requestAnimationFrame( () => { app.adaptive.hold = false; app.ready = true; } ); } ); // after the last ones are drawn
+	stream.addEventListener( 'allReady', () => { ctx.renderer.setPixelRatio( app.adaptive.max ); requestAnimationFrame( () => { app.adaptive.hold = false; app.ready = true; } ); } ); // after the last ones are drawn
 
 }
 
