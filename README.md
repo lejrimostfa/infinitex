@@ -45,12 +45,13 @@ npm install
 npm run dev
 ```
 
-Or try it without installing anything: [knit](https://lejrimostfa.github.io/infinitex/), [all matters](https://lejrimostfa.github.io/infinitex/cubes.html), [water](https://lejrimostfa.github.io/infinitex/aquarium.html). Locally, open http://localhost:5211/cubes.html: one rounded cube per matter, one row per family. Orbit with the mouse, scroll to zoom, and get as close as you like.
+Or try it without installing anything: [knit](https://lejrimostfa.github.io/infinitex/), [all matters](https://lejrimostfa.github.io/infinitex/cubes.html), [water](https://lejrimostfa.github.io/infinitex/aquarium.html), [living room](https://lejrimostfa.github.io/infinitex/livingroom.html). Locally, open http://localhost:5211/cubes.html: one rounded cube per matter, one row per family. Orbit with the mouse, scroll to zoom, and get as close as you like.
 
 | Demo | What it shows |
 |---|---|
 | `cubes.html` | The whole catalogue. `?family=10` builds one row only (much faster to load), `?fly` plays a flyover, `?env=room` swaps the sky for a studio light. |
 | `aquarium.html` | A tank of clear water. `?view=above`, `below`, `floor`, `glass` (the waterline through the pane) or `lens` (a camera half in the water). |
+| `livingroom.html` | Ten matters in one scene: an 80s room at sunset over a lava lake (wood strips, plaster, a knotted rug, beige plastic, a CRT, leather, oranges, the lava, a photosphere sun, a cable sweater). `?view=room`, `window`, `tv`, `fruit`, `rug` or `chair`. Geometry built by code in Blender: `blender/livingroom.py`. |
 | `index.html` | A knitted mannequin with sliders, live stats and a "level view" that colours each level of detail. |
 
 ## Use it in your scene
@@ -203,7 +204,8 @@ src/
   core/               level of detail, hashes, noise, Voronoi, surface states, micro detail,
                       occlusion, pixel art, relief, caustics, water, mirrors, waterline, clock
   families/<name>/    params.js (preset -> uniforms) and the TSL graph, split by level or mode
-demo/                 cube wall, aquarium, mannequin, flyover, post-processing
+demo/                 cube wall, aquarium, living room, mannequin, flyover, post-processing
+blender/              Blender scripts that build demo geometry (livingroom.py)
 docs/                 catalogue, references, performance, benchmark data
 tests/                headless quality gate, benchmarks, film recorder (Playwright)
 ```

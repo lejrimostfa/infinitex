@@ -5,6 +5,9 @@
 //   embers    charred wood crazed into blocks, glow breathing in the cracks
 //   steel     molten steel: white hot melt, oxide skin wrinkling, slag specks
 //   slag      cooling slag: glassy crust, vesicles, a red glow dying out
+//   photosphere  the surface of the Sun: granules, spots, faculae, limb
+//             (scale_mm is the sun radius, size_mm a granule, melt_k the
+//             surface, crust_k the umbra, cover the spot amount)
 // Every mode is animated by the shared clock (core/clock.js) times speed.
 // The same size names serve every mode, from the largest structure to the
 // microns: scale_mm (lobe, conveyor, log, convection cell), size_mm
@@ -21,7 +24,9 @@ export const MOLTEN_DEFAULTS = {
 	family: 'molten',
 	intent: 'basalt lava lake, crust plates over glowing seams',
 	seed: 1,
-	mode: 'lake', // pahoehoe | aa | lake | embers | steel | slag
+	mode: 'lake', // pahoehoe | aa | lake | embers | steel | slag | photosphere
+	shape: 'disc', // photosphere only: disc (CircleGeometry uv) | sphere (metric coords)
+	haze: 0, // photosphere only: Rayleigh optical depth of the air path (0 space, 0.1 noon, 2.5 sunset)
 	angle_deg: 0, // flow direction on the surface
 	scale_mm: 160,
 	size_mm: 35,
@@ -54,6 +59,7 @@ export const MOLTEN_SLIDERS = [
 	[ 'flow_mm_s', 0, 30, 0.1 ],
 	[ 'speed', 0, 4, 0.01 ],
 	[ 'glow', 0, 4, 0.01 ],
+	[ 'haze', 0, 5, 0.01 ],
 	[ 'contrast', 0.1, 1, 0.01 ],
 	[ 'relief', 0, 2, 0.01 ],
 	[ 'roughness', 0.05, 1, 0.01 ],
@@ -63,11 +69,11 @@ export function createMoltenUniforms() {
 
 	const c = () => uniform( new Color() );
 	return {
-		mode: 'lake', // read when the graph is built
+		mode: 'lake', shape: 'disc', // read when the graph is built
 		seed: uniform( 1 ), angle: uniform( 0 ),
 		scaleM: uniform( 0.16 ), sizeM: uniform( 0.035 ), featureM: uniform( 0.004 ), cellM: uniform( 9e-4 ), microM: uniform( 6e-5 ),
 		crustK: uniform( 750 ), meltK: uniform( 1400 ), cover: uniform( 0.6 ), flow: uniform( 0.004 ), speed: uniform( 1 ),
-		glow: uniform( 1 ), contrast: uniform( 0.3 ),
+		glow: uniform( 1 ), contrast: uniform( 0.3 ), haze: uniform( 0 ),
 		color: c(), color2: c(), color3: c(), colorVar: uniform( 0.15 ), relief: uniform( 1 ), roughness: uniform( 0.6 ),
 		surface: createSurfaceUniforms(),
 	};
@@ -78,8 +84,9 @@ export function applyMoltenPreset( u, preset ) {
 
 	const p = { ...MOLTEN_DEFAULTS, ...preset };
 	u.mode = p.mode;
+	u.shape = p.shape;
 	const set = { seed: p.seed, crustK: p.crust_k, meltK: p.melt_k, cover: p.cover, speed: p.speed, glow: p.glow,
-		contrast: p.contrast, colorVar: p.color_variation, relief: p.relief, roughness: p.roughness };
+		contrast: p.contrast, haze: p.haze, colorVar: p.color_variation, relief: p.relief, roughness: p.roughness };
 	for ( const k in set ) u[ k ].value = set[ k ];
 	u.angle.value = p.angle_deg * Math.PI / 180;
 	u.scaleM.value = p.scale_mm * 1e-3;

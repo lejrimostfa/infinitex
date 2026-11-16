@@ -1,7 +1,7 @@
 // Molten family: TSL node graph. The mode (params.js) picks the matter,
 // one file per matter:
 //   pahoehoe (pahoehoe.js), aa (aa.js), lake (lake.js), embers (embers.js),
-//   steel (steel.js), slag (slag.js)
+//   steel (steel.js), slag (slag.js), photosphere (photosphere.js)
 // Each returns colour, a surface slope, a cavity signal, a roughness, its
 // slope variance s2, the light it emits (heat.js radiances, already mixed
 // by coverage) and optionally a metalness, a porosity and a tarnish film
@@ -20,8 +20,9 @@ import { buildLake } from './lake.js';
 import { buildEmbers } from './embers.js';
 import { buildSteel } from './steel.js';
 import { buildSlag } from './slag.js';
+import { buildPhotosphere } from './photosphere.js';
 
-const MODES = { pahoehoe: buildPahoehoe, aa: buildAa, lake: buildLake, embers: buildEmbers, steel: buildSteel, slag: buildSlag };
+const MODES = { pahoehoe: buildPahoehoe, aa: buildAa, lake: buildLake, embers: buildEmbers, steel: buildSteel, slag: buildSlag, photosphere: buildPhotosphere };
 
 export function buildMoltenNodes( u, opts = {} ) {
 

@@ -538,6 +538,7 @@ Family `molten` (`src/families/molten/`), one mode per graph, one file per matte
 - `embers` (embers.js): char blocks longer along the grain (the shou sugi ban crazing of `wood/finish.js`), domed, deep cracks of varied width; two finer crazings; wood fibres in broken streaks. A hot bed region and a breathing glow (two flowing noises, 4 and 9 s); the block faces glow only where it is hot, the cracks and their rims wherever it is warm; the crack floor is crazed into 0.3 mm granules. White grey ash and a dusting follow the lasting heat, not the breath, so they never flicker.
 - `steel` (steel.js): a liquid metal (metalness 1, reflectance about 0.6, emissivity 0.35) at 1800 K under convection cells. Oxide islands ride the surface (translation) and change shape slowly; thicker in the cell lanes, torn along glowing lines; a lace of thin, hotter oxide filaments follows the faster outward flow; ragged slag specks drift; skin wrinkles and grain; ripples change the melt emissivity a little so they show.
 - `slag` (slag.js): black green glass in broad frozen folds, contraction cracks into slabs, flow bands, grey spherulites, a faint iridescent tarnish (thin film). Hot zones wander very slowly (25 s noise): there the surface glows dull red and the cracks, wider, glow brighter; open vesicles show the hot glass. Dense vesicles in two sizes, needle crystals.
+- `photosphere` (photosphere.js, sunspot.js): the Sun at `melt_k`, HDR emission (12 x `glow`). Evolving granules (`size_mm`), limb darkening per channel, faculae near the limb, rare spots (`cover`, umbra at `crust_k`), `haze` reddening. `shape`: `disc` (CircleGeometry uv, radius `scale_mm`) or `sphere` (metric coords).
 
 | Matter | Zoom |
 |---|---|
@@ -547,6 +548,7 @@ Family `molten` (`src/families/molten/`), one mode per graph, one file per matte
 | Embers | crazed char blocks, glowing cracks that breathe, ash, wood fibres |
 | Molten steel | oxide islands and lace, glowing tears, slag specks, skin grain |
 | Slag | glassy crust, contraction cracks, vesicles, spherulites, a dying red glow |
+| Photosphere | limb darkening, faculae, sunspots and penumbra filaments, granules |
 
 Limits: the crust coordinates grow with time (flow times t), so after hours of animation the micron levels lose float precision; reset the clock between shots. The pahoehoe ropes keep one steady bend (they slide, they do not fold further). The aa 3 mm view is a plain granular rock. Lobes, conveyors and convection cells do not move. No sparks above the embers.
 

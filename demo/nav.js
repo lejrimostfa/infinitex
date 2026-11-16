@@ -8,6 +8,7 @@ const PAGES = [
 	[ 'index.html', 'Knit' ],
 	[ 'cubes.html', 'All matters' ],
 	[ 'aquarium.html', 'Water' ],
+	[ 'livingroom.html', 'Room' ],
 ];
 const REPO = 'https://github.com/lejrimostfa/infinitex';
 
