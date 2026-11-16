@@ -16,7 +16,7 @@
 
 import { vec2, float, mix, smoothstep, clamp, mod } from 'three/tsl';
 import { ixTime } from '../../core/clock.js';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, gate } from '../../core/lod.js';
 import { hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { arrival, heroSeed, rough, ageMeters } from '../../core/front.js';
@@ -69,14 +69,34 @@ export function buildDry( p, fp, u, prog ) {
 	const sag = vec2( vn( sq ), vn( sq.add( 4.1 ) ) ).sub( 0.5 ).mul( 0.03 ).mul( dry.oneMinus() );
 
 	// Wrinkles: ridged noise stretched one way per region.
-	const R = ridged( p.add( vec2( p.y.mul( 0.6 ), 0 ) ), f.mul( 2 ), fp, 4, 3 );
-	const wrS = R.slope.mul( f.mul( 0.15 ) ).mul( wrinkle );
+	// They start 0.2 front_mm behind the front: the gate skips them ahead.
+	const Wr = gate( wrinkle.greaterThan( 0 ), { wrS: [ 0, 0 ], wrH: 0 }, () => {
+
+		const R = ridged( p.add( vec2( p.y.mul( 0.6 ), 0 ) ), f.mul( 2 ), fp, 4, 3 );
+		return { wrS: R.slope.mul( f.mul( 0.15 ) ).mul( wrinkle ), wrH: R.h.sub( 0.5 ).mul( 0.25 ).mul( wrinkle ) };
+
+	}, [ p, fp, wrinkle ] );
+	const wrS = Wr.wrS;
 
 	// Craquelure: two nets, the second opens later inside the cells.
-	const C1 = cracks( p, f.mul( 6 ), open.mul( 7e-5 ), fp, 1.3 );
-	const open2 = smoothstep( W.mul( 2.5 ), W.mul( 6 ), age );
-	const C2 = cracks( p.add( hash3( C1.V.id1 ).xy.mul( 0.01 ) ), f.mul( 2.2 ), open2.mul( 3e-5 ), fp, 8.8 );
-	const crack = C1.cov.mul( open.min( 1 ).mul( dry ) ).max( C2.cov.mul( open2 ) ).toVar();
+	// Both count only once the cracks open (age past front_mm, and 2.5
+	// front_mm for the second): the gates skip them before.
+	const open2 = smoothstep( W.mul( 2.5 ), W.mul( 6 ), age ).toVar();
+	const Cr = gate( open.greaterThan( 0 ), { crack: 0, k: 0, c1S: [ 0, 0 ], c2S: [ 0, 0 ] }, () => {
+
+		const C1 = cracks( p, f.mul( 6 ), open.mul( 7e-5 ), fp, 1.3 );
+		const id1 = C1.V.id1.toVar();
+		const C2 = gate( open2.greaterThan( 0 ), { cov: 0, slope: [ 0, 0 ] }, () => {
+
+			const C2 = cracks( p.add( hash3( id1 ).xy.mul( 0.01 ) ), f.mul( 2.2 ), open2.mul( 3e-5 ), fp, 8.8 );
+			return { cov: C2.cov, slope: C2.slope };
+
+		}, [ p, fp, open2, id1 ] );
+		return { crack: C1.cov.mul( open.min( 1 ).mul( dry ) ).max( C2.cov.mul( open2 ) ), k: C1.k, c1S: C1.slope.mul( open ), c2S: C2.slope.mul( open2 ).mul( 0.6 ) };
+
+	}, [ p, fp, open, open2, dry ] );
+	const C1 = { k: Cr.k };
+	const crack = Cr.crack.toVar();
 
 	// Colour.
 	const pg = vn( mod( p.div( 2e-5 ), 4096 ).add( 6.2 ) ).sub( 0.5 ).mul( fadeIn( 2e-5, fp, 2.0, 6.0 ) );
@@ -84,7 +104,7 @@ export function buildDry( p, fp, u, prog ) {
 	const wetC = base.mul( 0.82 ); // wet: deeper
 	const dryC = mix( base, u.color2, 0.15 );
 	let col = mix( wetC, dryC, matte );
-	col = col.mul( R.h.sub( 0.5 ).mul( 0.25 ).mul( wrinkle ).add( 1 ) );
+	col = col.mul( Wr.wrH.add( 1 ) );
 	// The cut edge of the film shows paler beside the crack; inside it,
 	// the dark ground.
 	const lip = smoothstep( 0.0, 0.5, C1.k ).mul( smoothstep( 1.0, 0.85, C1.k ) ).mul( open ).mul( fadeIn( f.mul( 0.3 ), fp, 2.0, 6.0 ) );
@@ -92,7 +112,7 @@ export function buildDry( p, fp, u, prog ) {
 	col = mix( col, u.color3, crack );
 	col = col.mul( float( 1 ).sub( C1.k.mul( open ).mul( 0.1 ) ) ); // edges catch dirt and shade
 
-	const slope = brush.add( sag ).add( wrS ).add( C1.slope.mul( open ) ).add( C2.slope.mul( open2 ).mul( 0.6 ) ).mul( crack.oneMinus() ).mul( u.relief );
+	const slope = brush.add( sag ).add( wrS ).add( Cr.c1S ).add( Cr.c2S ).mul( crack.oneMinus() ).mul( u.relief );
 	const rgh = mix( float( 0.06 ), u.roughness, matte );
 	const s2 = wrinkle.mul( fadeIn( f.mul( 2 ), fp, 2.0, 6.0 ).oneMinus() ).mul( 0.05 );
 	return { color: col, slope, cavity: crack, rough: rgh, s2, coat: matte.oneMinus(), coatRough: float( 0.02 ), coatSlope: brush.add( sag ) };

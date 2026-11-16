@@ -21,7 +21,7 @@
 // too fast to follow and fade into a shimmer, waves.js flickerFade).
 
 import { vec2, vec3, float, floor, fract, exp, mod, mix, clamp, smoothstep, step, atan, cos, sin } from 'three/tsl';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate } from '../../core/lod.js';
 import { hash3 } from '../../core/hash.js';
 import { ixTime } from '../../core/clock.js';
 import { fbm } from '../stone/common.js';
@@ -59,19 +59,26 @@ function drops( p, fp, u, t, layer ) {
 		const id = mod( cell.add( vec2( ox, oy ) ), 4096 );
 		const hc = hash3( id.add( layer * 13.7 ) );
 		const tc = t.div( PERIOD ).add( hc.x );
-		const n = floor( tc ), tau = fract( tc ).mul( PERIOD );
-		const hd = hash3( mod( id.add( vec2( n.mul( 17.31 ), n.mul( 7.17 ) ) ), 4096 ).add( layer * 5.3 + 1.1 ) );
-		const on = step( hd.z, u.amount );
+		const n = floor( tc ), tau = fract( tc ).mul( PERIOD ).toVar();
+		const hd = hash3( mod( id.add( vec2( n.mul( 17.31 ), n.mul( 7.17 ) ) ), 4096 ).add( layer * 5.3 + 1.1 ) ).toVar();
+		const on = step( hd.z, u.amount ).toVar();
 		const c0 = id.add( 0.5 ).add( hd.xy.sub( 0.5 ).mul( 0.9 ) );
-		const dv = mod( x.sub( c0 ).add( 2048 ), 4096 ).sub( 2048 ).mul( C );
-		const r = dv.length();
+		const dv = mod( x.sub( c0 ).add( 2048 ), 4096 ).sub( 2048 ).mul( C ).toVar();
+		const r = dv.length().toVar();
 		// Rings fade before they leave the 3 x 3 cells around the impact.
-		const keep = smoothstep( C, C.mul( 0.55 ), r ).mul( on ).mul( smoothstep( 0, 0.015, tau ) ).mul( smoothstep( PERIOD, PERIOD * 0.7, tau ) );
-		const big = hd.y.mul( 0.6 ).add( 0.7 );
-		const P1 = packet( dv, r, tau, u.featureM, big.mul( 1.1 ), fp, u.speed, float( 0.3 ) );
-		const P2 = packet( dv, r, tau, u.featureM.mul( 0.4 ), big.mul( 0.4 ), fp, u.speed, float( 0.06 ) );
-		slope = slope.add( P1.slope.add( P2.slope ).mul( keep ) );
-		s2 = s2.add( P1.s2.add( P2.s2 ).mul( keep ) );
+		const keep = smoothstep( C, C.mul( 0.55 ), r ).mul( on ).mul( smoothstep( 0, 0.015, tau ) ).mul( smoothstep( PERIOD, PERIOD * 0.7, tau ) ).toVar();
+		const big = hd.y.mul( 0.6 ).add( 0.7 ).toVar();
+		// The two ring packets run only where keep is not zero: about a
+		// third of the 3 x 3 cells (the others are too far or have no drop).
+		const Pk = gate( keep.greaterThan( 0 ), { slope: [ 0, 0 ], s2: 0 }, () => {
+
+			const P1 = packet( dv, r, tau, u.featureM, big.mul( 1.1 ), fp, u.speed, float( 0.3 ) );
+			const P2 = packet( dv, r, tau, u.featureM.mul( 0.4 ), big.mul( 0.4 ), fp, u.speed, float( 0.06 ) );
+			return { slope: P1.slope.add( P2.slope ).mul( keep ), s2: P1.s2.add( P2.s2 ).mul( keep ) };
+
+		}, [ dv, r, tau, keep, big, fp ] );
+		slope = slope.add( Pk.slope );
+		s2 = s2.add( Pk.s2 );
 		// The jet: a dome 3 mm wide for the first tenth of a second.
 		const rj = float( 0.0016 ).mul( big );
 		const hj = exp( r.div( rj ).pow( 2 ).negate() ).mul( exp( tau.div( 0.04 ).negate() ) ).mul( on );
@@ -79,14 +86,21 @@ function drops( p, fp, u, t, layer ) {
 		jet = jet.max( hj );
 		// The crown: a ring of 12 droplets thrown out in the first 0.1 s,
 		// 2 to 5 mm out; then one droplet bounces up from the jet tip.
-		const a = atan( dv.y, dv.x ).div( Math.PI * 2 / 12 );
-		const ca = floor( a ).add( 0.5 ).mul( Math.PI * 2 / 12 );
-		const rc = float( 0.002 ).add( tau.mul( 0.03 ) ).mul( big );
-		const cd = dv.sub( vec2( cos( ca ), sin( ca ) ).mul( rc ) ).length();
-		const live = smoothstep( 0.1, 0.06, tau ).mul( on );
-		const crown = smoothstep( 4.5e-4, 2e-4, cd ).mul( live ).mul( fadeIn( float( 9e-4 ), fp, 1, 3 ) );
-		const bounce = smoothstep( 6e-4, 3e-4, r ).mul( smoothstep( 0.03, 0.05, tau ) ).mul( smoothstep( 0.18, 0.14, tau ) ).mul( on ).mul( fadeIn( float( 1.2e-3 ), fp, 1, 3 ) );
-		drop = drop.max( crown ).max( bounce );
+		// Both are zero past 0.18 s, without a drop, or under 1.2 mm per
+		// pixel: the gate skips them there.
+		const Cr = gate( on.greaterThan( 0 ).and( tau.lessThan( 0.18 ) ).and( fadeOn( 1.2e-3, fp, 1 ) ), { drop: 0 }, () => {
+
+			const a = atan( dv.y, dv.x ).div( Math.PI * 2 / 12 );
+			const ca = floor( a ).add( 0.5 ).mul( Math.PI * 2 / 12 );
+			const rc = float( 0.002 ).add( tau.mul( 0.03 ) ).mul( big );
+			const cd = dv.sub( vec2( cos( ca ), sin( ca ) ).mul( rc ) ).length();
+			const live = smoothstep( 0.1, 0.06, tau ).mul( on );
+			const crown = smoothstep( 4.5e-4, 2e-4, cd ).mul( live ).mul( fadeIn( float( 9e-4 ), fp, 1, 3 ) );
+			const bounce = smoothstep( 6e-4, 3e-4, r ).mul( smoothstep( 0.03, 0.05, tau ) ).mul( smoothstep( 0.18, 0.14, tau ) ).mul( on ).mul( fadeIn( float( 1.2e-3 ), fp, 1, 3 ) );
+			return { drop: crown.max( bounce ) };
+
+		}, [ dv, r, tau, on, big, fp ] );
+		drop = drop.max( Cr.drop );
 
 	}
 

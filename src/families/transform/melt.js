@@ -14,7 +14,7 @@
 
 import { vec2, float, mix, smoothstep, step, mod } from 'three/tsl';
 import { ixTime } from '../../core/clock.js';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate } from '../../core/lod.js';
 import { hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { arrival, heroSeed, rough, ageMeters } from '../../core/front.js';
@@ -47,11 +47,30 @@ export function buildMelt( p, fp, u, prog ) {
 	const gb = smoothstep( 0.12, 0.0, G.edge ).mul( fadeIn( 0.01, fp, 2.0, 6.0 ) ); // groove, 1.2 mm wide
 	// Bubbles: round, 0.2 to 1 mm, in milky clouds where the water froze fast.
 	const cloud = smoothstep( 0.5, 0.75, fbm( p, float( 0.04 ), fp, 3, 3 ) );
-	const Bu = grains( p, float( 2.5e-3 ), fp, 9.1, { gap: 0.3, radius: 0.18, round: 0.6, crown: 0.9 } );
-	const bub = Bu.body.mul( step( 0.55, Bu.id.x ) ).mul( fadeIn( 2.5e-3, fp, 2.0, 6.0 ) ).mul( 0.6 ).add( cloud.mul( 0.2 ) );
-	const Fr = grains( p, float( 6e-5 ), fp, 3.3, { gap: 0.15, radius: 0.4, round: 0.3, crown: 0.6, tilt: 0.5 } );
-	const wFr = fadeIn( 6e-5, fp, 1.5, 4.0 );
-	const sc = scratchMarks( p, fp, float( 0.012 ), float( 4e-5 ), 3.7, { spread: 1, length: 1.5 } );
+	// The bubbles fade under 1.25 mm per pixel: the gate skips them there.
+	const Bb = gate( fadeOn( 2.5e-3, fp, 2.0 ), { b: 0 }, () => {
+
+		const Bu = grains( p, float( 2.5e-3 ), fp, 9.1, { gap: 0.3, radius: 0.18, round: 0.6, crown: 0.9 } );
+		return { b: Bu.body.mul( step( 0.55, Bu.id.x ) ).mul( fadeIn( 2.5e-3, fp, 2.0, 6.0 ) ) };
+
+	}, [ p, fp ] );
+	const bub = Bb.b.mul( 0.6 ).add( cloud.mul( 0.2 ) );
+	// Frost grains of 60 um: only under 40 um per pixel.
+	const wFr = fadeIn( 6e-5, fp, 1.5, 4.0 ).toVar();
+	const Fg = gate( fadeOn( 6e-5, fp, 1.5 ), { body: 0, grad: [ 0, 0 ] }, () => {
+
+		const Fr = grains( p, float( 6e-5 ), fp, 3.3, { gap: 0.15, radius: 0.4, round: 0.3, crown: 0.6, tilt: 0.5 } );
+		return { body: Fr.body.mul( 0.08 ).mul( wFr ), grad: Fr.grad.mul( 0.5 ).mul( wFr ) };
+
+	}, [ p, fp, wFr ] );
+	// Scratches stay only where the relief has not melted away (keep > 0).
+	const keep = smooth.oneMinus().toVar();
+	const Sc = gate( keep.greaterThan( 0 ), { cov: 0, slope: [ 0, 0 ] }, () => {
+
+		const sc = scratchMarks( p, fp, float( 0.012 ), float( 4e-5 ), 3.7, { spread: 1, length: 1.5 } );
+		return { cov: sc.cov.mul( smooth.oneMinus() ).mul( 0.6 ), slope: sc.slope.mul( keep ) };
+
+	}, [ p, fp, keep, smooth ] );
 
 	// Beads: swell ahead of the front, merge into the film, a few stay.
 	const kB = ahead.max( wet.mul( 0.9 ) );
@@ -60,22 +79,21 @@ export function buildMelt( p, fp, u, prog ) {
 	const bead = B1.cover.max( B2.cover );
 
 	// Colour: frosty white blue, wet clear deep blue, bubbles milky.
-	const frosty = u.color.mul( fbm( p.add( 1.1 ), float( 0.02 ), fp, 4, 2 ).mul( 0.2 ).add( 0.9 ) ).mul( Fr.body.mul( 0.08 ).mul( wFr ).add( 0.96 ) );
+	const frosty = u.color.mul( fbm( p.add( 1.1 ), float( 0.02 ), fp, 4, 2 ).mul( 0.2 ).add( 0.9 ) ).mul( Fg.body.add( 0.96 ) );
 	const deep = u.color2.mul( gid.x.mul( 0.15 ).add( 0.92 ) );
 	let col = mix( frosty, deep, wet.mul( smoothstep( float( - 1e-3 ), W.mul( 0.5 ), age ).mul( 0.6 ).add( 0.4 ) ) );
 	col = mix( col, u.color.mul( 1.05 ), bub.mul( wet.mul( 0.5 ).add( 0.1 ) ) );
 	col = mix( col, u.color3, gb.mul( wet ).mul( 0.35 ) ); // open boundaries read darker
-	col = mix( col, u.color.mul( 1.08 ), sc.cov.mul( smooth.oneMinus() ).mul( 0.6 ) ); // frosted scratches
+	col = mix( col, u.color.mul( 1.08 ), Sc.cov ); // frosted scratches
 	const inBead = mix( u.color2.mul( 0.8 ), u.color3, B1.rim.mul( 0.7 ) ).add( B1.caustic.mul( 0.25 ) );
 	col = mix( col, inBead, bead.mul( 0.85 ) );
 
 	// Relief: frost bumps, scratches and boundaries round off behind the
 	// front; grooves deepen where grains meet; the film flows.
-	const keep = smooth.oneMinus();
 	const gSlope = G.dir.mul( gb.mul( gb.oneMinus() ).mul( 2.2 ) ).mul( wet.mul( 0.8 ).add( 0.2 ) );
 	const fq = mod( p.div( 6e-3 ), 4096 ).add( vec2( t.mul( 0.25 ), t.mul( - 0.4 ) ) );
 	const flow = vec2( vn( fq ), vn( fq.add( 3.7 ) ) ).sub( 0.5 ).mul( 0.05 ).mul( wet ).mul( fadeIn( 6e-3, fp, 2.0, 6.0 ) );
-	const slope = Fr.grad.mul( 0.5 ).mul( wFr ).mul( keep ).add( sc.slope.mul( keep ) ).add( gSlope ).add( flow )
+	const slope = Fg.grad.mul( keep ).add( Sc.slope ).add( gSlope ).add( flow )
 		.mul( bead.oneMinus() ).add( B1.slope ).add( B2.slope ).mul( u.relief );
 	const rgh = mix( u.roughness, float( 0.04 ), wet.max( bead ) );
 	const s2 = keep.mul( wFr.oneMinus() ).mul( 0.04 );

@@ -16,7 +16,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, mod, pow, sqrt, fract, abs } from 'three/tsl';
 import { ixTime } from '../../core/clock.js';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate } from '../../core/lod.js';
 import { valueNoise } from '../../core/hash.js';
 import { arrival, heroSeed, rough, ageMeters } from '../../core/front.js';
 import { fbm } from '../stone/common.js';
@@ -44,24 +44,38 @@ export function buildInk( p, fp, u, prog ) {
 	const halo = smoothstep( W.mul( - 1.2 ), float( 0 ), age ).mul( inked.oneMinus() );
 	// Rim: the pigment piled at the edge, a soft fall inward.
 	const rim = smoothstep( W.mul( 1.4 ), W.mul( 0.15 ), age ).mul( inked );
-	// Tide lines: the edge paused here (at fixed arrival times).
-	const tq = T.mul( 9 ).add( vn( q.mul( 8 ) ).mul( 0.3 ) );
-	const tide = line( abs( fract( tq.add( 0.5 ) ).sub( 0.5 ) ).mul( g.div( 9 ) ), float( 1.5e-4 ), F.fpA )
-		.mul( smoothstep( W, W.mul( 3 ), age ) ).mul( vn( q.mul( 20 ).add( 4.4 ) ) );
-	// Inside: paler and mottled, flowing slowly while wet.
-	const fq = mod( p.div( 8e-3 ), 4096 ).add( vec2( t.mul( 0.05 ), t.mul( - 0.03 ) ) );
-	const mott = fbm( p.add( 2.7 ), float( 0.02 ), fp, 3, 5 ).mul( 0.5 ).add( vn( fq ).mul( 0.2 ) ).add( 0.6 );
-	// Pigment grains in the pores and along the fibres.
-	const Gr = grains( p, float( 3e-5 ), fp, 8.3, { gap: 0.3, radius: 0.35, round: 0.4, crown: 0.4 } );
-	const wG = fadeIn( 3e-5, fp, 1.5, 4.0 );
-	const fine = Gr.body.mul( Gr.id.x ).mul( wG ).mul( 0.5 ).add( P.fib.mul( 0.45 ) ).add( 0.85 );
-	const c = mix( float( 0.75 ), float( 1.5 ), rim ).mul( mott ).add( tide.mul( 0.25 ) ).mul( fine ).mul( inked ).mul( u.density.add( 0.4 ) ).toVar();
+	// The ink load c and the pigment grains count only where the ink is:
+	// the gate skips the tide lines, mottle and grains on the dry paper.
+	const Ik = gate( inked.greaterThan( 0 ), { c: 0, grS: [ 0, 0 ] }, () => {
+
+		// Tide lines: the edge paused here (at fixed arrival times).
+		const tq = T.mul( 9 ).add( vn( q.mul( 8 ) ).mul( 0.3 ) );
+		const tide = line( abs( fract( tq.add( 0.5 ) ).sub( 0.5 ) ).mul( g.div( 9 ) ), float( 1.5e-4 ), F.fpA )
+			.mul( smoothstep( W, W.mul( 3 ), age ) ).mul( vn( q.mul( 20 ).add( 4.4 ) ) );
+		// Inside: paler and mottled, flowing slowly while wet.
+		const fq = mod( p.div( 8e-3 ), 4096 ).add( vec2( t.mul( 0.05 ), t.mul( - 0.03 ) ) );
+		const mott = fbm( p.add( 2.7 ), float( 0.02 ), fp, 3, 5 ).mul( 0.5 ).add( vn( fq ).mul( 0.2 ) ).add( 0.6 );
+		// Pigment grains in the pores and along the fibres, under 20 um
+		// per pixel only.
+		const wG = fadeIn( 3e-5, fp, 1.5, 4.0 ).toVar();
+		const Gs = gate( fadeOn( 3e-5, fp, 1.5 ), { grB: 0, grS: [ 0, 0 ] }, () => {
+
+			const Gr = grains( p, float( 3e-5 ), fp, 8.3, { gap: 0.3, radius: 0.35, round: 0.4, crown: 0.4 } );
+			return { grB: Gr.body.mul( Gr.id.x ).mul( wG ), grS: Gr.grad.mul( 0.05 ).mul( wG ).mul( inked ) };
+
+		}, [ p, fp, wG, inked ] );
+		const fine = Gs.grB.mul( 0.5 ).add( P.fib.mul( 0.45 ) ).add( 0.85 );
+		const c = mix( float( 0.75 ), float( 1.5 ), rim ).mul( mott ).add( tide.mul( 0.25 ) ).mul( fine ).mul( inked ).mul( u.density.add( 0.4 ) );
+		return { c, grS: Gs.grS };
+
+	}, [ p, fp, T, age, inked, P.fib, F.fpA ] );
+	const c = Ik.c.toVar();
 
 	// Colour: wet paper, darker in the halo, then through c layers of ink.
 	const wetPaper = mix( u.color, u.color3, smoothstep( 0.0, 0.6, halo ).mul( 0.7 ).add( inked.mul( 0.3 ) ).add( 0.3 ).min( 1 ) ).mul( P.tone );
 	const col = wetPaper.mul( pow( u.color2.max( 0.004 ), vec3( c, c, c ) ) );
 	const wetness = halo.max( inked );
-	const slope = P.slope.mul( float( 1 ).sub( wetness.mul( 0.4 ) ) ).add( Gr.grad.mul( 0.05 ).mul( wG ).mul( inked ) );
+	const slope = P.slope.mul( float( 1 ).sub( wetness.mul( 0.4 ) ) ).add( Ik.grS );
 	const rgh = mix( u.roughness, float( 0.45 ), wetness.mul( 0.7 ) );
 	return { color: col, slope, cavity: P.pore.mul( 0.5 ), rough: rgh, s2: P.s2 };
 
