@@ -15,6 +15,7 @@ import * as THREE from 'three/webgpu';
 import { HAIR_LAYER } from '../src/core/hair3d.js';
 import { nodeObject, pass, mrt, output, normalView, directionToColor, colorToDirection, sample, screenUV, uniform, vec4, mix } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
+import { withDof } from './dof.js';
 
 // The hair pass: no background and a transparent clear, so thin strands
 // keep their own coverage (alpha) instead of blending into the backdrop.
@@ -35,7 +36,9 @@ class HairPassNode extends THREE.PassNode {
 
 }
 
-export function createPost( renderer, scene, camera ) {
+// focus: a createFocus() of demo/dof.js. With it the frame ends with a
+// depth of field blur; without it (game.html, the test page) nothing changes.
+export function createPost( renderer, scene, camera, { focus = null } = {} ) {
 
 	const pipeline = new THREE.RenderPipeline( renderer );
 	const sceneLayers = new THREE.Layers();
@@ -64,7 +67,13 @@ export function createPost( renderer, scene, camera ) {
 	// grow on the face the camera looks at, so they are always in front of
 	// their host; no depth test is needed.
 	const hair = hairPass.getTextureNode( 'output' );
-	pipeline.outputNode = vec4( lit.mul( hair.a.oneMinus() ).add( hair.rgb ), color.a );
+	const sharp = vec4( lit.mul( hair.a.oneMinus() ).add( hair.rgb ), color.a );
+	// Depth of field last, on the finished image. The strands are not in the
+	// scene depth: they blur as the skin they grow on. With the effect off
+	// the blur passes are not drawn at all.
+	const blurred = focus ? withDof( sharp, scenePass.getViewZNode(), focus ) : null;
+	pipeline.outputNode = focus?.enabled ? blurred : sharp;
+	focus?.addEventListener( 'dofToggled', ( e ) => { pipeline.outputNode = e.enabled ? blurred : sharp; pipeline.needsUpdate = true; } );
 
 	let enabled = true;
 	return {

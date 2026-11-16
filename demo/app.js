@@ -10,6 +10,7 @@ import { setTime } from '../src/core/clock.js';
 import { createStats } from './stats.js';
 import { createAdaptiveResolution } from './adaptive.js';
 import { createWalk } from './walk.js';
+import { createFocus, dofWanted } from './dof.js';
 
 const { vec3 } = TSL;
 
@@ -49,7 +50,10 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 	document.getElementById( 'dolly' ).onclick = () => { dolly = { t0: performance.now(), dur: 24000 }; };
 
 	// SSAO post pass and the stats panel (top left).
-	const post = createPost( renderer, scene, camera );
+	// Depth of field: the focus follows what the camera aims at (demo/dof.js).
+	// Off in film mode and with ?nodof; the F key toggles it.
+	const focus = createFocus( { camera, controls, scene, renderer, enabled: dofWanted( params, filmMode ) } );
+	const post = createPost( renderer, scene, camera, { focus } );
 	// Lower the pixel ratio while frames are slow (demo/adaptive.js).
 	const adaptive = createAdaptiveResolution( renderer, { enabled: ! filmMode && ! params.has( 'fullres' ) } );
 	const stats = createStats( { renderer, camera, ix, fuzz, meshes, post, adaptive, backend: forceWebGL ? 'WebGL2' : 'WebGPU', levels: statsLevels } );
@@ -65,7 +69,7 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 
 	// Test and film hooks for Playwright (tests/).
 	window.__ix = {
-		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate, adaptive,
+		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate, adaptive, focus,
 		ready: true,
 		async runGate( heights ) {
 
@@ -145,6 +149,8 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 			dist = updateClip();
 
 		}
+
+		focus.update( dt );
 
 		stats.beginFrame();
 		// The frame draws to the screen. A background compile (demo/warmup.js,

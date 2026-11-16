@@ -19,6 +19,7 @@ import { createStage } from './scene.js';
 import { createStats } from './stats.js';
 import { createAdaptiveResolution } from './adaptive.js';
 import { createWalk } from './walk.js';
+import { createFocus, createDofPipeline, dofWanted } from './dof.js';
 import { createMannequin } from './mannequin.js';
 import { MATTERS, SWEATER } from './roomMatters.js';
 
@@ -169,6 +170,9 @@ const adaptive = createAdaptiveResolution( renderer, { enabled: ! params.has( 'f
 const stats = createStats( { renderer, camera, adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
 // Arrows or ZQSD to walk, a click to focus (walk.js).
 const walk = createWalk( { camera, controls, scene, maxSpeed: 1.5 } );
+// Depth of field on what the camera aims at (demo/dof.js); F or ?nodof.
+const focus = createFocus( { camera, controls, scene, renderer, enabled: dofWanted( params ) } );
+const lens = createDofPipeline( renderer, scene, camera, focus );
 let clock = 0, last = performance.now();
 renderer.setAnimationLoop( () => {
 
@@ -180,11 +184,12 @@ renderer.setAnimationLoop( () => {
 	walk.update( dt );
 	controls.update();
 	sunDisc.lookAt( camera.position );
+	focus.update( dt );
 	stats.beginFrame();
-	renderer.render( scene, camera );
+	lens.render();
 	stats.endFrame( camera.position.distanceTo( controls.target ) );
 	adaptive.frame();
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, walk, adaptive, view, setTime, matters, ready: true };
+window.__ix = { renderer, scene, camera, controls, walk, adaptive, focus, view, setTime, matters, ready: true };
