@@ -91,6 +91,31 @@ slab( TW, TH, marble, ( m ) => { m.position.set( 0, TH / 2, - TD / 2 ); } );
 slab( TD, TH, marble, ( m ) => { m.position.set( - TW / 2, TH / 2, 0 ); m.rotation.y = Math.PI / 2; } );
 slab( TD, TH, marble, ( m ) => { m.position.set( TW / 2, TH / 2, 0 ); m.rotation.y = - Math.PI / 2; } );
 
+// The tank seen from outside: the slabs above face inwards only, so from
+// beside or behind the tank they were culled and the eye fell into the
+// void (and the light shafts drew there in blocks). A marble shell gives
+// the three walls and the floor their thickness. It stays 1 mm behind the
+// slabs (no depth fight), and in the scene, not in the tank group: it is
+// dry, and the water's mirrors do not need it.
+{
+
+	const T = 0.02, GAP = 0.001;
+	const block = ( w, h, d, x, y, z ) => {
+
+		const g = new THREE.BoxGeometry( w, h, d );
+		g.computeTangents();
+		const m = new THREE.Mesh( g, createMaterial( marble, { coords: uv().mul( vec2( Math.max( w, d ), Math.max( h, Math.min( w, d ) ) ) ) } ).material );
+		m.position.set( x, y, z );
+		m.castShadow = m.receiveShadow = true;
+		scene.add( m );
+
+	};
+	for ( const sx of [ - 1, 1 ] ) block( T, TH + T, TD + T, sx * ( TW / 2 + GAP + T / 2 ), ( TH - T ) / 2, - T / 2 ); // sides, down to under the floor
+	block( TW + 2 * GAP, TH + T, T, 0, ( TH - T ) / 2, - TD / 2 - GAP - T / 2 ); // back
+	block( TW + 2 * GAP, T, TD + GAP, 0, - GAP - T / 2, - GAP / 2 ); // under the sand
+
+}
+
 // Cubes of matter; the tall one breaks the surface.
 function cube( size, h, preset, x, z, ry ) {
 
