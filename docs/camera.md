@@ -38,8 +38,9 @@ applyCameraSettings( { renderer, camera, controls } );   // near 1e-6, far 100, 
 | Part | Option | What it does | File |
 |---|---|---|---|
 | Walk | `walk` | Arrows, or WASD by physical key (ZQSD on AZERTY), move along the view direction. Looking down, forward goes down. Space and C rise and sink, Shift goes 3 times faster. A click (not a drag) on a mesh glides the camera to it in 0.7 s. Camera and orbit target move together. | `walk.js` |
-| Speed scale | `speedScale` | Speed is 0.8 times the distance to the orbit target or to the surface ahead, whichever is smaller, per second, clamped to `minSpeed` and `maxSpeed`. The same keys walk a room or creep along a stitch. Off: `maxSpeed / 3` everywhere. | `walk.js` |
-| Collision | `collide` | A ray along the move finds the surface ahead. Each frame covers at most `1 - e^(-4 dt)` of the room left, so the camera slows down and stops 0.1 mm from any surface. It never goes through. | `collide.js`, `skinned.js` |
+| Speed scale | `speedScale` | Speed is 0.8 times the distance to the orbit target or to the surface ahead, whichever is smaller, per second. So the distance shrinks by the same share each second, far or at a stitch: the approach feels the same at every scale. `minSpeed` applies only when no surface is ahead (a floor made the last 2 cm four times faster). In the macro band the step shrinks by `lens.zoomGain`, the share the narrowing field already adds. Off: `maxSpeed / 3` everywhere. | `walk.js`, `lens.js` |
+| Collision | `collide` | A ray along the move finds the surface ahead. Each frame covers at most `1 - e^(-4 dt)` of the room left, so the camera slows down and stops 0.1 mm from any surface, measured perpendicular to it (a slanted approach stops sooner along the view). A guard checks every kit move and every OrbitControls gesture (orbit, wheel, pan) with a ray from the last safe position: nothing the user does goes through a surface. View buttons and page scripts may jump. | `collide.js`, `skinned.js`, `approach.js` |
+| Wheel zoom | `collide` | Before each wheel step the orbit target slides along the view axis to the depth of the surface under the cursor. Each step then magnifies by the same factor (1.086 measured) far or near, wherever the target was. Without this, a target in front of the surface made the zoom crawl and stop in the air, and a target behind it made the zoom speed up and go through. | `approach.js` |
 | Macro lens | `macro` | The field of view follows the distance to the surface at the screen centre. Above `macroFrom` it is the camera's own. Between `macroFrom` and `macroFull` it narrows to `macroFov`, then holds. | `lens.js` |
 | Depth of field | `dof` | three's `DepthOfFieldNode`, focused on the nearest surface of a small autofocus area around the centre. The sharp zone is 1 times the focus distance at 1 cm and 3 times at 3 m, as with a real lens. | `lens.js`, `dof.js` |
 | Adaptive resolution | `adaptive` | Lowers the pixel ratio by steps of 0.25 (down to 0.75) while the mean frame stays above 40 ms, raises it when the next step is predicted under 25 ms. | `adaptive.js` |
@@ -71,7 +72,7 @@ Skipped by the walk, the click and the focus: invisible meshes, meshes with `use
 | `walk` | `true` | keys and click to glide (needs `controls`) |
 | `collide` | `true` | stop 0.1 mm from surfaces |
 | `speedScale` | `true` | speed follows the distances |
-| `minSpeed`, `maxSpeed` | `0.02`, `3` | m/s, before Shift |
+| `minSpeed`, `maxSpeed` | `0.02`, `3` | m/s, before Shift. `minSpeed` only with no surface ahead |
 | `macro` | `true` | macro field of view |
 | `macroFov` | `22` | degrees at full macro |
 | `macroFrom` | `0.12` | m: the macro starts below this distance |
@@ -157,4 +158,7 @@ The quality gate (`npm run gate`) gives the same numbers as main: every metric w
 - **Skinned bounds.** A skinned mesh's bounding sphere is computed once, in the first pose, and grown by 25 %. A pose that leaves it is missed. Call `mesh.computeBoundingSphere()` after a big change of pose.
 - **The camera's field of view belongs to the lens while macro is on.** A game that changes it sets `kit.lens.baseFov` instead.
 - **The first ray on a new mesh builds its tree.** On the knit mannequin that was a one-off 51 ms. The idle build from 1 s avoids it for meshes present at start. With the lens on, the focus ray runs from the first frame, so a page may pay it once while it loads.
+- **OrbitControls moves the camera inside its own handlers.** Pointer and wheel handlers call `controls.update()` themselves, outside `kit.update()`. So the guard also listens to 'start', 'change' and 'end'. A guard that only wraps the kit's update let an orbit drag put the camera 8 cm under the floor.
+- **Margin along the path is not enough.** A grazing orbit stopped 0.1 mm along its path came within 0.4 um of the floor, under the 1 um near plane. The margin is divided by the cosine of the incidence angle (the collider returns the hit normal; skinned meshes do not, they keep the margin along the path).
+- **Displaced surfaces collide by their bound.** A material with `preset.displace` moves its vertices on the GPU, so the CPU mesh is flat. The collider uses that flat mesh padded by the family's `displaceMax` (aquarium sand with mounds: about 3.7 cm). So the camera stops that far above the ripple troughs. An exact stop would need the height on the CPU. Meshes moved on the GPU without a bound (fuzz, hair, a water surface) are not collided with.
 - **The walk does not push back.** A character that moves toward a still camera can come closer than 0.1 mm (3e-5 m measured on the animated mannequin). It never passes through on a walk.

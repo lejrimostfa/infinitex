@@ -43,7 +43,7 @@ import { buildPlasticNodes } from './families/plastic/shader.js';
 import { createStoneUniforms, applyStonePreset, STONE_DEFAULTS, STONE_SLIDERS } from './families/stone/params.js';
 import { buildStoneNodes, stoneMaterialKind } from './families/stone/shader.js';
 import { createGroundUniforms, applyGroundPreset, GROUND_DEFAULTS, GROUND_SLIDERS } from './families/ground/params.js';
-import { buildGroundNodes, groundDisplace } from './families/ground/shader.js';
+import { buildGroundNodes, groundDisplace, groundDisplaceMax } from './families/ground/shader.js';
 import { createPileUniforms, applyPilePreset, PILE_DEFAULTS, PILE_SLIDERS } from './families/pile/params.js';
 import { buildPileNodes } from './families/pile/shader.js';
 import { createOrganicUniforms, applyOrganicPreset, ORGANIC_DEFAULTS, ORGANIC_SLIDERS, organicHairSpec } from './families/organic/params.js';
@@ -96,7 +96,7 @@ const FAMILIES = {
 	ceramic: { defaults: CERAMIC_DEFAULTS, uniforms: createCeramicUniforms, apply: applyCeramicPreset, build: buildCeramicNodes, sliders: CERAMIC_SLIDERS },
 	plastic: { defaults: PLASTIC_DEFAULTS, uniforms: createPlasticUniforms, apply: applyPlasticPreset, build: buildPlasticNodes, sliders: PLASTIC_SLIDERS },
 	stone: { defaults: STONE_DEFAULTS, uniforms: createStoneUniforms, apply: applyStonePreset, build: buildStoneNodes, sliders: STONE_SLIDERS, material: stoneMaterialKind },
-	ground: { defaults: GROUND_DEFAULTS, uniforms: createGroundUniforms, apply: applyGroundPreset, build: buildGroundNodes, displace: groundDisplace, sliders: GROUND_SLIDERS },
+	ground: { defaults: GROUND_DEFAULTS, uniforms: createGroundUniforms, apply: applyGroundPreset, build: buildGroundNodes, displace: groundDisplace, displaceMax: groundDisplaceMax, sliders: GROUND_SLIDERS },
 	organic: { defaults: ORGANIC_DEFAULTS, uniforms: createOrganicUniforms, apply: applyOrganicPreset, build: buildOrganicNodes, hair: organicHairSpec, sliders: ORGANIC_SLIDERS, material: organicMaterialKind },
 	leather: { defaults: LEATHER_DEFAULTS, uniforms: createLeatherUniforms, apply: applyLeatherPreset, build: buildLeatherNodes, sliders: LEATHER_SLIDERS },
 	decor: { defaults: DECOR_DEFAULTS, uniforms: createDecorUniforms, apply: applyDecorPreset, build: buildDecorNodes, sliders: DECOR_SLIDERS },
@@ -191,8 +191,12 @@ export class InfinitexMaterial extends EventTarget {
 		// mesh needs a few vertices per bump.
 		if ( preset.displace && impl.displace ) {
 
+			const gain = preset.displace === true ? 1 : preset.displace;
 			const h = impl.displace( this.uniforms, coords ?? uv() );
-			if ( h ) this.material.positionNode = positionLocal.add( normalLocal.mul( h.mul( preset.displace === true ? 1 : preset.displace ) ) );
+			if ( h ) this.material.positionNode = positionLocal.add( normalLocal.mul( h.mul( gain ) ) );
+			// The CPU geometry stays flat: the camera collides with it padded by
+			// the largest height (src/camera/collide.js), read live after set().
+			if ( h ) this.material.userData.ixDisplaceMax = () => Math.abs( gain ) * impl.displaceMax( this.uniforms );
 
 		}
 

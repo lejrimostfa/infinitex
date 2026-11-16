@@ -34,6 +34,7 @@
 
 import { createCollider } from './collide.js';
 import { createWalk } from './walk.js';
+import { createApproach } from './approach.js';
 import { createLens } from './lens.js';
 import { createAdaptiveResolution } from './adaptive.js';
 import { createPost } from './post.js';
@@ -65,12 +66,16 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 	const walk = o.walk && controls ? createWalk( {
 		camera, controls, scene, dom, collider: o.collide ? collider : null,
 		minSpeed: o.minSpeed, maxSpeed: o.maxSpeed, speedScale: o.speedScale,
+		zoomGain: ( h ) => lens?.zoomGain( h ) ?? 1, // lens is created below; read at walk time
 	} ) : null;
 	const lens = wantLens ? createLens( {
 		camera, controls, renderer, surfaceAhead: collider, dof: o.dof, macro: o.macro, enabled: o.lensOn,
 		macroFov: o.macroFov, macroFrom: o.macroFrom, macroFull: o.macroFull, key: o.lensKey,
 		maxFocus: o.maxFocus, focusArea: o.focusArea,
 	} ) : null;
+	// Wheel zoom relative to the surface under the cursor, and the guard that
+	// stops every kit move before a surface (approach.js).
+	const approach = o.collide && collider && controls ? createApproach( { camera, controls, dom, collider, lens } ) : null;
 	// Always built, so a page can read max or hold it; it only acts when enabled.
 	const adaptive = createAdaptiveResolution( renderer, { enabled: !! o.adaptive } );
 	const dofLens = o.dof ? lens : null;
@@ -107,8 +112,10 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 		adaptive.frame();
 		if ( move ) {
 
+			approach?.begin();
 			walk?.update( dt );
 			controls?.update();
+			approach?.end();
 
 		}
 
@@ -141,6 +148,7 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 
 		walk?.dispose();
 		lens?.dispose();
+		approach?.dispose();
 
 	}
 

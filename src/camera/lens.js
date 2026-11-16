@@ -147,6 +147,20 @@ export function createLens( { camera, controls, renderer, surfaceAhead, dof = tr
 
 	};
 
+	// Share of a move that the image should get at distance h, so the felt
+	// zoom stays the same while the macro lens narrows. Moving closer by a
+	// ratio magnifies by that ratio; between macroFrom and macroFull the
+	// narrowing field adds s = d ln tan( fov / 2 ) / d ln h on top. So the
+	// walk and the wheel scale their step by 1 / ( 1 + s ). 1 outside the band.
+	const tanHalf = ( h ) => Math.tan( THREE.MathUtils.degToRad( THREE.MathUtils.lerp( bus.baseFov, macroFov, 1 - smooth( Math.log( macroFull ), Math.log( macroFrom ), Math.log( h ) ) ) ) / 2 );
+	bus.zoomGain = ( h ) => {
+
+		if ( ! on || ! macro || ! ( h > 0 && h < Infinity ) ) return 1;
+		const e = 0.02, s = Math.log( tanHalf( h * Math.exp( e ) ) / tanHalf( h * Math.exp( - e ) ) ) / ( 2 * e );
+		return 1 / ( 1 + Math.max( 0, s ) );
+
+	};
+
 	Object.defineProperty( bus, 'macro', { get: () => inMacro } ); // 0 to 1, how far the macro lens is in
 	Object.defineProperty( bus, 'focusDistance', { get: () => Math.exp( logD ?? 0 ) } );
 	return Object.assign( bus, { distance, range, bokeh, hasDof: dof, hasMacro: macro } );

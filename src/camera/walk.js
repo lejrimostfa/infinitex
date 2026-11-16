@@ -5,9 +5,13 @@
 //            view direction (looking down, forward goes down); left and
 //            right strafe. Space up, C down, Shift faster. Camera and
 //            orbit target move together, so orbiting stays centred.
-//            Speed follows the distance to the target (about 0.8 of it
-//            per second), so the same keys walk a room or creep along a
-//            stitch (speedScale: false keeps maxSpeed / 3 everywhere).
+//            Speed follows the distance to the target and to the surface
+//            ahead (about 0.8 of it per second), so the same keys walk a
+//            room or creep along a stitch, and the approach feels the same
+//            at every scale. No minimum speed while a surface is ahead. In
+//            the macro band the step shrinks by zoomGain (lens.js), the
+//            share the narrowing field already adds (speedScale: false
+//            keeps maxSpeed / 3 everywhere).
 //   walls    a ray along the move finds the surface ahead. Speed also
 //            follows that distance, and a step covers at most a share of
 //            the room left (exponential approach), so the camera slows
@@ -33,7 +37,7 @@ const MOVE = {
 };
 
 // collider: a createCollider() of collide.js, or null for no walls.
-export function createWalk( { camera, controls, scene, collider = null, dom = controls.domElement, minSpeed = 0.02, maxSpeed = 3, speedScale = true } ) {
+export function createWalk( { camera, controls, scene, collider = null, dom = controls.domElement, minSpeed = 0.02, maxSpeed = 3, speedScale = true, zoomGain = () => 1 } ) {
 
 	const bus = new EventTarget();
 	const emit = ( type, detail ) => bus.dispatchEvent( new CustomEvent( type, { detail } ) );
@@ -148,10 +152,17 @@ export function createWalk( { camera, controls, scene, collider = null, dom = co
 		dir.copy( step ).normalize();
 		const want = Math.min( step.length(), 1 ); // keys held: 1, diagonals are not faster
 		const h = surfaceAhead( camera.position, dir, Math.max( d, maxSpeed ) * 2 );
-		const near = speedScale ? Math.min( d, h ) * 0.8 : maxSpeed / 3;
-		const speed = THREE.MathUtils.clamp( near, minSpeed, maxSpeed ) * ( down.has( 'ShiftLeft' ) || down.has( 'ShiftRight' ) ? 3 : 1 );
-		// Never closer than MARGIN; each frame covers at most 1 - e^(-4 dt) of the room left.
-		const room = Math.max( 0, h - MARGIN );
+		// Felt speed: the distance shrinks by the same share each second, far
+		// or at a stitch. So no floor while a surface is ahead (a floor made the
+		// last 2 cm four times faster), and the macro lens share is taken out.
+		const near = speedScale ? Math.min( d, h ) * 0.8 * zoomGain( h ) : maxSpeed / 3;
+		const floor = speedScale && h < Infinity ? 0 : minSpeed;
+		const speed = THREE.MathUtils.clamp( near, floor, maxSpeed ) * ( down.has( 'ShiftLeft' ) || down.has( 'ShiftRight' ) ? 3 : 1 );
+		// Never closer than MARGIN, perpendicular to the surface (a slanted
+		// approach stops sooner along the path, as approach.js does); each
+		// frame covers at most 1 - e^(-4 dt) of the room left.
+		const n = surfaceAhead.normal, cos = n ? Math.max( Math.abs( dir.dot( n ) ), 0.02 ) : 1;
+		const room = Math.max( 0, h - MARGIN / cos );
 		const len = Math.min( want * speed * dt, room * ( 1 - Math.exp( - 4 * dt ) ) );
 		if ( len <= 0 ) return;
 		step.copy( dir ).multiplyScalar( len );

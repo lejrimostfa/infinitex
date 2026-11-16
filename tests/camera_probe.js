@@ -37,7 +37,10 @@ export async function walkCheck( ix ) {
 	key( 'keyup' );
 	camera.updateMatrixWorld();
 	const end = c.exact( camera.position, dir );
-	const out = { surface: hit0.name, startDist: + Math.min( 1, hit0.distance ).toFixed( 4 ), frames, stopDist: end ? end.distance : null, firstMs: + times[ 0 ].toFixed( 2 ), staticMs: stats( times.slice( 1 ) ) };
+	// Clearance perpendicular to the surface: what the kit keeps at MARGIN
+	// (a slanted approach stops sooner along the view).
+	const clearance = end?.normal ? end.distance * Math.abs( dir.dot( end.normal ) ) : null;
+	const out = { surface: hit0.name, startDist: + Math.min( 1, hit0.distance ).toFixed( 4 ), frames, stopDist: end ? end.distance : null, clearance, pad: end?.pad ?? 0, firstMs: + times[ 0 ].toFixed( 2 ), staticMs: stats( times.slice( 1 ) ) };
 
 	// Same walk with the scene animated every frame (skinned characters move):
 	// from 20 cm, 600 frames. The pose is set outside the timed call.
