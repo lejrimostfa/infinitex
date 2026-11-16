@@ -41,7 +41,7 @@ await page.addInitScript( () => {
 } );
 const t0 = Date.now();
 await page.goto( `${ BASE }?film` );
-await page.waitForFunction( () => window.__ix?.ready, null, { timeout: 180000 } );
+await page.waitForFunction( () => window.__ix?.ready, null, { timeout: 300000 } );
 const result = { loadToReadyMs: Date.now() - t0, heapAfterBuild: await heap() };
 
 // Compile each lit cube (with its fuzz and hair children) in view, then

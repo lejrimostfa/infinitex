@@ -12,7 +12,7 @@ import * as THREE from 'three/webgpu';
 import { uv } from 'three/tsl';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import './nav.js';
+import { setLoadingProgress } from './nav.js';
 import { createMaterial } from '../src/index.js';
 import { HAIR_LAYER } from '../src/core/hair3d.js';
 import { createStage } from './scene.js';
@@ -275,6 +275,32 @@ const app = startApp( {
 	animate: () => {},
 	statsLevels: false, // the knit levels belong to the first cube only
 } );
+
+// Warm-up. Every matter compiles its shaders the first time it is drawn.
+// Drawn all at once, 241 of them froze the page on a blank screen for 30 s
+// to 2 min. So the lit cubes start hidden (their fuzz and hair are
+// children) and the render loop reveals a few per frame, nearest first:
+// the page stays live and the wall fills in. __ix.ready (tests, bench,
+// loading note) waits for the last one; adaptive resolution holds still.
+if ( ! params.has( 'film' ) ) {
+
+	const PER_FRAME = 4;
+	const queue = lit.map( ( c ) => c.mesh ).sort( ( a, b ) => a.position.distanceToSquared( camera.position ) - b.position.distanceToSquared( camera.position ) );
+	for ( const m of queue ) m.visible = false;
+	app.ready = false;
+	app.adaptive.hold = true;
+	let shown = 0;
+	const step = () => {
+
+		for ( let k = 0; k < PER_FRAME && shown < queue.length; k ++ ) queue[ shown ++ ].visible = true;
+		setLoadingProgress( `Compiling the materials: ${ shown } / ${ queue.length }` );
+		if ( shown < queue.length ) requestAnimationFrame( step );
+		else requestAnimationFrame( () => { app.adaptive.hold = false; app.ready = true; } ); // after the last ones are drawn
+
+	};
+	requestAnimationFrame( step );
+
+}
 
 // Benchmark: each lit matter fills a 1920x1080 target, seen straight on
 // with a slight tilt, at 30 cm (whole face), 2 cm and 1.5 mm. Each frame

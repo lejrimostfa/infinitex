@@ -43,7 +43,7 @@ export function createAdaptiveResolution( renderer, { enabled = true } = {} ) {
 		const now = performance.now();
 		const dt = now - last;
 		last = now;
-		if ( ! enabled || dt > 2000 || dt <= 0 ) { windowStart = now; return; }
+		if ( ! enabled || bus.hold || dt > 2000 || dt <= 0 ) { windowStart = now; return; }
 		if ( skip > 0 ) { skip --; windowStart = now; return; }
 		sum += dt;
 		n ++;
@@ -62,6 +62,9 @@ export function createAdaptiveResolution( renderer, { enabled = true } = {} ) {
 
 	}
 
-	return Object.assign( bus, { frame, get ratio() { return ratio; }, max, enabled } );
+	// hold = true while a page compiles its shaders (slow frames that say
+	// nothing about the steady cost).
+	bus.hold = false;
+	return Object.assign( bus, { frame, max, enabled } );
 
 }
