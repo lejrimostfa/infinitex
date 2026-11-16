@@ -22,6 +22,7 @@ import { vec2, vec3, vec4, float, uniform, texture, uv, mix, step, sign } from '
 import { waterBody } from './underwater.js';
 import { ixTime } from './clock.js';
 import { surfaceWaves } from './watersurface.js';
+import { underwaterLens } from './underlens.js';
 import { refractSurface, refractPlane, refractOff } from './refraction.js';
 import { WALL_CONTACT, meniscusHeight, capillaryLength, wettingFilm, dippingBead } from './meniscus.js';
 
@@ -36,6 +37,7 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 	const opts = { type: HalfFloatType };
 	const fwd = new Vector3(), port = new Vector3(), paneN = new Vector3(), paneP = new Vector3();
 	const rtA = new RenderTarget( size.x, size.y, opts ), rtB = new RenderTarget( size.x, size.y, opts );
+	const aspect = uniform( size.x / size.y );
 	const projInv = uniform( new Matrix4() ), camWorld = uniform( new Matrix4() ), camPos = uniform( new Vector3() ), viewProj = uniform( new Matrix4() );
 
 	// The pixel's ray in the world.
@@ -71,7 +73,10 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 		: dippingBead( { s, G, dir, hit, waterY, rtA, rtB, h, lc: capillaryLength( tension ), wallN, viewProj, reach } );
 	const under = men.under.add( float( 1 ).sub( hit ).mul( step( camPos.y, W.level ) ) );
 	const A = texture( rtA.texture, s ).rgb;
-	const B = texture( rtB.texture, s ).rgb;
+	// A camera port: the water side is seen by an eye in the water
+	// (core/underlens.js: sway, softness, suspended specks, vignette).
+	// Through an aquarium pane the eye is in the air: the plain pass.
+	const B = lens ? underwaterLens( rtB.texture, s, ixTime, { amount: W.lens, tint: W.inscatter, aspect } ) : texture( rtB.texture, s ).rgb;
 	let col = men.shade( mix( A, B, under ) );
 	// The glass itself: a faint green tint and a few percent of reflection.
 	col = mix( col, col.mul( vec3( 0.93, 0.98, 0.96 ) ), hit.mul( lens ? 0 : 1 ) );
@@ -82,7 +87,7 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 
 	return {
 		rtA, rtB,
-		setSize( w, h ) { rtA.setSize( w, h ); rtB.setSize( w, h ); },
+		setSize( w, h ) { rtA.setSize( w, h ); rtB.setSize( w, h ); aspect.value = w / h; },
 		render() {
 
 			camera.updateMatrixWorld();
