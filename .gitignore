@@ -4,8 +4,12 @@ dist
 # Private to the author's games: kept on disk, never published.
 demo/characters/*
 !demo/characters/riveraine.js
+!demo/characters/list.js
 demo/assets/*.glb
 # Ours, built by code in Blender (blender/livingroom.py): public.
 !demo/assets/livingroom.glb
+# The riveraine, a character of the author's game: published on request
+# (2026-11-16) for the Knit page and the living room.
+!demo/assets/riveraine.glb
 *.mp4
 infinitex-check/

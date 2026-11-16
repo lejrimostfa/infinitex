@@ -4,7 +4,7 @@
 import { isOrange, isBrown } from '../zones.js';
 
 export default {
-	model: '/demo/assets/riveraine.glb',
+	model: new URL( '../assets/riveraine.glb', import.meta.url ).href, // relative: the build serves it under any path
 	body: ( o ) => o.isSkinnedMesh && o.material.name === 'Material_0',
 	idle: 'Idle',
 	zones: [

@@ -1,5 +1,6 @@
 // Living room on a volcano: an 80s room at sunset, a bay window over a
-// lava lake, a figure in a cable sweater looking out. Ten matters in one
+// lava lake, the riveraine (a game character in a knit jacket, built by
+// charbuild.js) looking out. Ten matters in one
 // game-like scene (demo/roomMatters.js). Geometry from Blender
 // (blender/livingroom.py -> demo/assets/livingroom.glb, UVs in metres).
 // Light: the low sun through the window (shadows), the lava's glow from
@@ -21,8 +22,9 @@ import { setTime } from '../src/core/clock.js';
 import { createStage } from './scene.js';
 import { createStats } from './stats.js';
 import { createDemoKit } from './camerakit.js';
-import { createMannequin } from './mannequin.js';
-import { MATTERS, SWEATER } from './roomMatters.js';
+import { buildCharacter } from './charbuild.js';
+import riveraine from './characters/riveraine.js';
+import { MATTERS } from './roomMatters.js';
 import { createBee } from './vehicles/bee.js';
 import { streamMaterials } from './warmup.js';
 import { createFlyer } from './flyer.js';
@@ -143,12 +145,12 @@ sunDisc.position.copy( sunBall.geometry.boundingSphere.center ).applyMatrix4( su
 sunBall.visible = false;
 scene.add( sunDisc );
 
-// The figure at the window, back to us, in a cable sweater.
-const figure = createMannequin( createMaterial( SWEATER ).material );
-figure.group.position.set( 0.4, 0, - 1.75 );
-figure.group.rotation.y = Math.PI;
-figure.group.traverse( ( o ) => { if ( o.isMesh ) { o.castShadow = true; o.receiveShadow = true; } } );
-scene.add( figure.group );
+// The riveraine at the window, back to us, in her knit jacket and leather
+// apron (built at the origin, then moved), breathing in her idle loop.
+const figure = await buildCharacter( { cfg: riveraine, scene, fuzz: ! params.has( 'nofuzz' ) } );
+figure.gltf.scene.position.set( 0.4, 0, - 1.75 );
+figure.gltf.scene.rotation.y = Math.PI;
+figure.gltf.scene.traverse( ( o ) => { if ( o.isMesh ) { o.castShadow = true; o.receiveShadow = true; } } );
 
 const VIEWS = {
 	room: { pos: [ - 0.6, 1.6, 2.3 ], look: [ 0.1, 1.1, - 2.5 ] },
@@ -198,6 +200,7 @@ renderer.setAnimationLoop( () => {
 	clock += dt;
 	last = now;
 	setTime( clock );
+	figure.mixer.setTime( clock % figure.clip.duration );
 	vehicle?.update( dt, clock ); // while flown, it moves the camera and the walk holds still
 	kit.update( dt, { move: ! vehicle?.active } );
 	sunDisc.lookAt( camera.position );

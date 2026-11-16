@@ -1,12 +1,12 @@
 // Links between the public demos, a loading note, and a warning on phones.
 // The note is a small pill at the top: the scene stays visible while it loads.
-// Imported first by main.js, cubes.js and aquarium.js. Hidden in film mode.
+// Imported first by main.js, character.js, cubes.js and aquarium.js. Hidden in film mode.
 // The loading note goes away when the page sets window.__ix.ready.
 //
 // Event bus: none (polls window.__ix.ready, set by each page).
 
 const PAGES = [
-	[ 'index.html', 'Knit' ],
+	[ 'character.html', 'Knit' ], // the riveraine; index.html (the concept mannequin) is in its picker
 	[ 'cubes.html', 'All matters' ],
 	[ 'aquarium.html', 'Water' ],
 	[ 'livingroom.html', 'Room' ],
@@ -31,7 +31,7 @@ const style = document.createElement( 'style' );
 style.textContent = css;
 document.head.appendChild( style );
 
-const here = location.pathname.split( '/' ).pop() || 'index.html';
+const here = ( ( p ) => p === 'index.html' ? 'character.html' : p )( location.pathname.split( '/' ).pop() || 'index.html' ); // both knit pages light Knit
 const nav = document.createElement( 'nav' );
 nav.id = 'ix-nav';
 nav.innerHTML = PAGES.map( ( [ href, label ] ) => `<a href="${ href }"${ href === here ? ' class="on"' : '' }>${ label }</a>` ).join( '' )
