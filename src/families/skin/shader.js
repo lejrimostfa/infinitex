@@ -12,7 +12,7 @@ import {
 	uv, vec2, vec3, float, floor, clamp, smoothstep, step, mix, pow, exp, sin, cos,
 	normalView, tangentView, bitangentView,
 } from 'three/tsl';
-import { footprint, fadeIn, composeRoughness, specularAA, perturbNormal } from '../../core/lod.js';
+import { footprint, fadeIn, fadeOn, gate, composeRoughness, specularAA, perturbNormal } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { applySurface } from '../../core/surface.js';
@@ -104,16 +104,27 @@ export function buildSkinNodes( u, opts = {} ) {
 	};
 	const base0 = hash1( vec2( u.seed, 3.7 ) ).mul( Math.PI );
 	const L = u.linesM;
-	const primary = network( [
-		family( base0, L, 1.3 ), family( base0.add( 0.95 ), L.mul( 1.15 ), 5.9 ), family( base0.add( 2.2 ), L.mul( 0.9 ), 9.2, 0.5 ),
-	], u.linesDepth.mul( 2.4 ), 0.34 );
-	const secondary = network( [
-		family( base0.add( 0.5 ), L.mul( 0.4 ), 12.4 ), family( base0.add( 1.6 ), L.mul( 0.36 ), 15.1 ),
-	], u.linesDepth.mul( 0.8 ), 0.25 );
-	const wL1 = fadeIn( L, fp, 1.5, 4.0 ), wL2 = fadeIn( L.mul( 0.38 ), fp, 1.5, 4.0 );
-	const furrow = { slope: primary.slope.mul( wL1 ), w: wL1 };
-	const fine = { slope: secondary.slope.mul( wL2 ), w: wL1 };
-	const fold = primary.fold.mul( wL1 ).max( secondary.fold.mul( wL2 ).mul( 0.4 ) ).toVar();
+	const wL1 = fadeIn( L, fp, 1.5, 4.0 ).toVar(), wL2 = fadeIn( L.mul( 0.38 ), fp, 1.5, 4.0 ).toVar();
+	// Both line networks are skipped under 1.5 px per main line, the fine
+	// one under 1.5 px per fine line (gate, core/lod.js).
+	const LN = gate( fadeOn( L, fp, 1.5 ), { slope: [ 0, 0 ], fold: 0 }, () => {
+
+		const primary = network( [
+			family( base0, L, 1.3 ), family( base0.add( 0.95 ), L.mul( 1.15 ), 5.9 ), family( base0.add( 2.2 ), L.mul( 0.9 ), 9.2, 0.5 ),
+		], u.linesDepth.mul( 2.4 ), 0.34 );
+		const S2 = gate( fadeOn( L.mul( 0.38 ), fp, 1.5 ), { slope: [ 0, 0 ], fold: 0 }, () => {
+
+			const secondary = network( [
+				family( base0.add( 0.5 ), L.mul( 0.4 ), 12.4 ), family( base0.add( 1.6 ), L.mul( 0.36 ), 15.1 ),
+			], u.linesDepth.mul( 0.8 ), 0.25 );
+			return { slope: secondary.slope.mul( wL2 ), fold: secondary.fold.mul( wL2 ).mul( 0.4 ) };
+
+		}, [ p, fp, wL2 ] );
+		return { slope: primary.slope.mul( wL1 ).add( S2.slope ), fold: primary.fold.mul( wL1 ).max( S2.fold ) };
+
+	}, [ p, fp, wL1, wL2 ] );
+	const fine = { w: wL1 };
+	const fold = LN.fold.toVar();
 
 	// Pores.
 	const q = p.div( u.poreM ).add( 41.7 );
@@ -129,12 +140,21 @@ export function buildSkinNodes( u, opts = {} ) {
 	const sP = v.mul( u.poreDepth.mul( 0.06 ).div( rp.mul( rp ) ) ).mul( inPore ).mul( rimAA ).mul( wP );
 
 	// Corneocytes: flat plates, each slightly tilted, thin dark borders.
-	const cx = p.div( u.cellM );
-	const cg = voronoi( cx.add( vec2( valueNoise( cx.mul( 0.5 ) ), valueNoise( cx.mul( 0.5 ).add( 2.2 ) ) ).mul( 0.6 ) ) );
+	// Skipped under 2 px per cell.
+	const cx = p.div( u.cellM ).toVar();
 	const wC = fadeIn( u.cellM, fp, 2.0, 6.0 ).toVar();
-	const tilt = hash3( cg.id1 ).xy.sub( 0.5 ).mul( 0.14 );
-	const border = float( 1 ).sub( smoothstep( 0.0, 1.5, cg.edge.mul( u.cellM ).div( fp ) ) ).mul( wC ).toVar();
-	const sC = tilt.mul( wC );
+	const CC = gate( fadeOn( u.cellM, fp, 2.0 ), { border: 0, sC: [ 0, 0 ], cellTone: 1 }, () => {
+
+		const cg = voronoi( cx.add( vec2( valueNoise( cx.mul( 0.5 ) ), valueNoise( cx.mul( 0.5 ).add( 2.2 ) ) ).mul( 0.6 ) ) );
+		const tilt = hash3( cg.id1 ).xy.sub( 0.5 ).mul( 0.14 );
+		return {
+			border: float( 1 ).sub( smoothstep( 0.0, 1.5, cg.edge.mul( u.cellM ).div( fp ) ) ).mul( wC ),
+			sC: tilt.mul( wC ),
+			cellTone: hash1( cg.id1.add( 3.1 ) ).sub( 0.5 ).mul( 0.1 ).mul( wC ).add( 1 ),
+		};
+
+	}, [ cx, fp, wC ] );
+	const border = CC.border.toVar(), sC = CC.sC;
 
 	// Body hair lying flat on the skin: 2D curves drawn in the surface, with
 	// a soft shadow beside them. (Stacked shells suit standing fuzz; flat
@@ -167,7 +187,7 @@ export function buildSkinNodes( u, opts = {} ) {
 	}
 
 	const keep = float( 1 ).sub( F.smooth );
-	const slope = furrow.slope.add( fine.slope ).add( sP ).mul( keep ).add( sC ).add( F.slope ).mul( float( 1 ).sub( hairCov ) );
+	const slope = LN.slope.add( sP ).mul( keep ).add( sC ).add( F.slope ).mul( float( 1 ).sub( hairCov ) );
 	const base = ( opts.baseNormal ?? normalView ).toVar( 'ix_base_normal' );
 	const normalNode = perturbNormal( base, slope, tangentView, bitangentView ).toVar( 'ix_normal' );
 
@@ -186,16 +206,21 @@ export function buildSkinNodes( u, opts = {} ) {
 
 	}
 
-	// Freckles: irregular brown spots of 1 to 4 mm, in clusters.
-	const fz = p.div( u.freckleM );
-	const fn = valueNoise( fz ).mul( 0.7 ).add( valueNoise( fz.mul( 3.1 ).add( 2.2 ) ).mul( 0.3 ) );
-	const spots = smoothstep( 0.66, 0.74, fn ).mul( smoothstep( 0.35, 0.6, valueNoise( fz.mul( 0.15 ).add( 5.5 ) ) ) ).mul( u.freckles );
+	// Freckles: irregular brown spots of 1 to 4 mm, in clusters. Skipped
+	// on skin without freckles.
+	const spots = gate( u.freckles.greaterThan( 0 ), { spots: 0 }, () => {
+
+		const fz = p.div( u.freckleM );
+		const fn = valueNoise( fz ).mul( 0.7 ).add( valueNoise( fz.mul( 3.1 ).add( 2.2 ) ).mul( 0.3 ) );
+		return { spots: smoothstep( 0.66, 0.74, fn ).mul( smoothstep( 0.35, 0.6, valueNoise( fz.mul( 0.15 ).add( 5.5 ) ) ) ).mul( u.freckles ) };
+
+	}, [ p ] ).spots;
 	// Light leaves the valleys red after travelling under the skin: tint
 	// them, do not darken them grey.
 	const valley = mix( vec3( 1 ), vec3( 0.93, 0.74, 0.7 ), fold.mul( keep ).mul( u.linesDepth ).mul( u.scatter.mul( 0.5 ).add( 0.5 ) ) );
 	const ao = float( 1 ).mul( float( 1 ).sub( pore.mul( keep ).mul( u.poreDepth ).mul( 0.45 ) ) )
 		.mul( float( 1 ).sub( border.mul( 0.25 ) ) );
-	const cellTone = hash1( cg.id1.add( 3.1 ) ).sub( 0.5 ).mul( 0.1 ).mul( wC ).add( 1 );
+	const cellTone = CC.cellTone;
 	// A hair in each follicle (beard, scalp) darkens the pores.
 	const follicle = mix( vec3( 1 ), u.hairColor.mul( 1.5 ), pore.mul( keep ).mul( u.poreDark ).clamp( 0, 1 ) );
 	const skinColor = color.mul( ao ).mul( follicle ).mul( F.tint ).mul( valley ).mul( cellTone ).mul( mix( vec3( 1 ), mix( u.freckleColor, u.freckleColor.div( color.max( vec3( 0.005 ) ) ), u.useColor ), spots ) ).mul( float( 1 ).sub( hairShadow.mul( 0.18 ) ) );

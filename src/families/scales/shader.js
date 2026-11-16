@@ -4,11 +4,12 @@
 //   slope  dh / dx in meters per meter
 //   id     the scale's id (colour, blotches)
 //   pit    0..1 for the small holes (croc sense pits, ostrich quill holes)
-// Then shared levels: fine wrinkles, colour, grooves, blotches.
+// Then shared levels: fine wrinkles, colour, grooves, blotches. The fine
+// levels sit in a gate() (core/lod.js): they run only where they show.
 // Coordinates in meters.
 
 import { uv, vec2, vec3, float, floor, fract, clamp, smoothstep, step, sqrt, mix, abs, cos, sin, normalView, tangentView, bitangentView } from 'three/tsl';
-import { footprint, fadeIn, composeRoughness, specularAA, perturbNormal, pick } from '../../core/lod.js';
+import { footprint, fadeIn, fadeOn, gate, composeRoughness, specularAA, perturbNormal, pick } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { applySurface } from '../../core/surface.js';
@@ -74,10 +75,13 @@ function overlap( p, fp, u ) {
 	const R = u.scaleM.mul( isF ? 0.55 : 0.5 ), Cw = u.scaleM.mul( u.aspect );
 	const a = Cw.mul( isF ? 0.68 : 0.62 ), b0 = u.scaleM.mul( isF ? 1.7 : 0.62 );
 	const rows = isF ? 3 : 1;
-	const j0 = floor( p.y.div( R ).add( 0.5 ) );
-	let best = float( - 1e5 ), h = float( 0 ), slope = vec2( 0 ), id = vec2( 0 ), along = float( 0 ), loc = vec2( 0 );
-	for ( let dj = - rows; dj <= rows; dj ++ ) {
+	const j0 = floor( p.y.div( R ).add( 0.5 ) ).toVar();
+	// The topmost row covering the point wins (step( best, j )), so the rows
+	// run from the top down, and each lower row sits in a gate() (core/lod.js)
+	// that skips it once a higher row has won (best > j).
+	const row = ( dj, st ) => {
 
+		let { best, h, slope, id, along, loc } = st;
 		const j = j0.add( dj );
 		const shift = fract( j.mul( 0.5 ) ).mul( 2 ).mul( 0.5 ); // 0.5 on odd rows
 		const i0 = floor( p.x.div( Cw ).sub( shift ).add( 0.5 ) );
@@ -125,7 +129,21 @@ function overlap( p, fp, u ) {
 
 		}
 
+		return { best, h, slope, id, along, loc };
+
+	};
+	let st = row( rows, { best: float( - 1e5 ), h: float( 0 ), slope: vec2( 0 ), id: vec2( 0 ), along: float( 0 ), loc: vec2( 0 ) } );
+	for ( let dj = rows - 1; dj >= - rows; dj -- ) {
+
+		const prev = st;
+		const spec = { best: prev.best, h: prev.h, slope: { node: prev.slope, size: 2 }, id: { node: prev.id, size: 2 }, along: prev.along, loc: { node: prev.loc, size: 2 } };
+		const o = gate( prev.best.lessThanEqual( j0.add( dj ) ), spec, () => row( dj, prev ), [ p, fp, j0, ...Object.values( prev ) ] );
+		st = {};
+		for ( const k in o ) st[ k ] = o[ k ].toVar();
+
 	}
+
+	const { h, slope, id, along, loc } = st;
 
 	// The front of a visible scale sits in the shadow of the free edge
 	// of the scale above it.
@@ -232,28 +250,63 @@ export function buildScalesNodes( u, opts = {} ) {
 	const w1 = fadeIn( u.scaleM.mul( u.groove ).mul( 2 ), fp, 1.0, 3.0 ).toVar();
 	const w0 = fadeIn( u.scaleM, fp, 1.0, 3.0 ).toVar();
 
-	// Fine wrinkles, deeper in the grooves.
-	const nq = p0.div( u.wrinkleM );
-	const nz = vec2( valueNoise( nq ), valueNoise( nq.add( 9.1 ) ) ).sub( 0.5 )
-		.add( vec2( valueNoise( nq.mul( 2.9 ).add( 1.1 ) ), valueNoise( nq.mul( 2.9 ).add( 4.4 ) ) ).sub( 0.5 ).mul( 0.5 ) );
+	// Fine wrinkles, deeper in the grooves. Skipped under 1.5 px per wrinkle.
+	const W = gate( fadeOn( u.wrinkleM, fp, 1.5 ), { sW: [ 0, 0 ], tone: 1 }, () => {
+
+		const nq = p0.div( u.wrinkleM );
+		const nz = vec2( valueNoise( nq ), valueNoise( nq.add( 9.1 ) ) ).sub( 0.5 )
+			.add( vec2( valueNoise( nq.mul( 2.9 ).add( 1.1 ) ), valueNoise( nq.mul( 2.9 ).add( 4.4 ) ) ).sub( 0.5 ).mul( 0.5 ) );
+		const wW = fadeIn( u.wrinkleM, fp, 1.5, 5.0 );
+		return { sW: nz.mul( u.wrinkles ).mul( 0.2 ).mul( wW ), tone: nz.x.mul( 0.1 ).mul( wW ).add( 1 ) };
+
+	}, [ p0, fp ] );
 	const wW = fadeIn( u.wrinkleM, fp, 1.5, 5.0 );
-	const sW = nz.mul( u.wrinkles ).mul( 0.2 ).mul( wW ).mul( float( 1 ).sub( S.h.mul( 0.5 ) ) );
+	const sW = W.sW.mul( float( 1 ).sub( S.h.mul( 0.5 ) ) );
 	// Micro relief of the scale surface: tiny granules, a sixth of a
-	// wrinkle apart, seen only under the loupe.
-	const gM = u.wrinkleM.mul( 0.16 );
-	const gv = voronoi( p0.div( gM ).add( 3.7 ), 0.8 );
-	const wGr = fadeIn( gM, fp, 2.0, 5.0 );
-	const gr = gv.toSeed.length().div( 0.5 ).clamp( 0, 0.95 );
-	const sGr = gv.toSeed.div( sqrt( float( 1 ).sub( gr.mul( gr ) ) ).max( 0.3 ) ).mul( - 0.5 ).mul( wGr ).mul( u.wrinkles.mul( 0.5 ).add( 0.3 ) );
-	const grain = float( 1 ).sub( smoothstep( 0.0, 0.12, gv.edge ) ).mul( wGr ).mul( u.mode === 'feather' ? 0 : 1 );
+	// wrinkle apart, seen only under the loupe. Feathers have none (their
+	// terms were weighted by 0). Skipped under 2 px per granule.
+	const ridgeOn = u.mode === 'overlap' ? 1 : 0; // feathers have their own barbs
+	let sGr = vec2( 0 ), grain = float( 0 );
+	if ( u.mode !== 'feather' ) {
+
+		const gM = u.wrinkleM.mul( 0.16 );
+		const gx = p0.div( gM ).add( 3.7 ).toVar();
+		const G = gate( fadeOn( gM, fp, 2.0 ), { sGr: [ 0, 0 ], grain: 0 }, () => {
+
+			const gv = voronoi( gx, 0.8 );
+			const wGr = fadeIn( gM, fp, 2.0, 5.0 );
+			const gr = gv.toSeed.length().div( 0.5 ).clamp( 0, 0.95 );
+			const sG = gv.toSeed.div( sqrt( float( 1 ).sub( gr.mul( gr ) ) ).max( 0.3 ) ).mul( - 0.5 ).mul( wGr ).mul( u.wrinkles.mul( 0.5 ).add( 0.3 ) );
+			return { sGr: sG.mul( float( 1 ).sub( ridgeOn * 0.85 ) ), grain: float( 1 ).sub( smoothstep( 0.0, 0.12, gv.edge ) ).mul( wGr ) };
+
+		}, [ gx, fp ] );
+		sGr = G.sGr;
+		grain = G.grain;
+
+	}
 
 	// Micro ridges along the scales (snake skin micro-ornamentation): a few
-	// microns apart, they diffract light into colours.
-	const ridgeOn = u.mode === 'overlap' ? 1 : 0; // feathers have their own barbs
-	const rq = p.x.div( u.ridgeM ).add( valueNoise( vec2( p.y.div( u.ridgeM.mul( 40 ) ), S.id.x ) ).mul( 3 ) );
-	const wRi = fadeIn( u.ridgeM, fp, 2.0, 5.0 ).mul( ridgeOn ).mul( u.irid.min( 1 ).max( 0.3 ) );
-	const sRi = vec2( cos( rq.mul( Math.PI * 2 ) ).mul( 0.3 ).mul( wRi ), 0 );
-	const slope = S.slope.mul( w1 ).add( sW.mul( float( 1 ).sub( wRi.mul( 0.6 ) ) ) ).add( sGr.mul( float( 1 ).sub( ridgeOn * 0.85 ) ).mul( u.mode === 'feather' ? 0 : 1 ) ).add( sRi );
+	// microns apart, they diffract light into colours. Only on 'overlap'
+	// (elsewhere their terms were weighted by 0). Skipped under 2 px per
+	// ridge.
+	let wRi = float( 0 ), sRi = vec2( 0 ), filmRi = float( 0 );
+	if ( ridgeOn ) {
+
+		const sid = S.id.toVar();
+		const RI = gate( fadeOn( u.ridgeM, fp, 2.0 ), { wRi: 0, sRi: [ 0, 0 ], film: 0 }, () => {
+
+			const rq = p.x.div( u.ridgeM ).add( valueNoise( vec2( p.y.div( u.ridgeM.mul( 40 ) ), sid.x ) ).mul( 3 ) );
+			const w = fadeIn( u.ridgeM, fp, 2.0, 5.0 ).mul( u.irid.min( 1 ).max( 0.3 ) );
+			return { wRi: w, sRi: vec2( cos( rq.mul( Math.PI * 2 ) ).mul( 0.3 ).mul( w ), 0 ), film: fract( rq ).mul( 0.2 ).mul( w ) };
+
+		}, [ p, fp, sid ] );
+		wRi = RI.wRi;
+		sRi = RI.sRi;
+		filmRi = RI.film;
+
+	}
+
+	const slope = S.slope.mul( w1 ).add( sW.mul( float( 1 ).sub( wRi.mul( 0.6 ) ) ) ).add( sGr ).add( sRi );
 	const base = ( opts.baseNormal ?? normalView ).toVar( 'ix_base_normal' );
 	const normalNode = perturbNormal( base, slope, tangentView, bitangentView ).toVar( 'ix_normal' );
 
@@ -285,7 +338,7 @@ export function buildScalesNodes( u, opts = {} ) {
 	}
 	// Polished galuchat: white sanded tops.
 	color = mix( color, vec3( 0.86, 0.84, 0.78 ), S.fx.mul( w1 ).mul( step( 0.2, u.polish ) ) );
-	color = color.mul( nz.x.mul( 0.1 ).mul( wW ).add( 1 ) ).mul( float( 1 ).sub( grain.mul( 0.25 ) ) );
+	color = color.mul( W.tone ).mul( float( 1 ).sub( grain.mul( 0.25 ) ) );
 
 	const cavity = float( 1 ).sub( hC ).max( S.pit );
 	const s2 = float( 1 ).sub( w1 ).mul( 0.06 ).mul( u.depth );
@@ -295,7 +348,7 @@ export function buildScalesNodes( u, opts = {} ) {
 	// Iridescence: a thin film whose thickness changes from scale to scale
 	// and along the ridges, so each scale flashes its own colour as the
 	// view turns.
-	const film = hash1( S.id.add( 8.3 ) ).mul( 0.55 ).add( valueNoise( p0.div( u.scaleM.mul( 2 ) ) ).mul( 0.25 ) ).add( fract( rq ).mul( 0.2 ).mul( wRi ) );
+	const film = hash1( S.id.add( 8.3 ) ).mul( 0.55 ).add( valueNoise( p0.div( u.scaleM.mul( 2 ) ) ).mul( 0.25 ) ).add( filmRi );
 	nodes.iridescenceNode = u.irid.mul( float( 1 ).sub( cavity.mul( 0.6 ) ) );
 	nodes.iridescenceIORNode = float( 1.55 ); // keratin
 	nodes.iridescenceThicknessNode = mix( u.iridMin, u.iridMax, film );
