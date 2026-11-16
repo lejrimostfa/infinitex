@@ -12,17 +12,28 @@
 //   tack          the sticky skin holds lint and dust: pale fibres, and a
 //                 broad soft sheen
 // W: { color, slope, cavity, rough, s2 }, returned updated, with sheen.
+//
+// Each bubble layer sits in a gate() (core/lod.js): it runs only where its
+// bubbles are a few pixels wide.
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, clamp, exp, positionView, tangentView, bitangentView, normalView } from 'three/tsl';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { scratchMarks } from '../../core/marks.js';
 
 // One layer of bubbles at depth `depth` (m) below the surface, cell cellM.
+// Skipped under 2 px per cell: the fade is zero there.
 function bubbleLayer( p, fp, view, cellM, depth, density, off ) {
 
 	// Where the eye ray meets this depth, bent by the index (1.41).
-	const q = p.sub( view.xy.div( view.z.max( 0.2 ) ).mul( depth ).div( 1.41 ) ).div( cellM ).add( off ).mod( 4096 ); // mod: hashes stay exact
+	const q = p.sub( view.xy.div( view.z.max( 0.2 ) ).mul( depth ).div( 1.41 ) ).div( cellM ).add( off ).mod( 4096 ).toVar(); // mod: hashes stay exact
+	return gate( fadeOn( cellM, fp, 2.0 ), { rim: 0, spot: 0, body: 0 }, () => bubbleCell( q, fp, cellM, depth, density ), [ fp, q ] );
+
+}
+
+// The bubble of one cell, q in cells.
+function bubbleCell( q, fp, cellM, depth, density ) {
+
 	const id = floor( q );
 	const h = hash3( id );
 	const rel = fract( q ).sub( h.xy.mul( 0.5 ).add( 0.25 ) );
