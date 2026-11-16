@@ -13,17 +13,28 @@
 //   L2          the same textures one and two octaves finer: smaller craters
 //               (10 to 20 um) and recast droplets or peening (3 to 6 um)
 // Returns { color, slope, cavity, rough, s2 } for shader.js.
+//
+// The lathe rings of the pins and the two finer crater octaves sit in a
+// gate() (core/lod.js): they run only where they show. The first crater
+// octave stays outside: inside a branch it rounds differently at 1 cm and
+// 6 cm (0.1 to 0.6% of the pixels move), even with its cells hoisted. The
+// flow lines and the orange peel stay outside too: gated, the glossy
+// preset got slower.
 
 import { vec2, float, floor, fract, mix, smoothstep, step, clamp, exp, abs, sin, mod } from 'three/tsl';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
-// One octave of craters (cell size cellM). rim: raised rim height, as a
-// share of the depth (EDM 0.5, bead blast 0). Slopes are dimensionless.
-function craters( p, cellM, depth, rim, jitter, off ) {
+// Cell coordinates of a crater octave, taken before its gate.
+const craterCells = ( p, cellM, off ) => mod( p.div( cellM ), 4096 ).add( off ).toVar(); // mod: hashes stay exact
 
-	const v = voronoi( mod( p.div( cellM ), 4096 ).add( off ), jitter ); // mod: hashes stay exact
+// One octave of craters (cells q from craterCells). rim: raised rim
+// height, as a share of the depth (EDM 0.5, bead blast 0). Slopes are
+// dimensionless.
+function craters( q, depth, rim, jitter, off ) {
+
+	const v = voronoi( q, jitter );
 	const h = hash3( v.id1.add( off ) );
 	const R = h.x.mul( 0.35 ).add( 0.45 ); // radius, cells
 	const d = v.toSeed.length().max( 1e-5 );
@@ -50,8 +61,8 @@ export function buildSolid( p, fp, u ) {
 	let slope = vec2( 0 ), cavity = float( 0 ), rough = u.roughness, s2 = float( 0 );
 
 	// Flow lines: ripples around a gate off the left edge, wavering.
-	const gate = vec2( - 0.04, 0.17 ).add( vec2( hash1( vec2( s, 1 ) ), hash1( vec2( s, 2 ) ) ).sub( 0.5 ).mul( 0.1 ) );
-	const gd = p.sub( gate );
+	const inlet = vec2( - 0.04, 0.17 ).add( vec2( hash1( vec2( s, 1 ) ), hash1( vec2( s, 2 ) ) ).sub( 0.5 ).mul( 0.1 ) );
+	const gd = p.sub( inlet );
 	const gr = gd.length();
 	const fq = gr.div( 0.003 ).add( valueNoise( p.div( 0.02 ).add( s.mul( 2 ) ) ).mul( 4 ) ).add( valueNoise( p.div( 0.005 ).add( 1.3 ) ).mul( 1.2 ) );
 	const fAmp = smoothstep( 0.25, 0.7, valueNoise( vec2( gr.div( 0.03 ), s ) ) ).mul( u.flow ).mul( fadeIn( float( 0.003 ), fp, 1.5, 4.0 ) );
@@ -83,8 +94,15 @@ export function buildSolid( p, fp, u ) {
 		pinIn = clamp( R.sub( d ).div( fp ).add( 0.5 ), 0, 1 ).mul( on ).toVar();
 		const gap = clamp( float( 4e-5 ).sub( abs( d.sub( R ) ) ).div( fp ).add( 0.5 ), 0, 1 ).mul( on );
 		// Ground face: fine lathe rings (15 um) around the pin axis.
-		const lathe = sin( d.div( 1.5e-5 ).mul( Math.PI * 2 ) ).mul( fadeIn( float( 1.5e-5 ), fp, 2.0, 6.0 ) );
-		slope = slope.add( rel.div( d.max( 1e-6 ) ).mul( lathe.mul( 0.04 ) ).mul( pinIn ) );
+		// Skipped off the pin faces and under 2 px per ring.
+		const relV = rel.toVar(), dV = d.toVar();
+		const L = gate( pinIn.greaterThan( 0 ).and( fadeOn( float( 1.5e-5 ), fp, 2.0 ) ), { slope: [ 0, 0 ] }, () => {
+
+			const lathe = sin( dV.div( 1.5e-5 ).mul( Math.PI * 2 ) ).mul( fadeIn( float( 1.5e-5 ), fp, 2.0, 6.0 ) );
+			return { slope: relV.div( dV.max( 1e-6 ) ).mul( lathe.mul( 0.04 ) ).mul( pinIn ) };
+
+		}, [ fp, relV, dV, pinIn ] );
+		slope = slope.add( L.slope );
 		color = color.mul( float( 1 ).sub( gap.mul( 0.5 ) ) ).mul( pinIn.mul( 0.05 ).add( 1 ) );
 		cavity = cavity.max( gap );
 
@@ -94,14 +112,23 @@ export function buildSolid( p, fp, u ) {
 	if ( u.grain.value > 0 ) {
 
 		const g = u.grainM;
-		const w1 = fadeIn( g, fp, 2.0, 6.0 ), w2 = fadeIn( g.mul( 0.3 ), fp, 2.0, 6.0 ), w3 = fadeIn( g.mul( 0.1 ), fp, 2.0, 6.0 );
-		const c1 = craters( p, g, u.grain.mul( 0.5 ), 0.5, 0.95, s.mul( 3.1 ) );
-		const c2 = craters( p, g.mul( 0.3 ), u.grain.mul( 0.4 ), 0.4, 0.95, s.add( 11.7 ) );
-		const c3 = craters( p, g.mul( 0.1 ), u.grain.mul( 0.3 ), 0.0, 0.9, s.add( 23.1 ) );
-		slope = slope.add( c1.slope.mul( w1 ).add( c2.slope.mul( w2 ) ).add( c3.slope.mul( w3 ) ).mul( keep ) );
-		const shade = c1.pit.mul( w1 ).mul( 0.06 ).add( c2.pit.mul( w2 ).mul( 0.04 ) ).sub( c1.rim.mul( w1 ).mul( 0.05 ) );
-		color = color.mul( float( 1 ).sub( shade.mul( keep ) ) ).mul( hash1( c1.id ).sub( 0.5 ).mul( 0.06 ).mul( w1 ).add( 1 ) );
-		cavity = cavity.max( c1.pit.mul( w1 ).mul( 0.5 ).mul( keep ) );
+		const w1 = fadeIn( g, fp, 2.0, 6.0 ), w2 = fadeIn( g.mul( 0.3 ), fp, 2.0, 6.0 ).toVar(), w3 = fadeIn( g.mul( 0.1 ), fp, 2.0, 6.0 ).toVar();
+		const C1 = craters( craterCells( p, g, s.mul( 3.1 ) ), u.grain.mul( 0.5 ), 0.5, 0.95, s.mul( 3.1 ) );
+		const c1 = { slope: C1.slope.mul( w1 ), pit: C1.pit.mul( w1 ), rim: C1.rim.mul( w1 ), tint: hash1( C1.id ).sub( 0.5 ).mul( 0.06 ).mul( w1 ) };
+		// The finer octaves: each skipped under 2 px per crater cell.
+		const q2 = craterCells( p, g.mul( 0.3 ), s.add( 11.7 ) );
+		const c2 = gate( fadeOn( g.mul( 0.3 ), fp, 2.0 ), { slope: [ 0, 0 ], pit: 0 }, () => {
+
+			const c = craters( q2, u.grain.mul( 0.4 ), 0.4, 0.95, s.add( 11.7 ) );
+			return { slope: c.slope.mul( w2 ), pit: c.pit.mul( w2 ) };
+
+		}, [ q2, w2 ] );
+		const q3 = craterCells( p, g.mul( 0.1 ), s.add( 23.1 ) );
+		const c3 = gate( fadeOn( g.mul( 0.1 ), fp, 2.0 ), { slope: [ 0, 0 ] }, () => ( { slope: craters( q3, u.grain.mul( 0.3 ), 0.0, 0.9, s.add( 23.1 ) ).slope.mul( w3 ) } ), [ q3, w3 ] );
+		slope = slope.add( c1.slope.add( c2.slope ).add( c3.slope ).mul( keep ) );
+		const shade = c1.pit.mul( 0.06 ).add( c2.pit.mul( 0.04 ) ).sub( c1.rim.mul( 0.05 ) );
+		color = color.mul( float( 1 ).sub( shade.mul( keep ) ) ).mul( c1.tint.add( 1 ) );
+		cavity = cavity.max( c1.pit.mul( 0.5 ).mul( keep ) );
 		s2 = s2.add( w1.oneMinus().mul( 0.03 ).add( w2.oneMinus().mul( 0.02 ) ).add( w3.oneMinus().mul( 0.012 ) ).mul( u.grain ).mul( keep ) );
 
 	}
@@ -109,14 +136,18 @@ export function buildSolid( p, fp, u ) {
 	if ( u.blast.value > 0 ) {
 
 		const g = u.blastM;
-		const w1 = fadeIn( g, fp, 2.0, 6.0 ), w2 = fadeIn( g.mul( 0.33 ), fp, 2.0, 6.0 ), w3 = fadeIn( g.mul( 0.11 ), fp, 2.0, 6.0 );
-		const c1 = craters( p, g, u.blast.mul( 0.35 ), 0.0, 0.9, s.mul( 4.3 ) );
-		const c2 = craters( p, g.mul( 0.33 ), u.blast.mul( 0.3 ), 0.0, 0.9, s.add( 7.9 ) );
-		const c3 = craters( p, g.mul( 0.11 ), u.blast.mul( 0.25 ), 0.0, 0.85, s.add( 31.3 ) );
-		slope = slope.add( c1.slope.mul( w1 ).add( c2.slope.mul( w2 ) ).add( c3.slope.mul( w3 ) ).mul( keep ) );
+		const w1 = fadeIn( g, fp, 2.0, 6.0 ), w2 = fadeIn( g.mul( 0.33 ), fp, 2.0, 6.0 ).toVar(), w3 = fadeIn( g.mul( 0.11 ), fp, 2.0, 6.0 ).toVar();
+		const C1 = craters( craterCells( p, g, s.mul( 4.3 ) ), u.blast.mul( 0.35 ), 0.0, 0.9, s.mul( 4.3 ) );
+		const c1 = { slope: C1.slope.mul( w1 ), pit: C1.pit.mul( w1 ) };
+		// The finer octaves: each skipped under 2 px per dimple cell.
+		const q2 = craterCells( p, g.mul( 0.33 ), s.add( 7.9 ) );
+		const c2 = gate( fadeOn( g.mul( 0.33 ), fp, 2.0 ), { slope: [ 0, 0 ] }, () => ( { slope: craters( q2, u.blast.mul( 0.3 ), 0.0, 0.9, s.add( 7.9 ) ).slope.mul( w2 ) } ), [ q2, w2 ] );
+		const q3 = craterCells( p, g.mul( 0.11 ), s.add( 31.3 ) );
+		const c3 = gate( fadeOn( g.mul( 0.11 ), fp, 2.0 ), { slope: [ 0, 0 ] }, () => ( { slope: craters( q3, u.blast.mul( 0.25 ), 0.0, 0.85, s.add( 31.3 ) ).slope.mul( w3 ) } ), [ q3, w3 ] );
+		slope = slope.add( c1.slope.add( c2.slope ).add( c3.slope ).mul( keep ) );
 		// The nozzle passes leave the blast denser here, lighter there (mm).
 		const pass = valueNoise( vec2( p.x.div( 0.006 ), p.y.div( 0.0015 ) ).add( s.mul( 2.2 ) ) ).mul( 0.6 ).add( valueNoise( p.div( 7e-4 ).add( 4.4 ) ).mul( 0.4 ) ).sub( 0.5 ).mul( u.blast );
-		color = color.mul( float( 1 ).sub( c1.pit.mul( w1 ).mul( 0.04 ).mul( keep ) ) ).mul( pass.mul( 0.08 ).add( 1 ) );
+		color = color.mul( float( 1 ).sub( c1.pit.mul( 0.04 ).mul( keep ) ) ).mul( pass.mul( 0.08 ).add( 1 ) );
 		rough = rough.add( pass.mul( 0.12 ).mul( keep ) );
 		s2 = s2.add( w1.oneMinus().mul( 0.025 ).add( w2.oneMinus().mul( 0.02 ) ).add( w3.oneMinus().mul( 0.015 ) ).mul( u.blast ).mul( keep ) );
 

@@ -10,9 +10,12 @@
 //   scuffs     patches of short parallel scratches with a grey transfer
 //   prints     fingerprints: grease ridges 0.45 mm apart in ovals of 15 mm
 // W: { color, slope, cavity, rough, s2 } from solid.js, returned updated.
+//
+// The scuff marks sit in a gate() (core/lod.js): they run only inside
+// their patches.
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, clamp, abs, atan, sin, cos } from 'three/tsl';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, gate } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { scratchMarks } from '../../core/marks.js';
 
@@ -94,13 +97,19 @@ export function applyLife( W, p, fp, u ) {
 	if ( u.scuffs.value > 0 ) {
 
 		// Patches where something hard rubbed in one direction.
-		const patch = smoothstep( 0.55, 0.75, valueNoise( p.div( 0.035 ).add( s.mul( 6 ) ) ).add( valueNoise( p.div( 0.008 ) ).sub( 0.5 ).mul( 0.3 ) ) ).mul( u.scuffs );
-		const a = scratchMarks( p, fp, float( 0.002 ), float( 8e-6 ), s.add( 5.5 ), { angle: 0.4, spread: 0.12, length: 0.7, density: patch } );
-		const b = scratchMarks( p, fp, float( 3e-4 ), float( 2e-6 ), s.add( 8.8 ), { angle: 0.4, spread: 0.15, length: 0.8, density: patch } );
-		const sc = a.cov.max( b.cov.mul( 0.7 ) );
+		const patch = smoothstep( 0.55, 0.75, valueNoise( p.div( 0.035 ).add( s.mul( 6 ) ) ).add( valueNoise( p.div( 0.008 ) ).sub( 0.5 ).mul( 0.3 ) ) ).mul( u.scuffs ).toVar();
+		// Skipped outside the patches: with a zero density no mark is drawn.
+		const M = gate( patch.greaterThan( 0 ), { sc: 0, slope: [ 0, 0 ] }, () => {
+
+			const a = scratchMarks( p, fp, float( 0.002 ), float( 8e-6 ), s.add( 5.5 ), { angle: 0.4, spread: 0.12, length: 0.7, density: patch } );
+			const b = scratchMarks( p, fp, float( 3e-4 ), float( 2e-6 ), s.add( 8.8 ), { angle: 0.4, spread: 0.15, length: 0.8, density: patch } );
+			return { sc: a.cov.max( b.cov.mul( 0.7 ) ), slope: a.slope };
+
+		}, [ p, fp, patch ] );
+		const sc = M.sc;
 		color = mix( color, vec3( 0.35, 0.34, 0.33 ).mul( color.add( 0.3 ) ), patch.mul( 0.25 ) );
 		scatter = scatter.max( sc.mul( 0.8 ) );
-		slope = slope.add( a.slope.mul( 0.5 ) );
+		slope = slope.add( M.slope.mul( 0.5 ) );
 		rough = rough.add( patch.mul( 0.2 ) ).add( sc.mul( 0.2 ) );
 
 	}
