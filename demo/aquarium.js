@@ -13,7 +13,7 @@
 // apparentPoint, waterBody, tank, LEVEL, TD (tests/refraction_gpu.mjs).
 
 import * as THREE from 'three/webgpu';
-import { uv, vec2, positionWorldDirection } from 'three/tsl';
+import { uv, vec2, vec3, float, positionWorldDirection, positionLocal, normalLocal, attribute } from 'three/tsl';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js';
@@ -64,14 +64,57 @@ const tank = new THREE.ClippingGroup();
 scene.add( tank );
 
 // A plane with UVs in metres, facing +z before it is placed.
-function slab( w, h, preset, place, seg = 0.02 ) {
+// A rim folded down around a plane (in place): the border vertices again,
+// and one under each, `drop` below the plane, flagged `skirt` = 1. Both
+// rows keep the plane's normal: the fold is lit like the top, so the eye
+// reads one surface that turns down (an outward normal made it a dark
+// or a white band, by the light it caught). A slab whose
+// vertices are displaced lifts the upper row with its surface and keeps
+// the lower one, so its edge is a closed face down to its base. `tall`:
+// about how high the fold stands (m), for the texture that runs down it.
+function addSkirt( g, w, h, drop, tall = 0.025 ) {
+
+	const nx = g.parameters.widthSegments, ny = g.parameters.heightSegments, n0 = g.attributes.position.count;
+	const P = g.attributes.position, U = g.attributes.uv;
+	const at = ( i, j ) => i + j * ( nx + 1 );
+	const ring = [];
+	for ( let i = 0; i < nx; i ++ ) ring.push( at( i, 0 ) );
+	for ( let j = 0; j < ny; j ++ ) ring.push( at( nx, j ) );
+	for ( let i = nx; i > 0; i -- ) ring.push( at( i, ny ) );
+	for ( let j = ny; j > 0; j -- ) ring.push( at( 0, j ) );
+	const pos = Array.from( P.array ), uvs = Array.from( U.array ), nor = Array.from( g.attributes.normal.array ), idx = Array.from( g.index.array ), flag = new Array( n0 ).fill( 0 );
+	for ( const v of ring ) {
+
+		const x = P.getX( v ), y = P.getY( v );
+		// The texture goes on down the fold.
+		const ox = Math.abs( Math.abs( x ) - w / 2 ) < 1e-6 ? Math.sign( x ) : 0, oy = Math.abs( Math.abs( y ) - h / 2 ) < 1e-6 ? Math.sign( y ) : 0;
+		pos.push( x, y, 0, x, y, - drop ); uvs.push( U.getX( v ), U.getY( v ), U.getX( v ) + ox * tall / w, U.getY( v ) + oy * tall / h ); nor.push( 0, 0, 1, 0, 0, 1 ); flag.push( 0, 1 );
+
+	}
+
+	// The plane's border runs clockwise seen from +z: these faces look out.
+	const N = ring.length;
+	for ( let k = 0; k < N; k ++ ) { const a = n0 + 2 * k, b = n0 + 2 * ( ( k + 1 ) % N ); idx.push( a, b, a + 1, b, b + 1, a + 1 ); }
+	g.setAttribute( 'position', new THREE.Float32BufferAttribute( pos, 3 ) );
+	g.setAttribute( 'uv', new THREE.Float32BufferAttribute( uvs, 2 ) );
+	g.setAttribute( 'normal', new THREE.Float32BufferAttribute( nor, 3 ) );
+	g.setAttribute( 'skirt', new THREE.Float32BufferAttribute( flag, 1 ) );
+	g.setIndex( idx );
+
+}
+
+function slab( w, h, preset, place, seg = 0.02, skirt = 0 ) {
 
 	// 2 cm segments: refraction moves vertices (core/refraction.js). A line
 	// seen through a flat interface bends gently; 1 cm gave 4 times the
 	// triangles for no visible gain.
 	const g = new THREE.PlaneGeometry( w, h, Math.ceil( w / seg ), Math.ceil( h / seg ) );
+	if ( skirt ) addSkirt( g, w, h, skirt );
 	g.computeTangents();
 	const ix = createMaterial( { ...preset, underwater: 1 }, { coords: uv().mul( vec2( w, h ) ) } );
+	// The height the family gives, applied straight up (whatever the
+	// normal), and not at all on the fold's lower row.
+	if ( skirt && ix.material.positionNode ) ix.material.positionNode = positionLocal.add( vec3( 0, 0, 1 ).mul( ix.material.positionNode.sub( positionLocal ).dot( normalLocal ) ).mul( float( 1 ).sub( attribute( 'skirt', 'float' ) ) ) );
 	const m = new THREE.Mesh( g, ix.material );
 	place( m );
 	tank.add( m );
@@ -85,7 +128,10 @@ const marble = { family: 'stone', mode: 'marble', intent: 'white marble tank wal
 // (preset.displace; ?flat keeps the plane, same normals), so
 // it gets 5 mm segments: the lee side of a ripple is 2 cm wide. Measured:
 // the finer floor and its displacement cost under 0.2 ms per frame.
-slab( TW, TD, { ...sand, dune: 1, displace: params.has( 'flat' ) ? 0 : 1 }, ( m ) => { m.rotation.x = - Math.PI / 2; }, ( + params.get( 'seg' ) || 5 ) * 1e-3 ); // ?seg=20: the former 2 cm, to compare
+slab( TW, TD, { ...sand, dune: 1, displace: params.has( 'flat' ) ? 0 : 1 }, ( m ) => { m.rotation.x = - Math.PI / 2; }, ( + params.get( 'seg' ) || 5 ) * 1e-3, 0.0005 ); // ?seg=20: the former 2 cm, to compare
+// The displaced sand stands about 2 cm over its plane. Without the folded
+// rim (addSkirt) the eye at floor height looked under it through a pane,
+// and saw the marble base as a second, white floor.
 slab( TW, TH, marble, ( m ) => { m.position.set( 0, TH / 2, - TD / 2 ); } );
 // Front and both sides: panes of glass (drawn by the waterline pass,
 // core/waterline.js). They have no mesh. Seen from inside the water, a
