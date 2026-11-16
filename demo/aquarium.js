@@ -16,7 +16,7 @@ import { setTime } from '../src/core/clock.js';
 import { reliefLight } from '../src/core/relief.js';
 import { waterBody } from '../src/core/underwater.js';
 import { createWaterSurface, daySky } from '../src/core/watersurface.js';
-import { createWaterline } from '../src/core/waterline.js';
+import { createWaterline, WALL_CONTACT } from '../src/core/waterline.js';
 import { createMirror } from '../src/core/mirror.js';
 import { createStage } from './scene.js';
 import { createStats } from './stats.js';
@@ -122,9 +122,9 @@ function view( name ) {
 
 // Split shots: through the front glass from outside, or with the camera
 // port at the waterline; else a plain render.
-// A thick water top on the pane (4 mm meniscus, lens 3 times deeper):
-// more than clean glass gives, for the look of a bottle bottom.
-const glassLine = createWaterline( renderer, scene, camera, { glassZ: TD / 2, xMin: - TW / 2, xMax: TW / 2, yMin: 0, yMax: TH, meniscus: 0.004, prepare } );
+// The pane: ordinary glass, clean water. The meniscus height follows
+// (about 2.9 mm, core/waterline.js meniscusHeight).
+const glassLine = createWaterline( renderer, scene, camera, { glassZ: TD / 2, xMin: - TW / 2, xMax: TW / 2, yMin: 0, yMax: TH, contactDeg: WALL_CONTACT.glass, prepare } );
 // The port's film is thinner and flatter than the meniscus on a pane.
 const lensLine = createWaterline( renderer, scene, camera, { lens: true, meniscus: 0.0008, power: 2.5, prepare } );
 addEventListener( 'resize', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );

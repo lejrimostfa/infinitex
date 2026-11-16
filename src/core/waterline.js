@@ -9,8 +9,9 @@
 //   level     the still level plus the ripples at that point, so the
 //             line moves. True height by default (calm water: a few mm);
 //             `boost` > 1 for a choppy sea slapping the glass
-//   meniscus  water climbs the glass by capillarity, about 2 mm on clean
-//             glass. Through it: total internal reflection on the curved
+//   meniscus  water climbs the glass by capillarity. Its height comes from
+//             the surface tension and the wall (meniscusHeight below):
+//             about 3 mm on ordinary glass, 1 mm on acrylic. Through it: total internal reflection on the curved
 //             surface, so the world under the water, inverted and
 //             squeezed, bright; a bright rim at the top, a dark contact
 //             line at the foot.
@@ -26,7 +27,26 @@ import { ixTime } from './clock.js';
 import { valueNoise } from './hash.js';
 import { surfaceWaves } from './watersurface.js';
 
-export function createWaterline( renderer, scene, camera, { lens = false, glassZ = 0, xMin = - 1, xMax = 1, yMin = 0, yMax = 1, lensD = 0.03, meniscus = 0.002, boost = 1, power = 5, prepare = null } = {}, W = waterBody ) {
+// Contact angle of water on a wall (degrees). Small: the water wets the
+// wall and climbs high. Typical lab values; dirt and grease raise them.
+export const WALL_CONTACT = { cleanGlass: 10, glass: 25, acrylic: 70 };
+
+// Height (m) the water climbs a flat vertical wall. Capillary length
+// lc = sqrt( tension / ( density g ) ), 2.7 mm for water at 20 C. The
+// exact solution for a plane wall: h = lc sqrt( 2 ( 1 - sin theta ) ).
+// tension N/m (0.072 water, about 0.05 with soap or oil on it), density
+// kg/m3. A wall the water does not wet (theta 90 or more) makes it dip
+// instead: not drawn here, so it gives 0.
+export function meniscusHeight( { tension = 0.072, contactDeg = WALL_CONTACT.glass, density = 998, g = 9.81 } = {} ) {
+
+	const lc = Math.sqrt( tension / ( density * g ) );
+	const th = Math.min( contactDeg, 90 ) * Math.PI / 180;
+	return lc * Math.sqrt( 2 * ( 1 - Math.sin( th ) ) );
+
+}
+
+// meniscus: height (m); by default from tension and contactDeg (the wall).
+export function createWaterline( renderer, scene, camera, { lens = false, glassZ = 0, xMin = - 1, xMax = 1, yMin = 0, yMax = 1, lensD = 0.03, tension = 0.072, contactDeg = WALL_CONTACT.glass, meniscus = meniscusHeight( { tension, contactDeg } ), boost = 1, power = 5, prepare = null } = {}, W = waterBody ) {
 
 	const size = renderer.getDrawingBufferSize( new Vector2() );
 	const opts = { type: HalfFloatType };
