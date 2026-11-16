@@ -13,7 +13,7 @@
 // The fibre sheen dies, the surface turns smoother.
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp } from 'three/tsl';
-import { fadeIn } from './lod.js';
+import { fadeIn, fadeOn, gate } from './lod.js';
 import { valueNoise } from './hash.js';
 import { grains } from '../families/ground/grains.js';
 import { blobs, over, hero } from './states_shape.js';
@@ -71,12 +71,18 @@ export function buildGrease( nodes, ctx ) {
 	color = color.mul( float( 1 ).sub( St.tide.mul( 0.35 ) ) );
 	nodes.colorNode = color;
 
-	// Oil beads on the fibres: tiny glints.
-	const Gb = grains( p, float( 4e-5 ), fp, 2.2, { gap: 0.3, radius: 0.25, round: 0.3, crown: 0.9 } );
-	const bead = Gb.body.mul( step( 0.88, Gb.id.x ) ).mul( k ).mul( fadeIn( float( 4e-5 ), fp, 1.5, 4.0 ) );
-	nodes.roughnessNode = mix( nodes.roughnessNode, nodes.roughnessNode.mul( 0.55 ).add( 0.05 ), k ).mul( float( 1 ).sub( bead.mul( 0.7 ) ) );
+	// Oil beads on the fibres: tiny glints. Gated on their fade and on
+	// the stain k (a bead is weighted by both).
+	const Bd = gate( fadeOn( float( 4e-5 ), fp, 1.5 ).and( k.greaterThan( 0 ) ), { bead: 0, slope: [ 0, 0 ] }, () => {
+
+		const Gb = grains( p, float( 4e-5 ), fp, 2.2, { gap: 0.3, radius: 0.25, round: 0.3, crown: 0.9 } );
+		const bead = Gb.body.mul( step( 0.88, Gb.id.x ) ).mul( k ).mul( fadeIn( float( 4e-5 ), fp, 1.5, 4.0 ) );
+		return { bead, slope: Gb.grad.mul( bead ).mul( 0.5 ) };
+
+	}, [ p, fp, k ] );
+	nodes.roughnessNode = mix( nodes.roughnessNode, nodes.roughnessNode.mul( 0.55 ).add( 0.05 ), k ).mul( float( 1 ).sub( Bd.bead.mul( 0.7 ) ) );
 	if ( nodes.sheenNode ) nodes.sheenNode = nodes.sheenNode.mul( float( 1 ).sub( k.mul( 0.9 ) ) );
 	// The oil fills the finest relief a little; beads add their dome.
-	return bend( nodes, ctx, Gb.grad.mul( bead ).mul( 0.5 ), k.mul( 0.25 ) );
+	return bend( nodes, ctx, Bd.slope, k.mul( 0.25 ) );
 
 }
