@@ -12,7 +12,7 @@
 // visible); the char buries part of it; the hole shows the dark below.
 
 import { vec2, vec3, float, mix, smoothstep, step, mod } from 'three/tsl';
-import { fadeIn } from './lod.js';
+import { fadeIn, fadeOn, gate } from './lod.js';
 import { valueNoise } from './hash.js';
 import { voronoi } from './voronoi.js';
 import { grains, fibres, fbm, line } from '../families/ground/grains.js';
@@ -49,41 +49,62 @@ export function buildBurnt( nodes, ctx ) {
 	const charCov = K.B.cov.max( E.B.cov ).toVar();
 	const hole = K.hole.max( E.hole ).toVar();
 	const halo = K.halo.max( E.halo.mul( 0.8 ) );
-	const lip = K.lip.max( E.lip );
-	const rho = mix( E.B.rho, K.B.rho, top );
+	const lip = K.lip.max( E.lip ).toVar();
+	const rho = mix( E.B.rho, K.B.rho, top ).toVar();
+	const radial = mix( E.B.rad, K.B.rad, top ).toVar();
 
 	// Scorch: multiply the matter, darker toward the char.
-	const sc = halo.pow( 1.5 );
+	const sc = halo.pow( 1.5 ).toVar();
 	const tint = mix( mix( vec3( 1 ), TAN, wash ), mix( TAN, SCORCH, sc ), smoothstep( 0.0, 0.25, halo ) );
 	nodes.colorNode = nodes.colorNode.mul( tint ).mul( float( 1 ).sub( sc.mul( 0.35 ) ) );
 	nodes.roughnessNode = nodes.roughnessNode.add( sc.mul( 0.08 ) ).min( 1 );
 
-	// L1 char: brown at the outer edge, black inside, crazed plates.
-	const wC = fadeIn( float( 1e-3 ), fp, 2.0, 6.0 ).toVar();
-	const warp = vec2( valueNoise( p.div( 7e-4 ) ), valueNoise( p.div( 7e-4 ).add( 5.3 ) ) ).sub( 0.5 ).mul( 0.6 );
-	const V = voronoi( mod( p.div( 1e-3 ), 4096 ).add( warp ).add( 2.9 ), 0.9 );
-	const gap = line( V.edge.mul( 1e-3 ), float( 6e-5 ), fp ).mul( wC );
-	const plate = valueNoise( V.id1.mul( 0.37 ) );
-	let col = mix( CHAR, SCORCH.mul( 0.25 ), smoothstep( 0.75, 1.0, rho ) ).mul( plate.mul( 0.5 ).add( 0.75 ).mul( wC ).add( wC.oneMinus() ) );
-	col = col.mul( float( 1 ).sub( gap.mul( 0.6 ) ) );
-	// Charred fibre ends around the holes, ash crumbs on the edge.
-	const T = fibres( p, float( 6e-4 ), float( 1.2e-5 ), lip, fp, 4.1, 0.8 );
-	col = mix( col, CHAR.mul( 0.6 ), T.fiber );
-	const Ga = grains( p, float( 1.5e-4 ), fp, 6.6, { gap: 0.25, radius: 0.3, round: 0.3, crown: 0.5, tilt: 0.5 } );
-	const ash = Ga.body.mul( step( Ga.id.x, lip.mul( 0.7 ) ) ).mul( fadeIn( float( 1.5e-4 ), fp, 1.5, 4.0 ) );
-	col = mix( col, vec3( 0.42, 0.41, 0.39 ).mul( Ga.id.y.mul( 0.5 ).add( 0.7 ) ), ash );
-	// The hole: the dark behind the fabric.
-	col = mix( col, vec3( 0.008 ), hole );
+	// The char (colour, roughness, relief) only shows where it lies: lay()
+	// weighs all three by charCov, so the block is gated on charCov > 0.
+	// Its plates stay in at every distance: their tone sets the roughness.
+	// The fibre ends and the ash have their own gates inside.
+	const L = gate( charCov.greaterThan( 0 ), { col: { node: vec3( 0 ), size: 3 }, rough: 0, slope: [ 0, 0 ] }, () => {
 
-	const tilt = vec2( valueNoise( V.id1.mul( 0.71 ) ), valueNoise( V.id1.mul( 0.53 ).add( 4.4 ) ) ).sub( 0.5 ).mul( 0.5 ).mul( wC );
-	const radial = mix( E.B.rad, K.B.rad, top );
-	// The lip curls up: the char rises toward the hole edge.
-	const slope = tilt.add( V.dir.mul( smoothstep( 0.1, 0.0, V.edge ) ).mul( 0.4 ).mul( wC ) )
-		.add( radial.mul( lip ).mul( 0.6 ) ).add( T.slope.mul( 0.8 ) ).add( Ga.grad.mul( ash ).mul( 0.5 ) )
-		.mul( charCov ).mul( hole.oneMinus() );
-	const rough = mix( mix( float( 0.35 ).add( plate.mul( 0.25 ) ), float( 0.9 ), gap.max( ash ).max( wC.oneMinus().mul( 0.5 ) ) ), float( 1 ), hole );
-	lay( nodes, ctx, { cov: charCov, color: col, rough, slope, hide: float( 0.45 ).add( hole.mul( 0.55 ) ) } );
-	// Faint brown crust relief in the halo (the fibres shrank).
-	return bend( nodes, ctx, vec2( valueNoise( p.div( 3e-4 ) ), valueNoise( p.div( 3e-4 ).add( 3.1 ) ) ).sub( 0.5 ).mul( 0.25 ).mul( sc ).mul( fadeIn( float( 3e-4 ), fp, 2.0, 6.0 ) ) );
+		// L1 char: brown at the outer edge, black inside, crazed plates.
+		const wC = fadeIn( float( 1e-3 ), fp, 2.0, 6.0 ).toVar();
+		const warp = vec2( valueNoise( p.div( 7e-4 ) ), valueNoise( p.div( 7e-4 ).add( 5.3 ) ) ).sub( 0.5 ).mul( 0.6 );
+		const V = voronoi( mod( p.div( 1e-3 ), 4096 ).add( warp ).add( 2.9 ), 0.9 );
+		const gap = line( V.edge.mul( 1e-3 ), float( 6e-5 ), fp ).mul( wC );
+		const plate = valueNoise( V.id1.mul( 0.37 ) );
+		let col = mix( CHAR, SCORCH.mul( 0.25 ), smoothstep( 0.75, 1.0, rho ) ).mul( plate.mul( 0.5 ).add( 0.75 ).mul( wC ).add( wC.oneMinus() ) );
+		col = col.mul( float( 1 ).sub( gap.mul( 0.6 ) ) );
+		// Charred fibre ends around the holes, ash crumbs on the edge: both
+		// weighted by lip, which is 0 away from a hole.
+		const T = gate( lip.greaterThan( 0 ), { fiber: 0, slope: [ 0, 0 ] }, () => fibres( p, float( 6e-4 ), float( 1.2e-5 ), lip, fp, 4.1, 0.8 ), [ p, fp, lip ] );
+		col = mix( col, CHAR.mul( 0.6 ), T.fiber );
+		const A = gate( fadeOn( float( 1.5e-4 ), fp, 1.5 ).and( lip.greaterThan( 0 ) ), { ash: 0, ashCol: { node: vec3( 0 ), size: 3 }, slope: [ 0, 0 ] }, () => {
+
+			const Ga = grains( p, float( 1.5e-4 ), fp, 6.6, { gap: 0.25, radius: 0.3, round: 0.3, crown: 0.5, tilt: 0.5 } );
+			const ash = Ga.body.mul( step( Ga.id.x, lip.mul( 0.7 ) ) ).mul( fadeIn( float( 1.5e-4 ), fp, 1.5, 4.0 ) );
+			return { ash, ashCol: vec3( 0.42, 0.41, 0.39 ).mul( Ga.id.y.mul( 0.5 ).add( 0.7 ) ), slope: Ga.grad.mul( ash ).mul( 0.5 ) };
+
+		}, [ p, fp, lip ] );
+		const ash = A.ash;
+		col = mix( col, A.ashCol, ash );
+		// The hole: the dark behind the fabric.
+		col = mix( col, vec3( 0.008 ), hole );
+
+		const tilt = vec2( valueNoise( V.id1.mul( 0.71 ) ), valueNoise( V.id1.mul( 0.53 ).add( 4.4 ) ) ).sub( 0.5 ).mul( 0.5 ).mul( wC );
+		// The lip curls up: the char rises toward the hole edge.
+		const slope = tilt.add( V.dir.mul( smoothstep( 0.1, 0.0, V.edge ) ).mul( 0.4 ).mul( wC ) )
+			.add( radial.mul( lip ).mul( 0.6 ) ).add( T.slope.mul( 0.8 ) ).add( A.slope )
+			.mul( charCov ).mul( hole.oneMinus() );
+		const rough = mix( mix( float( 0.35 ).add( plate.mul( 0.25 ) ), float( 0.9 ), gap.max( ash ).max( wC.oneMinus().mul( 0.5 ) ) ), float( 1 ), hole );
+		return { col, rough, slope };
+
+	}, [ p, fp, charCov, hole, lip, rho, radial ] );
+	lay( nodes, ctx, { cov: charCov, color: L.col, rough: L.rough, slope: L.slope, hide: float( 0.45 ).add( hole.mul( 0.55 ) ) } );
+	// Faint brown crust relief in the halo (the fibres shrank), gated on
+	// its fade and on the scorch sc.
+	const cq = p.div( 3e-4 ).toVar(); // lattice coordinates, taken before the gate
+	const Cr = gate( fadeOn( float( 3e-4 ), fp, 2.0 ).and( sc.greaterThan( 0 ) ), { slope: [ 0, 0 ] }, () => ( {
+		slope: vec2( valueNoise( cq ), valueNoise( cq.add( 3.1 ) ) ).sub( 0.5 ).mul( 0.25 ).mul( sc ).mul( fadeIn( float( 3e-4 ), fp, 2.0, 6.0 ) ),
+	} ), [ cq, fp, sc ] );
+	return bend( nodes, ctx, Cr.slope );
 
 }
