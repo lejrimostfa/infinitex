@@ -4,6 +4,7 @@
 // water surface (core/watersurface.js) is seen from above (sky by
 // Fresnel, refraction) and from below (Snell's window).
 //   ?view=above | below | floor | glass | lens   start from a preset camera
+//   ?wall=glass | cleanGlass | acrylic | coatedGlass | ptfe   the pane (meniscus)
 // window.__ix: renderer, scene, camera, ready, view( name ), setTime( s ).
 
 import * as THREE from 'three/webgpu';
@@ -16,7 +17,8 @@ import { setTime } from '../src/core/clock.js';
 import { reliefLight } from '../src/core/relief.js';
 import { waterBody } from '../src/core/underwater.js';
 import { createWaterSurface, daySky } from '../src/core/watersurface.js';
-import { createWaterline, WALL_CONTACT } from '../src/core/waterline.js';
+import { createWaterline } from '../src/core/waterline.js';
+import { WALL_CONTACT } from '../src/core/meniscus.js';
 import { createMirror } from '../src/core/mirror.js';
 import { createStage } from './scene.js';
 import { createStats } from './stats.js';
@@ -122,9 +124,11 @@ function view( name ) {
 
 // Split shots: through the front glass from outside, or with the camera
 // port at the waterline; else a plain render.
-// The pane: ordinary glass, clean water. The meniscus height follows
-// (about 2.9 mm, core/waterline.js meniscusHeight).
-const glassLine = createWaterline( renderer, scene, camera, { glassZ: TD / 2, xMin: - TW / 2, xMax: TW / 2, yMin: 0, yMax: TH, contactDeg: WALL_CONTACT.glass, prepare } );
+// The pane: ordinary glass by default, clean water. The meniscus follows
+// (core/meniscus.js): 2.9 mm up the glass; ?wall=ptfe or coatedGlass for
+// a pane the water does not wet, the edge dips and rolls over (convex).
+const wall = WALL_CONTACT[ params.get( 'wall' ) ] ?? WALL_CONTACT.glass;
+const glassLine = createWaterline( renderer, scene, camera, { glassZ: TD / 2, xMin: - TW / 2, xMax: TW / 2, yMin: 0, yMax: TH, contactDeg: wall, prepare } );
 // The port's film is thinner and flatter than the meniscus on a pane.
 const lensLine = createWaterline( renderer, scene, camera, { lens: true, meniscus: 0.0008, power: 2.5, prepare } );
 addEventListener( 'resize', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );
