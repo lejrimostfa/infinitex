@@ -11,12 +11,15 @@
 //               pits where polishing plucked a grain, polishing scratches
 // Light enters the calcite and comes out a few mm away: the SSS material
 // (scatter) softens the whole look. color = base, color2 = cloud.
+//
+// The grains and the micro levels sit in gate()s (core/lod.js) and run only
+// where they show; the noise octaves too (fbmGated).
 
 import { vec2, float, floor, mix, smoothstep, step, clamp, mod } from 'three/tsl';
-import { fadeIn, surfaceGradient } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
-import { dir2, band, lines, scratches, fbm } from './common.js';
+import { dir2, band, lines, scratches, fbmGated as fbm } from './common.js';
 import { crystals } from './crystals.js';
 
 // A warped Voronoi net: line coverage and a halo, widths in meters.
@@ -63,23 +66,46 @@ export function buildMarble( p, fp, u ) {
 	const vTone = mix( big.tone, mid.tone, step( big.line, mid.line ) ).mul( 0.6 ).add( fbm( p, float( 0.02 ), fp, 3, 9 ).mul( 0.6 ) ).add( 0.35 );
 	const halo = big.halo.mul( 0.7 ).max( mid.halo.mul( 0.3 ) ).mul( u.veins );
 
-	// Calcite grains.
-	const G = crystals( mod( p.div( g ), 4096 ).add( s.mul( 9.1 ) ), { elong: 0.5, size: 0.35 } );
-	const hg = hash3( G.id1.add( 3.7 ) ).toVar();
-	const wG = fadeIn( g, fp, 2.0, 6.0 );
-	const seamG = band( G.gap.mul( g ).mul( 0.5 ), 4e-6, fp ).mul( wG );
-	const gTone = hg.x.sub( 0.5 ).mul( 0.12 ).mul( wG ).add( 1 );
+	// Calcite grains, with the twins and cleavage inside them: skipped past
+	// the fade of the grains and of the cleavage (90 um, from 3 px), which
+	// outlives the grains when they are under 60 um.
+	const gq = mod( p.div( g ), 4096 ).add( s.mul( 9.1 ) ).toVar();
+	const wG = fadeIn( g, fp, 2.0, 6.0 ).toVar();
+	const GR = gate( fadeOn( g, fp, 2.0 ).or( fadeOn( 9e-5, fp, 3.0 ) ), { seamG: 0, gTone: 1, twin: 0, clv: 0, sTilt: [ 0, 0 ], rTilt: 0 }, () => {
+
+		const G = crystals( gq, { elong: 0.5, size: 0.35 } );
+		const hg = hash3( G.id1.add( 3.7 ) );
+		// Inside each grain: twins and cleavage at the grain's own angle.
+		const ga = dir2( hg.y.mul( 3.1416 ) ), gb = dir2( hg.y.mul( 3.1416 ).add( 1.31 ) );
+		return {
+			seamG: band( G.gap.mul( g ).mul( 0.5 ), 4e-6, fp ).mul( wG ),
+			gTone: hg.x.sub( 0.5 ).mul( 0.12 ).mul( wG ).add( 1 ),
+			twin: lines( p.dot( ga ), hg.z.mul( 1.5e-5 ).add( 1.5e-5 ), 1.2e-6, fp ).mul( step( 0.4, hg.z ) ),
+			clv: lines( p.dot( gb ), float( 9e-5 ), 1e-6, fp ).mul( smoothstep( 0.55, 0.7, valueNoise( mod( p.div( 1.5e-4 ), 4096 ).add( hg.xy.mul( 30 ) ) ) ) ),
+			// Sugary sparkle: each calcite grain reflects at its own small tilt.
+			sTilt: hg.xy.sub( 0.5 ).mul( 0.09 ).mul( wG ),
+			rTilt: hg.z.mul( 0.04 ).mul( wG ),
+		};
+
+	}, [ p, fp, gq, wG ] );
+	const seamG = GR.seamG.toVar(), gTone = GR.gTone, twin = GR.twin, clv = GR.clv;
 	// Vein matter: finer dark grains, 40 um.
 	const vg = hash1( floor( mod( p.div( 4e-5 ), 4096 ) ) ).sub( 0.5 ).mul( fadeIn( float( 4e-5 ), fp, 2.0, 5.0 ) );
 
-	// Inside each grain: twins and cleavage at the grain's own angle.
-	const ga = dir2( hg.y.mul( 3.1416 ) ), gb = dir2( hg.y.mul( 3.1416 ).add( 1.31 ) );
-	const twin = lines( p.dot( ga ), hg.z.mul( 1.5e-5 ).add( 1.5e-5 ), 1.2e-6, fp ).mul( step( 0.4, hg.z ) );
-	const clv = lines( p.dot( gb ), float( 9e-5 ), 1e-6, fp ).mul( smoothstep( 0.55, 0.7, valueNoise( mod( p.div( 1.5e-4 ), 4096 ).add( hg.xy.mul( 30 ) ) ) ) );
-	// Plucked grains: rare pits a few tens of um wide.
-	const P = voronoi( mod( p.div( 2.5e-4 ), 4096 ).add( 5.5 ), 0.8 );
-	const pitR = hash1( P.id1 ).mul( 1.5e-5 ).add( 5e-6 );
-	const pit = band( P.toSeed.length().mul( 2.5e-4 ), pitR, fp ).mul( step( 0.93, hash1( P.id1.add( 2.2 ) ) ) ).mul( fadeIn( pitR, fp, 1.5, 4.0 ) ).mul( u.pores.mul( 2 ).min( 1 ) );
+	// Plucked grains: rare pits a few tens of um wide, and polishing
+	// scratches. Skipped past the fade of the widest pit (20 um, from 1.5 px).
+	const pq = mod( p.div( 2.5e-4 ), 4096 ).add( 5.5 ).toVar();
+	const PS = gate( fadeOn( 2e-5, fp, 1.5 ), { pit: 0, scr: 0 }, () => {
+
+		const P = voronoi( pq, 0.8 );
+		const pitR = hash1( P.id1 ).mul( 1.5e-5 ).add( 5e-6 );
+		return {
+			pit: band( P.toSeed.length().mul( 2.5e-4 ), pitR, fp ).mul( step( 0.93, hash1( P.id1.add( 2.2 ) ) ) ).mul( fadeIn( pitR, fp, 1.5, 4.0 ) ).mul( u.pores.mul( 2 ).min( 1 ) ),
+			scr: scratches( p, fp, float( 1.5e-4 ), 7e-7, u.polish.mul( 0.4 ), 3 ).add( scratches( p, fp, float( 5e-4 ), 1e-6, u.polish.mul( 0.25 ), 4 ) ).min( 1 ),
+		};
+
+	}, [ p, fp, pq ] );
+	const pit = PS.pit.toVar(), scr = PS.scr.toVar();
 
 	// Colour.
 	const base = u.color.mul( fbm( p, float( 0.01 ), fp, 3, 6 ).sub( 0.5 ).mul( u.colorVar ).add( 1 ) );
@@ -89,15 +115,14 @@ export function buildMarble( p, fp, u ) {
 	color = color.mul( gTone ).mul( float( 1 ).sub( seamG.mul( 0.16 ) ) ).mul( float( 1 ).sub( twin.mul( 0.08 ) ) ).mul( float( 1 ).sub( clv.mul( 0.2 ) ) );
 	color = color.mul( float( 1 ).sub( pit.mul( 0.5 ) ) );
 
-	const scr = scratches( p, fp, float( 1.5e-4 ), 7e-7, u.polish.mul( 0.4 ), 3 ).add( scratches( p, fp, float( 5e-4 ), 1e-6, u.polish.mul( 0.25 ), 4 ) ).min( 1 );
 	color = color.mul( float( 1 ).add( scr.mul( 0.08 ) ) );
 
 	// Relief: polished nearly flat; grains a hair proud of the seams,
 	// veins (softer matter) a hair low; honed (polish 0) is a fine matte.
 	const height = seamG.mul( - 4e-7 ).sub( vein.mul( 1.5e-6 ) ).sub( pit.mul( 4e-6 ) );
 	// Sugary sparkle: each calcite grain reflects at its own small tilt.
-	const slope = surfaceGradient( height, p ).add( hg.xy.sub( 0.5 ).mul( 0.09 ).mul( wG ) );
-	const rough = mix( float( 0.42 ), float( 0.06 ), u.polish ).add( hg.z.mul( 0.04 ).mul( wG ) ).add( scr.mul( 0.15 ) ).add( pit.mul( 0.4 ) ).mul( u.roughness.div( 0.7 ) ).clamp( 0.03, 1 );
+	const slope = surfaceGradient( height, p ).add( GR.sTilt );
+	const rough = mix( float( 0.42 ), float( 0.06 ), u.polish ).add( GR.rTilt ).add( scr.mul( 0.15 ) ).add( pit.mul( 0.4 ) ).mul( u.roughness.div( 0.7 ) ).clamp( 0.03, 1 );
 	const cavity = pit.max( seamG.mul( 0.3 ) ).max( vein.mul( 0.2 ) );
 	return { color: clamp( color, 0, 1 ), slope, cavity, rough, s2: u.polish.oneMinus().mul( 0.02 ) };
 
