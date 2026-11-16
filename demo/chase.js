@@ -58,6 +58,19 @@ export function createChase( { camera, controls, dom, radius, ahead, o, isActive
 			eye.copy( pos ).addScaledVector( dir, d );
 			glide = Math.max( 0, glide - dt );
 			camera.position.lerp( eye, 1 - Math.exp( - dt / ( glide > 0 ? 0.3 : 0.06 ) ) );
+			// The smoothed position cuts across the turn: near a surface (a
+			// coat) that chord goes through it. Keep the camera on the
+			// vehicle's side of the first surface between them.
+			eye.subVectors( camera.position, pos );
+			const len = eye.length();
+			if ( len > 1e-9 ) {
+
+				eye.divideScalar( len );
+				const hc = ahead( pos, eye, len );
+				if ( hc < len ) camera.position.copy( pos ).addScaledVector( eye, hc * 0.85 );
+
+			}
+
 			camera.lookAt( pos );
 			controls.target.copy( pos );
 
