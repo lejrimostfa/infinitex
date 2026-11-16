@@ -57,7 +57,7 @@ The demos focus like a camera: the depth of field follows the object near the sc
 
 In every demo page: arrows or ZQSD (WASD on QWERTY) to walk along the view direction, Space and C to rise and sink, Shift to go faster, a click on an object to glide to it. The camera slows down near a surface and stops 0.1 mm from it, so it never goes through. All of it is the camera kit below (`src/camera/`).
 
-On the Knit page a tiger mosquito 6 mm long hovers in front of the sweater. Press V (or the panel button) to fly it: W and S forward and back, A and D to turn, Space and C up and down, Shift faster, drag to look around, scroll for the camera distance. With no key held it hovers in place; at speed it banks like a plane. Its speed follows the room ahead, so it crosses the room fast and crawls along a stitch. Its eyes are the Infinitex insect eye. A bee, a toy helicopter and a toy submarine will follow on the other pages (`demo/flyer.js`).
+Two pages have a tiny vehicle to fly: a tiger mosquito 6 mm long on Knit, and a toy helicopter on All matters, landed on a cube. Press V (or the panel button) to board it. Z and S (W and S on QWERTY) raise or lower the nose, Q and D (A and D) turn, Space flies forward where the nose points, C backs up, Shift goes faster. Drag to look around, scroll for the camera distance. With no key held it hovers in place. Its speed follows the room ahead, so it crawls along a stitch. The mosquito's eyes are the Infinitex insect eye, the helicopter wears two of the wall's plastics. A bee and a toy submarine will follow (`demo/flyer.js`).
 | `index.html` | A knitted mannequin with sliders, live stats and a "level view" that colours each level of detail. |
 
 ## Use it in your scene

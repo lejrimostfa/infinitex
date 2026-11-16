@@ -42,7 +42,7 @@ if ( ! params.has( 'film' ) && ! params.has( 'nofly' ) ) {
 	scene.add( mosquito.group );
 	ctx.gate.hide.push( mosquito.group );
 	vehicle = createFlyer( { vehicle: mosquito, camera, controls: ctx.controls, dom: ctx.renderer.domElement,
-		home: new ctx.THREE.Vector3( - 0.1, 1.36, 0.3 ), options: { name: 'mosquito' } } );
+		home: new ctx.THREE.Vector3( - 0.1, 1.36, 0.3 ), options: { name: 'mosquito', maxSpeed: 0.15, near: 1.2, turnRate: 1.8 } } ); // slow: it is 6 mm long
 	vehicle.yaw = Math.PI; // facing the chest: boarding shows the sweater ahead
 	addFlyHud( vehicle, { label: 'the mosquito' } );
 

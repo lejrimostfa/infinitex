@@ -5,6 +5,8 @@
 //   ?family=N  one family only (row N): the others stay grey and the
 //           flyover tours that row (one film per family, tests/film.mjs)
 //   ?webgl  WebGL2 backend, ?nofuzz, ?nohair (3D strands), ?noao
+//   ?nofly  no toy helicopter. Without it, a toy helicopter sits on a cube
+//           of the first row; V or the panel button flies it (flyer.js)
 // window.__ix.bench() measures each lit matter full screen at three
 // distances (tests/bench.mjs).
 
@@ -19,6 +21,9 @@ import { HAIR_LAYER } from '../src/core/hair3d.js';
 import { createStage } from './scene.js';
 import { createFlyover } from './flyover.js';
 import { startApp } from './app.js';
+import { createHelicopter } from './vehicles/helicopter.js';
+import { createFlyer } from './flyer.js';
+import { addFlyHud } from './flyhud.js';
 import { CUBES } from './cubelist.js';
 import { cubeEn, rowEn } from './cubelist_en.js';
 
@@ -270,11 +275,31 @@ const film = createFlyover( {
 
 controls.target.set( center.x, 0.15, 0 );
 camera.position.set( center.x, 2.2, 4 );
+
+// The toy helicopter, landed on the first-row cube nearest the middle. Not
+// in the films (?fly, ?film, one family): their shots stay as they were.
+let vehicle = null, heli = null;
+if ( ! params.has( 'fly' ) && ! params.has( 'film' ) && ! famSel && ! params.has( 'nofly' ) ) {
+
+	heli = createHelicopter();
+	scene.add( heli.group );
+	const below = scene.children.filter( ( o ) => o.isMesh && o.geometry === geo && Math.abs( o.position.z ) < 1e-6 )
+		.sort( ( a, b ) => Math.abs( a.position.x - center.x ) - Math.abs( b.position.x - center.x ) )[ 0 ];
+	const home = new THREE.Vector3( below.position.x, SIZE + heli.skid, below.position.z );
+	vehicle = createFlyer( { vehicle: heli, camera, controls, dom: ctx.renderer.domElement, home, options: {
+		name: 'helicopter', idle: 'landed', plane: false, tilt: 0.3, bank: 0.45, turnRate: 1.8,
+		maxSpeed: 1.5, minSpeed: 0.02, response: 2, chase: 0.32, chaseMin: 0.06, chaseMax: 3, chaseLift: 0.35,
+	} } );
+	vehicle.yaw = Math.PI; // facing the rows: boarding shows the wall ahead
+	addFlyHud( vehicle, { label: 'the helicopter' } );
+
+}
 const app = startApp( {
 	ctx, ix: lit[ 0 ].ix, meshes: lit.map( ( c ) => c.mesh ), fuzz, film, params,
 	panel: lit.map( ( c ) => ( { name: c.name, ix: c.ix } ) ),
 	animate: () => {},
 	statsLevels: false, // the knit levels belong to the first cube only
+	vehicle,
 } );
 
 // Warm-up (demo/warmup.js). The lit cubes start grey and their matters
@@ -284,6 +309,7 @@ const app = startApp( {
 if ( ! params.has( 'film' ) ) {
 
 	const queue = lit.map( ( c ) => c.mesh ).sort( ( a, b ) => a.position.distanceToSquared( camera.position ) - b.position.distanceToSquared( camera.position ) );
+	if ( heli ) queue.unshift( ...heli.ixMeshes ); // its two plastics compile first, with the wall
 	app.ready = false;
 	app.adaptive.hold = true;
 	// Pixel ratio 1 while it loads: each frame of the wall at ratio 2 took
