@@ -1,4 +1,5 @@
 // Links between the public demos, a loading note, and a warning on phones.
+// The note is a small pill at the top: the scene stays visible while it loads.
 // Imported first by main.js, cubes.js and aquarium.js. Hidden in film mode.
 // The loading note goes away when the page sets window.__ix.ready.
 //
@@ -18,10 +19,10 @@ const css = `
 #ix-nav a { color: #e8e6e3; text-decoration: none; padding: 5px 10px; border-radius: 6px; white-space: nowrap; }
 #ix-nav a:hover { background: #2a2c31; }
 #ix-nav a.on { background: #d9a441; color: #101114; font-weight: 600; }
-#ix-note { position: fixed; left: 50%; top: 45%; transform: translate(-50%,-50%); max-width: 360px; text-align: center;
-	color: #e8e6e3; font: 14px/1.5 system-ui, sans-serif; background: rgba(16,17,20,.9); border: 1px solid #2a2c31;
-	border-radius: 10px; padding: 14px 18px; z-index: 11; }
-#ix-note small { color: #9a9ca3; }
+#ix-note { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); max-width: min(520px, calc(100vw - 32px)); text-align: center;
+	color: #e8e6e3; font: 12px/1.4 system-ui, sans-serif; background: rgba(16,17,20,.72); border: 1px solid #2a2c31;
+	border-radius: 8px; padding: 5px 12px; z-index: 11; pointer-events: none; }
+#ix-note small { color: #9a9ca3; font-size: 11px; }
 body.film #ix-nav, body.film #ix-note { display: none; }
 @media (max-width: 720px) { #panel, #stats { display: none; } }
 `;
@@ -43,7 +44,7 @@ note.id = 'ix-note';
 note.innerHTML = '<span class="progress">Compiling the materials on your GPU…</span><br><small>'
 	+ ( phone ? 'Phones are not fast enough yet: expect a slow frame rate. A desktop browser with WebGPU works best.'
 		: here === 'cubes.html' && ! location.search.includes( 'family' )
-			? 'The cubes appear as their materials compile: up to a minute or two on the first visit. Then scroll to zoom, drag to orbit.'
+			? 'The cubes light up as they compile. Scroll to zoom, drag to orbit.'
 			: 'The first visit takes a few seconds. Scroll to zoom, drag to orbit.' ) + '</small>';
 document.body.appendChild( note );
 
