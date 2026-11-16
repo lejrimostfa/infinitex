@@ -1,7 +1,7 @@
 // A tiny vehicle the visitor can fly, shared by the demos: the mosquito of
 // the Knit page, the toy helicopter of All matters, more to come.
 // One controller, tuned per vehicle (FLYER_DEFAULTS):
-//   keys      Z / S on AZERTY (W / S on QWERTY, read by physical key) or
+//   keys      (flyinput.js, with touch from flytouch.js) Z / S on AZERTY (W / S on QWERTY, read by physical key) or
 //             up / down arrows: the nose up or down. Q / D (A / D) or left /
 //             right: turn. Space forward, C back, Shift faster. V boards or
 //             leaves. The nose keeps its angle when the key is released.
@@ -30,12 +30,7 @@
 
 import * as THREE from 'three/webgpu';
 import { createChase } from './chase.js';
-
-const KEYS = {
-	noseUp: [ 'KeyW', 'ArrowUp' ], noseDown: [ 'KeyS', 'ArrowDown' ], left: [ 'KeyA', 'ArrowLeft' ], right: [ 'KeyD', 'ArrowRight' ],
-	fwd: [ 'Space' ], back: [ 'KeyC' ], fast: [ 'ShiftLeft', 'ShiftRight' ],
-};
-const FLIGHT_KEYS = new Set( Object.values( KEYS ).flat() );
+import { createFlyInput } from './flyinput.js';
 
 export const FLYER_DEFAULTS = Object.freeze( {
 	name: 'vehicle', key: 'KeyV', idle: 'hover',
@@ -59,29 +54,15 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 	const ahead = ( from, d, far ) => bus.collider ? bus.collider( from, d, far, group ) : Infinity;
 	const chase = createChase( { camera, controls, dom, radius: vehicle.radius, ahead, o, isActive: () => active } );
 
-	// Keys: a held set, read by physical key.
-	const down = new Set();
-	const held = ( k ) => KEYS[ k ].some( ( c ) => down.has( c ) );
-	const typing = ( e ) => /INPUT|SELECT|TEXTAREA/.test( e.target?.tagName ?? '' );
-	const onKeyDown = ( e ) => {
-
-		if ( typing( e ) || e.ctrlKey || e.metaKey ) return;
-		if ( e.code === o.key && ! e.repeat ) { active ? leave() : board(); return; }
-		if ( active && FLIGHT_KEYS.has( e.code ) ) e.preventDefault();
-		down.add( e.code );
-
-	};
-	const onKeyUp = ( e ) => down.delete( e.code );
-	const onBlur = () => down.clear();
-	addEventListener( 'keydown', onKeyDown );
-	addEventListener( 'keyup', onKeyUp );
-	addEventListener( 'blur', onBlur );
+	// Keys and touch (flyinput.js); input.touch is written by flytouch.js.
+	const input = createFlyInput( { key: o.key, toggle: () => active ? leave() : board(), isActive: () => active } );
+	bus.input = input;
 
 	function board() {
 
 		if ( active ) return;
 		active = true;
-		down.clear();
+		input.clear();
 		chase.reset();
 		controls.enabled = false;
 		emit( 'vehicleBoarded' );
@@ -105,10 +86,8 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 	// One frame of flight. Returns how fast it goes, 0 to 1.
 	function fly( dt ) {
 
-		const throttle = ( held( 'fwd' ) ? 1 : 0 ) - ( held( 'back' ) ? 0.4 : 0 );
-		const turn = ( held( 'left' ) ? 1 : 0 ) - ( held( 'right' ) ? 1 : 0 );
-		const nose = ( held( 'noseUp' ) ? 1 : 0 ) - ( held( 'noseDown' ) ? 1 : 0 );
-		const boost = held( 'fast' ) ? o.boost : 1;
+		const { throttle, turn, nose, fast } = input.read();
+		const boost = fast ? o.boost : 1;
 		yaw += turn * o.turnRate * dt;
 		aim = THREE.MathUtils.clamp( aim + nose * o.pitchRate * dt, - o.maxPitch, o.maxPitch );
 		fwd.set( Math.sin( yaw ) * Math.cos( aim ), Math.sin( aim ), Math.cos( yaw ) * Math.cos( aim ) ); // where the nose points
@@ -185,9 +164,7 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 	bus.leave = leave;
 	bus.dispose = () => {
 
-		removeEventListener( 'keydown', onKeyDown );
-		removeEventListener( 'keyup', onKeyUp );
-		removeEventListener( 'blur', onBlur );
+		input.dispose();
 		chase.dispose();
 
 	};
