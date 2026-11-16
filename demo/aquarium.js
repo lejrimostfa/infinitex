@@ -31,6 +31,8 @@ import { createAdaptiveResolution } from './adaptive.js';
 import { createWalk } from './walk.js';
 import { createFocus, dofWanted } from './dof.js';
 import { createLinePost } from './linepost.js';
+import { createShafts } from '../src/core/shafts.js';
+import { createBubbles } from '../src/core/bubbles.js';
 
 const TW = 1.2, TD = 0.8, TH = 0.5, LEVEL = 0.35; // tank (m)
 const params = new URLSearchParams( location.search );
@@ -218,7 +220,12 @@ const walk = createWalk( { camera, controls, scene, maxSpeed: 0.6 } );
 // are mixed, or after a plain render beside the tank.
 const focus = createFocus( { camera, controls, scene, renderer, enabled: dofWanted( params, params.has( 'film' ) ) } );
 focus.cast = walk.surfaceAhead;
-const fx = params.has( 'nofx' ) ? null : { line: createLinePost( renderer, camera, glassLine, { focus } ) };
+// Strings of bubbles from three points of the floor (src/core/bubbles.js);
+// ?nobubbles. In the scene, not in the tank group: the mirrors skip them.
+if ( ! params.has( 'nobubbles' ) ) scene.add( createBubbles( { box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] }, count: 150, sources: [ [ - 0.36, 0.14 ], [ 0.02, - 0.22 ], [ 0.42, 0.2 ] ] } ) );
+// Light shafts in the tank's water (src/core/shafts.js); ?noshafts.
+const shafts = params.has( 'noshafts' ) ? null : createShafts( renderer, camera, { box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] } } );
+const fx = params.has( 'nofx' ) ? null : { line: createLinePost( renderer, camera, glassLine, { focus, shafts } ) };
 let clock = 0, last = performance.now();
 renderer.setAnimationLoop( () => {
 
@@ -230,6 +237,8 @@ renderer.setAnimationLoop( () => {
 	walk.update( dt );
 	controls.update();
 	focus.update( dt );
+	// Under water the haze tells the distance, not the lens: half the blur.
+	if ( camera.position.y < LEVEL && Math.abs( camera.position.x ) < TW / 2 && Math.abs( camera.position.z ) < TD / 2 ) focus.bokeh.value *= 0.5;
 	stats.beginFrame();
 	draw();
 	stats.endFrame( camera.position.distanceTo( controls.target ) );

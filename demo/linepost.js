@@ -6,6 +6,7 @@
 //   AO      GTAO from that depth (normals rebuilt from it), over the
 //           colour: contacts of the cubes on the sand, the corners of the
 //           tank
+//   shafts  the sun's light shafts in the water (src/core/shafts.js)
 //   blur    depth of field (demo/dof.js), the same focus as the other pages
 // One pipeline serves both waterlines: draw( line ) points it at that
 // line's target. drawTarget( rt ) takes a plain render of the scene: the
@@ -21,14 +22,18 @@ import { texture, screenUV, uniform, vec4, mix, reference, perspectiveDepthToVie
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { withDof } from './dof.js';
 
-export function createLinePost( renderer, camera, first, { focus = null } = {} ) {
+// shafts: a createShafts() (src/core/shafts.js); its light is added before
+// the blur.
+export function createLinePost( renderer, camera, first, { focus = null, shafts = null } = {} ) {
 
 	const pipeline = new THREE.RenderPipeline( renderer );
 	const colour = texture( first.rtC.texture ), depth = texture( first.rtC.depthTexture );
 	const aoPass = ao( depth, null, camera );
 	aoPass.resolutionScale = 0.5;
 	const strength = uniform( 0.8 );
-	const shaded = vec4( colour.sample( screenUV ).rgb.mul( mix( 1, aoPass.getTextureNode().sample( screenUV ).r, strength ) ), 1 );
+	let lit = colour.sample( screenUV ).rgb.mul( mix( 1, aoPass.getTextureNode().sample( screenUV ).r, strength ) );
+	if ( shafts ) lit = lit.add( shafts.sample( screenUV ) );
+	const shaded = vec4( lit, 1 );
 	const viewZ = perspectiveDepthToViewZ( depth.sample( screenUV ).r, reference( 'near', 'float', camera ), reference( 'far', 'float', camera ) );
 	const blurred = focus ? withDof( shaded, viewZ, focus ) : null;
 	pipeline.outputNode = focus?.enabled ? blurred : shaded;
@@ -45,6 +50,7 @@ export function createLinePost( renderer, camera, first, { focus = null } = {} )
 			depth.value = rt.depthTexture;
 			aoPass.radius.value = THREE.MathUtils.clamp( dist * 0.12, 1e-5, 0.25 );
 			aoPass.thickness.value = aoPass.radius.value * 2;
+			shafts?.render( rt.depthTexture );
 			pipeline.render();
 
 		},
