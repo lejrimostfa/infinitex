@@ -8,9 +8,12 @@
 //   L2 polish    micro bubbles (cell_um), polishing scratches
 // Petrified wood and coal: mineral.js.
 // Returns { color, slope, cavity, rough, s2, coat, transmission... }.
+//
+// The plant hairs, the specks and the scratch relief sit in gate()s
+// (core/lod.js) and run only where they show.
 
 import { vec2, vec3, float, mix, smoothstep, step } from 'three/tsl';
-import { fadeIn } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate } from '../../core/lod.js';
 import { scratchMarks } from '../../core/marks.js';
 import { bubbleField, capSlope } from '../ceramic/bubbles.js';
 import { fbm, fibres, grains, warp2 } from './common.js';
@@ -26,9 +29,17 @@ export function buildAmber( p, fp, u ) {
 	const spangle = Sg.inside.mul( smoothstep( 0.2, 1.0, Sg.d ) ).mul( 0.6 ).add( Sg.rim.mul( 0.3 ) ).min( 1 );
 	color = mix( color, vec3( 1.0, 0.75, 0.35 ), spangle.mul( 0.6 ) );
 	// L1: debris and bubbles.
-	const H = fibres( p, u.featureM.mul( 4 ), u.fiberM, u.dust, fp, 9.1, 0.8 );
-	const G = grains( p, u.featureM, fp, 4.7, { gap: 0.35, radius: 0.22, round: 0.4 } );
-	const speck = G.body.mul( step( 1 - 0.1, G.id.x ) ).mul( u.dust.mul( 2 ).min( 1 ) ).mul( fadeIn( u.featureM, fp, 1.0, 3.0 ) );
+	// Hairs fade out under 0.7 px of twice their width (fibres(): wide),
+	// specks under 1 px per grain.
+	const H = gate( fadeOn( u.fiberM.mul( 2 ), fp, 0.7 ), { fiber: 0 }, () => ( {
+		fiber: fibres( p, u.featureM.mul( 4 ), u.fiberM, u.dust, fp, 9.1, 0.8 ).fiber,
+	} ), [ p, fp ] );
+	const { speck } = gate( fadeOn( u.featureM, fp, 1.0 ), { speck: 0 }, () => {
+
+		const G = grains( p, u.featureM, fp, 4.7, { gap: 0.35, radius: 0.22, round: 0.4 } );
+		return { speck: G.body.mul( step( 1 - 0.1, G.id.x ) ).mul( u.dust.mul( 2 ).min( 1 ) ).mul( fadeIn( u.featureM, fp, 1.0, 3.0 ) ) };
+
+	}, [ p, fp ] );
 	const debris = H.fiber.max( speck );
 	color = mix( color, u.color3, debris.mul( 0.9 ) );
 	let slope = vec2( 0 );
@@ -39,7 +50,12 @@ export function buildAmber( p, fp, u ) {
 
 	}
 
-	const S = scratchMarks( p, fp, float( 0.003 ), float( 2e-6 ), 2.2, { density: 0.4 } );
+	// Scratches: only their slope is read, and scratchMarks() fades it in
+	// from r / fp = 1, with r under 1.2 widthM: skipped while 1.25 widthM
+	// is under a pixel.
+	const S = gate( fadeOn( float( 2e-6 * 1.25 ), fp, 1.0 ), { slope: [ 0, 0 ] }, () => ( {
+		slope: scratchMarks( p, fp, float( 0.003 ), float( 2e-6 ), 2.2, { density: 0.4 } ).slope,
+	} ), [ p, fp ] );
 	slope = slope.add( S.slope.mul( 0.3 ) ).add( capSlope( Sg.v, Sg.d ).mul( 0.03 ).mul( Sg.inside ) );
 	const transmission = float( 1 ).sub( debris ).mul( float( 1 ).sub( spangle.mul( 0.4 ) ) ).mul( u.translucency );
 	return { color, slope: slope.mul( u.relief ), cavity: float( 0 ), rough: u.roughness, s2: float( 0.001 ), coat: float( 1 ), coatRough: float( 0.03 ),
