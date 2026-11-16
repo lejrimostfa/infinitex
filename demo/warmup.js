@@ -31,7 +31,9 @@ const _size = new Vector2();
 //            shares the scene pass's lights node, and it sees no light (hair
 //            layer only): the items that ran after it compiled without sun,
 //            and three caches the environment key per draw count
-// Here each work item queued for the pass's target runs with both.
+//   copy     matters that read the screen copy it in their work item
+// Here each work item queued for the pass's target runs with the context
+// and the lights, and without the copy.
 function keepPassState( renderer, pass, lights ) {
 
 	if ( ! pass || renderer._ixPassState ) return;
@@ -70,6 +72,21 @@ function keepPassState( renderer, pass, lights ) {
 		}
 
 		finish.call( this );
+
+	};
+
+	// Matters that read the screen (glass, amber, a soap bubble: their
+	// transmission samples a copy of the frame drawn so far). The work item
+	// runs the copy, which reads the context of the canvas into a texture
+	// of the pass's format and fails, so they used to compile on their first
+	// real draw (1 to 3 s, once). A compile draws nothing, so the copy is
+	// skipped: only the copy texture is created, with the pass's format, as
+	// the real draw will use it.
+	const copy = renderer.copyFramebufferToTexture;
+	renderer.copyFramebufferToTexture = function ( texture, rectangle = null ) {
+
+		if ( this._precompilationState === null || this._renderTarget !== pass.renderTarget ) return copy.call( this, texture, rectangle );
+		this._textures.updateTexture( texture, { renderTarget: pass.renderTarget } );
 
 	};
 
@@ -175,10 +192,6 @@ export function streamMaterials( { renderer, scene, camera, pass, meshes, placeh
 	const root = new Object3D();
 	root.matrixWorldAutoUpdate = false; // keep the meshes' own world matrices
 	const total = meshes.length;
-	// Transmission (glass, amber, a soap bubble) copies the screen before
-	// it draws: compileAsync ran that copy from the canvas into the pass
-	// target (format mismatch). Those few compile on their first draw.
-	const screenReading = ( m ) => real.get( m ).transmission > 0 || !! real.get( m ).transmissionNode;
 	const frame = () => new Promise( ( r ) => requestAnimationFrame( r ) );
 	bus.finished = ( async () => {
 
@@ -192,7 +205,7 @@ export function streamMaterials( { renderer, scene, camera, pass, meshes, placeh
 			const batch = meshes.slice( i, i + batchSize );
 			try {
 
-				await compileBatch( batch.filter( ( m ) => ! screenReading( m ) ) );
+				await compileBatch( batch ); // screen-reading matters too (keepPassState skips their copy)
 
 			} catch ( e ) {
 
