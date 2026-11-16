@@ -42,6 +42,7 @@ import { createAnemones } from './sealife/anemone.js';
 import { createCorals } from './sealife/coral.js';
 import { createBrainCorals } from './sealife/brain.js';
 import { createStarfish } from './sealife/starfish.js';
+import { sandFloor } from './sealife/seafloor.js';
 
 const TW = 1.2, TD = 0.8, TH = 0.5, LEVEL = 0.35; // tank (m)
 const params = new URLSearchParams( location.search );
@@ -257,9 +258,9 @@ cube( 0.14, 0.48, { family: 'wood', intent: 'driftwood', ring_mm: 5, figure: 1, 
 
 // The water: one plane at the level, inside the walls, and its two
 // mirrors (what is above, seen from above; the pool, seen from below).
-const hide = [];
+const hide = [], hideUp = []; // hideUp: also what lives wholly under the level, which the mirror of the air side clips anyway (one pass less for the fauna)
 const mirrors = {
-	up: createMirror( { group: tank, level: LEVEL, side: 1, hide } ),
+	up: createMirror( { group: tank, level: LEVEL, side: 1, hide: hideUp } ),
 	down: createMirror( { group: tank, level: LEVEL, side: - 1, hide } ),
 };
 const prepare = ( cam ) => { mirrors.up.render( renderer, cam ); mirrors.down.render( renderer, cam ); };
@@ -269,6 +270,7 @@ water.position.y = LEVEL;
 water.renderOrder = 10; // after the opaque scene: it reads the screen
 tank.add( water );
 hide.push( water );
+hideUp.push( water );
 water.userData.noFocus = true; // a click and the walk go through to what is under it (src/camera)
 
 const VIEWS = {
@@ -400,6 +402,7 @@ if ( ! params.has( 'nolife' ) && ! params.has( 'noflora' ) ) {
 	] } );
 	tank.add( corals.group, brains.group, stars.group );
 	flora.push( grass, kelp, anemones, corals, brains, stars );
+	hideUp.push( grass.mesh, kelp.group, anemones.group, corals.group, brains.group, stars.group );
 	// Sharp sun shadows: the stage has a shadow map, but nothing in the tank
 	// received it. The map now covers the tank only (2048 texels over 1.5 m:
 	// 0.7 mm each, a quarter of the stage's 4096 map to fill), the
@@ -424,19 +427,30 @@ if ( ! params.has( 'nolife' ) && ! params.has( 'noflora' ) ) {
 // ?nobubbles. In the scene, not in the tank group: the mirrors skip them.
 if ( ! params.has( 'nobubbles' ) ) scene.add( createBubbles( { box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] }, count: 150, sources: [ [ - 0.36, 0.14 ], [ 0.02, - 0.22 ], [ 0.42, 0.2 ] ] } ) );
 // Life, built by code (demo/sealife): a school of fish that circles above
-// the low cubes, four jellyfish in the free corners, a crab that walks
-// along the front of the floor. ?nolife. The fish and the crab are in the
-// tank group, so the water's mirrors show them.
+// the low cubes, small silver fish milling around the driftwood post just
+// under the surface, one red fish on a slow loop by the front glass (under
+// the school, in front of the bronze cube), four jellyfish in the free
+// corners, a crab that walks along the front of the floor. ?nolife. The
+// fish and the crab are in the tank group, so the water's mirrors show them.
 const life = [];
 if ( ! params.has( 'nolife' ) ) {
 
-	const school = createSchool( { count: 16, length: 0.045, loop: { centre: [ - 0.14, 0.24, 0.07 ], radii: [ 0.34, 0.035, 0.2 ] } } );
-	tank.add( school.mesh );
+	const school = createSchool( { count: 16, length: 0.045, loop: { centre: [ - 0.12, 0.25, 0.1 ], radii: [ 0.32, 0.025, 0.17 ] }, lanes: [ 0.045, 0.018 ] } );
+	const silver = createSchool( { count: 64, length: 0.022, shape: 'silver', seed: 7, period: 15, arc: 0.6, lanes: [ 0.022, 0.012 ], size: [ 0.85, 1.1 ], bankG: 0.08, pec: [ 2.5, 0.3 ],
+		loop: { centre: [ 0.3, 0.305, - 0.17 ], radii: [ 0.16, 0.006, 0.15 ] } } );
+	const hero = createSchool( { count: 1, length: 0.1, shape: 'hero', seed: 11, period: 42, arc: 0, lanes: [ 0, 0 ], size: [ 1, 1 ], surge: 0.4, bankG: 0.1, pec: [ 1.3, 0.5 ],
+		loop: { centre: [ - 0.02, 0.155, 0.3 ], half: 0.24, radius: 0.07, bob: 0.006 } } );
+	tank.add( school.mesh, silver.mesh, hero.mesh );
 	const jellies = createJellies( { spots: [ [ 0.5, 0.2, 0.0 ], [ - 0.5, 0.17, - 0.28 ], [ 0.05, 0.22, - 0.32 ], [ 0.47, 0.16, 0.3 ] ] } );
 	scene.add( jellies.group );
-	const crab = createCrab( { size: 0.055, from: [ - 0.3, 0, 0.31 ], to: [ 0.22, 0, 0.31 ], y: 0.02 } ); // y: about the mean height of the displaced sand
+	// The crab stands on the displaced sand: its height, on the CPU, by the
+	// same formula as the floor's vertices (sealife/seafloor.js); ?flat: 0.
+	const ground = params.has( 'flat' ) ? () => 0 : sandFloor( { ...sand, dune: 1 }, { width: TW, depth: TD } );
+	const crab = createCrab( { size: 0.055, from: [ - 0.3, 0, 0.31 ], to: [ 0.22, 0, 0.31 ], ground } );
 	tank.add( crab.group );
-	life.push( school, jellies, crab );
+	life.push( school, silver, hero, jellies, crab );
+	silver.mesh.castShadow = false; // 64 fish of 2 cm: their shadows are specks, and a pass of 160 k triangles
+	hideUp.push( school.mesh, silver.mesh, hero.mesh, crab.group );
 
 }
 

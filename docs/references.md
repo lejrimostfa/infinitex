@@ -265,5 +265,5 @@ Other sizes in the code (fibre diameters, grain sizes, pore sizes, droplet sizes
 - **The surface from below** is a bright moving pattern, no Snell window.
 - **Life in instances.** Schools of small fish as flat silhouettes, jellyfish, swaying grass. Cheap, and it fills the depth.
 
-Not in Infinitex yet: colour presets per place, and the shadow of an object in a light shaft. Life is in the aquarium since (`demo/sealife/`, code only: fish, jellyfish, a crab). Done since: light shafts that follow the caustics (`src/core/shafts.js`), ring bubbles (`src/core/bubbles.js`), half the blur under water. Done after this reading: the eye's own share under water (`src/core/underlens.js`), AO and depth of field on the aquarium (`src/camera/targetpost.js`).
+Not in Infinitex yet: colour presets per place, and the shadow of an object in a light shaft. Life is in the aquarium since (`demo/sealife/`, code only: three kinds of fish, jellyfish, a crab that walks on the dunes, seagrass, kelp, anemones, corals, starfish). Done since: light shafts that follow the caustics (`src/core/shafts.js`), ring bubbles (`src/core/bubbles.js`), half the blur under water. Done after this reading: the eye's own share under water (`src/core/underlens.js`), AO and depth of field on the aquarium (`src/camera/targetpost.js`).
 

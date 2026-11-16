@@ -60,6 +60,7 @@ export function createMirror( { group, level, side = 1, resolutionScale = 0.5, h
 			cam.up.copy( up );
 			cam.lookAt( target.copy( cam.position ).add( fwd ) );
 			cam.updateMatrixWorld();
+			const was = hide.map( ( o ) => o.visible ); // an object the page hid stays hidden after
 			for ( const o of hide ) o.visible = false;
 			const prevRT = renderer.getRenderTarget();
 			saved.copy( shared );
@@ -68,7 +69,7 @@ export function createMirror( { group, level, side = 1, resolutionScale = 0.5, h
 			renderer.render( group.parent ?? group, cam );
 			renderer.setRenderTarget( prevRT );
 			shared.copy( saved );
-			for ( const o of hide ) o.visible = true;
+			hide.forEach( ( o, i ) => { o.visible = was[ i ]; } );
 
 		},
 	};
