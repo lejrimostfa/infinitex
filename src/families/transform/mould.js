@@ -14,7 +14,7 @@
 // 3 mm, thin walls, starch granules of 20 um. Same look as organic/soil.js mould, here growing.
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod, fract, abs } from 'three/tsl';
-import { fadeIn, surfaceGradient } from '../../core/lod.js';
+import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
 import { arrival, heroSeed, rough, ageMeters } from '../../core/front.js';
 import { fbm } from '../stone/common.js';
 import { grains, fibres } from '../ground/grains.js';
@@ -41,7 +41,7 @@ export function buildMould( p, fp, u, prog ) {
 	const cov = F.aa( float( 0 ) ).toVar();
 	const meet = smoothstep( 0.012, 0.004, A.t2.sub( A.t1 ) ).mul( isHero.oneMinus() ).mul( cov );
 	const spore = smoothstep( W.mul( 0.25 ), W, age ).mul( cov ).mul( meet.oneMinus() ).toVar();
-	const fringe = cov.mul( spore.oneMinus() ).mul( meet.oneMinus() );
+	const fringe = cov.mul( spore.oneMinus() ).mul( meet.oneMinus() ).toVar();
 	// Rings at fixed radii, period front_mm * 0.6.
 	const rP = W.mul( 0.6 ).div( g );
 	const rd = abs( fract( T1.div( rP ).add( fbm( p.add( 6.3 ), float( 8e-3 ), fp, 3, 2 ).mul( 0.6 ) ) ).sub( 0.5 ) ).mul( rP ).mul( g );
@@ -56,20 +56,36 @@ export function buildMould( p, fp, u, prog ) {
 
 	// Hyphae: runners ahead of the edge, a felt inside.
 	const ahead = smoothstep( W.mul( - 0.5 ), float( 0 ), age ).mul( cov.oneMinus() );
-	const H1 = fibres( p, u.fiberM.mul( 40 ), u.fiberM.mul( 0.5 ), float( 0.8 ), fp, 3.3, 0.8 );
-	const H2 = fibres( p, u.fiberM.mul( 14 ), u.fiberM.mul( 0.5 ), float( 0.7 ), fp, 7.9, 0.8 );
-	const H3 = fibres( p.add( 1e-4 ), u.fiberM.mul( 7 ), u.fiberM.mul( 0.45 ), float( 0.8 ), fp, 2.2, 0.9 );
-	const thread = H1.fiber.max( H2.fiber ).max( H3.fiber.mul( fringe ) ).mul( ahead.mul( 0.9 ).add( fringe ).add( spore.mul( 0.3 ) ) ).min( 1 );
+	// The hyphae show only on and just ahead of a colony, and only while
+	// a pixel is under about 4 hyphae widths (their fibres() fade): the
+	// gate skips the three nets elsewhere.
+	const reach = ahead.mul( 0.9 ).add( fringe ).add( spore.mul( 0.3 ) ).toVar();
+	const Hy = gate( reach.greaterThan( 0 ).and( fadeOn( u.fiberM, fp, 0.7 ) ), { thread: 0, hS: [ 0, 0 ] }, () => {
+
+		const H1 = fibres( p, u.fiberM.mul( 40 ), u.fiberM.mul( 0.5 ), float( 0.8 ), fp, 3.3, 0.8 );
+		const H2 = fibres( p, u.fiberM.mul( 14 ), u.fiberM.mul( 0.5 ), float( 0.7 ), fp, 7.9, 0.8 );
+		const H3 = fibres( p.add( 1e-4 ), u.fiberM.mul( 7 ), u.fiberM.mul( 0.45 ), float( 0.8 ), fp, 2.2, 0.9 );
+		const thread = H1.fiber.max( H2.fiber ).max( H3.fiber.mul( fringe ) ).mul( reach ).min( 1 );
+		return { thread, hS: H1.slope.add( H2.slope ).mul( 0.4 ).mul( thread ) };
+
+	}, [ p, fp, reach, fringe ] );
+	const thread = Hy.thread;
 	col = mix( col, white.mul( 1.1 ), thread.mul( 0.9 ) );
-	// Spore heads on the sporulating part.
-	const Sh = grains( p, u.featureM, fp, 6.1, { gap: 0.35, radius: 0.3, round: 0.5, crown: 0.8 } );
-	const head = Sh.body.mul( step( 0.35, Sh.id.x ) ).mul( spore ).mul( fadeIn( u.featureM, fp, 1.5, 4.0 ) );
-	col = mix( col, sporeC.mul( Sh.h.mul( 0.5 ).add( 0.55 ) ), head.mul( 0.9 ) );
+	// Spore heads on the sporulating part, under featureM / 1.5 per pixel.
+	const Sp = gate( spore.greaterThan( 0 ).and( fadeOn( u.featureM, fp, 1.5 ) ), { head: 0, shh: 0, shS: [ 0, 0 ] }, () => {
+
+		const Sh = grains( p, u.featureM, fp, 6.1, { gap: 0.35, radius: 0.3, round: 0.5, crown: 0.8 } );
+		const head = Sh.body.mul( step( 0.35, Sh.id.x ) ).mul( spore ).mul( fadeIn( u.featureM, fp, 1.5, 4.0 ) );
+		return { head, shh: Sh.h, shS: Sh.grad.mul( 0.6 ).mul( head ) };
+
+	}, [ p, fp, spore ] );
+	const head = Sp.head;
+	col = mix( col, sporeC.mul( Sp.shh.mul( 0.5 ).add( 0.55 ) ), head.mul( 0.9 ) );
 
 	// Relief: crumb, then the colony mound rising behind its edge.
 	const mound = smoothstep( float( 0 ), W.mul( 0.5 ), age ).mul( 4e-4 ).mul( meet.oneMinus() );
 	const slope = surfaceGradient( mound, p ).add( B.slope.mul( cov.mul( 0.8 ).oneMinus() ) )
-		.add( H1.slope.add( H2.slope ).mul( 0.4 ).mul( thread ) ).add( Sh.grad.mul( 0.6 ).mul( head ) ).mul( u.relief );
+		.add( Hy.hS ).add( Sp.shS ).mul( u.relief );
 	const felt = cov.max( ahead.mul( 0.3 ) );
 	const s2 = felt.mul( fadeIn( u.fiberM.mul( 14 ), fp, 1.0, 3.0 ).oneMinus() ).mul( 0.1 ).add( B.s2.mul( cov.oneMinus() ) );
 	return { color: col, slope, cavity: B.cavity.mul( cov.oneMinus() ).add( spore.mul( 0.2 ) ), rough: mix( u.roughness, float( 0.95 ), felt ), s2 };

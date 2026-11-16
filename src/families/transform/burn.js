@@ -17,7 +17,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, mod, clamp } from 'three/tsl';
 import { ixTime } from '../../core/clock.js';
-import { fadeIn, surfaceGradient } from '../../core/lod.js';
+import { fadeIn, surfaceGradient, gate } from '../../core/lod.js';
 import { valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { arrival, heroSeed, rough, ageMeters } from '../../core/front.js';
@@ -53,31 +53,51 @@ export function buildBurn( p, fp, u, prog ) {
 	const reached = F.aa( float( 0 ) ).toVar();
 	const sc = smoothstep( scorchW.negate(), float( 0 ), age ).mul( P.fib.mul( 0.15 ).add( 0.9 ) ).min( 1 );
 	const charM = F.aa( E.mul( 0.4 ) ).toVar();
-	const ashM = smoothstep( charW, charW.add( ashW.mul( 0.6 ) ), age ).mul( smoothstep( 0.35, 0.6, fbm( p.add( 5.5 ), float( 4e-3 ), fp, 4, 8 ) ).mul( 0.7 ).add( 0.3 ) ).toVar();
+	// Ash: zero up to charW behind the front. The gate skips its mottle,
+	// crumbs and colour where it is zero (the paper ahead, the char band).
+	const ashA = smoothstep( charW, charW.add( ashW.mul( 0.6 ) ), age ).toVar();
+	const Ash = gate( ashA.greaterThan( 0 ), { ashM: 0, ashCol: [ 0, 0, 0 ], ashS: [ 0, 0 ] }, () => {
+
+		const ashM = ashA.mul( smoothstep( 0.35, 0.6, fbm( p.add( 5.5 ), float( 4e-3 ), fp, 4, 8 ) ).mul( 0.7 ).add( 0.3 ) );
+		// Ash: grey white, mottled, crumbs.
+		const C = grains( p, float( 1.5e-4 ), fp, 2.9, { gap: 0.3, radius: 0.35, round: 0.4, crown: 0.6 } );
+		const wC = fadeIn( 1.5e-4, fp, 1.5, 4.0 );
+		const ashCol = u.color3.mul( fbm( p.add( 2.2 ), float( 2e-3 ), fp, 4, 9 ).mul( 0.6 ).add( 0.7 ) ).mul( C.body.mul( C.id.x.mul( 0.4 ) ).mul( wC ).add( 1 ) );
+		return { ashM, ashCol, ashS: C.grad.mul( 0.3 ).mul( ashM ).mul( wC ) };
+
+	}, [ p, fp, ashA ] );
+	const ashM = Ash.ashM.toVar();
 	const hole = F.aa( holeW ).toVar();
+	const keepFlat = ashM.mul( 0.5 ).oneMinus().toVar();
 
 	// Colours: paper browning ahead of the flame.
 	let col = u.color.mul( P.tone );
 	col = mix( col, col.mul( vec3( 0.93, 0.78, 0.52 ) ), smoothstep( 0.0, 0.45, sc ) );
 	col = mix( col, u.color4.mul( P.tone ), smoothstep( 0.35, 0.8, sc ) );
 	col = mix( col, u.color4.mul( 0.22 ), smoothstep( 0.75, 1.0, sc ) );
-	// Char: shrinking plates with dark gaps, a faint blue grey glint.
-	const cq = p.div( 1.6e-3 );
-	const CV = voronoi( mod( cq.add( vec2( vn( cq.mul( 0.6 ) ), vn( cq.mul( 0.6 ).add( 3.3 ) ) ).mul( 0.9 ) ), 4096 ).add( 4.4 ), 0.95 );
-	const wCr = fadeIn( 1.6e-3, fp, 2.0, 6.0 );
-	const cw = vn( cq.mul( 0.9 ).add( 7.7 ) ).mul( 5e-5 ).add( 5e-6 );
-	const crack = clamp( cw.sub( CV.edge.mul( 1.6e-3 ) ).div( fp ).add( 0.5 ), 0, 1 ).mul( wCr ).mul( smoothstep( E, E.mul( 4 ), age ) );
-	// The char keeps the fibres it was made of: they stand out a little
-	// greyer and glint.
-	// Its surface is porous: blisters of escaped gas, 30 to 80 um.
-	const Po = grains( p, float( 6e-5 ), fp, 7.3, { gap: 0.2, radius: 0.35, round: 0.5, crown: 0.7 } );
-	const wPo = fadeIn( 6e-5, fp, 1.5, 4.0 );
-	const charCol = u.color2.mul( vn( p.div( 2e-3 ).add( 6.6 ) ).mul( 0.5 ).add( 0.75 ) ).mul( P.fib.mul( 0.6 ).add( 1 ) ).mul( float( 1 ).sub( crack.mul( 0.8 ) ) )
-		.mul( Po.body.mul( 0.25 ).mul( wPo ).add( 0.85 ) );
-	// Ash: grey white, mottled, crumbs.
-	const C = grains( p, float( 1.5e-4 ), fp, 2.9, { gap: 0.3, radius: 0.35, round: 0.4, crown: 0.6 } );
-	const wC = fadeIn( 1.5e-4, fp, 1.5, 4.0 );
-	const ashCol = u.color3.mul( fbm( p.add( 2.2 ), float( 2e-3 ), fp, 4, 9 ).mul( 0.6 ).add( 0.7 ) ).mul( C.body.mul( C.id.x.mul( 0.4 ) ).mul( wC ).add( 1 ) );
+	// Char: zero ahead of the front. The gate skips the plates, cracks,
+	// pores and wrinkles there (and the whole sheet before it burns).
+	const Ch = gate( charM.greaterThan( 0 ), { charCol: [ 0, 0, 0 ], crack: 0, poS: [ 0, 0 ], rwS: [ 0, 0 ] }, () => {
+
+		// Char: shrinking plates with dark gaps, a faint blue grey glint.
+		const cq = p.div( 1.6e-3 );
+		const CV = voronoi( mod( cq.add( vec2( vn( cq.mul( 0.6 ) ), vn( cq.mul( 0.6 ).add( 3.3 ) ) ).mul( 0.9 ) ), 4096 ).add( 4.4 ), 0.95 );
+		const wCr = fadeIn( 1.6e-3, fp, 2.0, 6.0 );
+		const cw = vn( cq.mul( 0.9 ).add( 7.7 ) ).mul( 5e-5 ).add( 5e-6 );
+		const crack = clamp( cw.sub( CV.edge.mul( 1.6e-3 ) ).div( fp ).add( 0.5 ), 0, 1 ).mul( wCr ).mul( smoothstep( E, E.mul( 4 ), age ) );
+		// The char keeps the fibres it was made of: they stand out a little
+		// greyer and glint.
+		// Its surface is porous: blisters of escaped gas, 30 to 80 um.
+		const Po = grains( p, float( 6e-5 ), fp, 7.3, { gap: 0.2, radius: 0.35, round: 0.5, crown: 0.7 } );
+		const wPo = fadeIn( 6e-5, fp, 1.5, 4.0 );
+		const charCol = u.color2.mul( vn( p.div( 2e-3 ).add( 6.6 ) ).mul( 0.5 ).add( 0.75 ) ).mul( P.fib.mul( 0.6 ).add( 1 ) ).mul( float( 1 ).sub( crack.mul( 0.8 ) ) )
+			.mul( Po.body.mul( 0.25 ).mul( wPo ).add( 0.85 ) );
+		// Relief: char wrinkles as it shrinks.
+		const Rw = ridged( p.add( vec2( p.y.mul( 0.4 ), 0 ) ), float( 5e-3 ), fp, 4, 2 );
+		return { charCol, crack, poS: Po.grad.mul( 0.25 ).mul( wPo ).mul( charM ), rwS: Rw.slope.mul( 2.2e-4 ).mul( charM ).mul( keepFlat ) };
+
+	}, [ p, fp, age, charM, P.fib, keepFlat ] );
+	const charCol = Ch.charCol, crack = Ch.crack, ashCol = Ash.ashCol;
 	col = mix( col, charCol, charM );
 	col = mix( col, ashCol, ashM );
 
@@ -94,11 +114,9 @@ export function buildBurn( p, fp, u, prog ) {
 
 	// Relief: char wrinkles as it shrinks, curls up near the hole.
 	const w1 = fadeIn( 3e-3, fp, 2.0, 6.0 );
-	const Rw = ridged( p.add( vec2( p.y.mul( 0.4 ), 0 ) ), float( 5e-3 ), fp, 4, 2 );
 	const curl = smoothstep( holeW.sub( 4e-3 ), holeW, age ).mul( 4e-4 );
-	const keepFlat = ashM.mul( 0.5 ).oneMinus();
-	const slope = surfaceGradient( charM.mul( curl ).mul( keepFlat ), p ).add( Rw.slope.mul( 2.2e-4 ).mul( charM ).mul( keepFlat ) ).mul( u.relief )
-		.add( P.slope.mul( charM.mul( 0.4 ).oneMinus() ) ).add( Po.grad.mul( 0.25 ).mul( wPo ).mul( charM ) ).add( C.grad.mul( 0.3 ).mul( ashM ).mul( wC ) );
+	const slope = surfaceGradient( charM.mul( curl ).mul( keepFlat ), p ).add( Ch.rwS ).mul( u.relief )
+		.add( P.slope.mul( charM.mul( 0.4 ).oneMinus() ) ).add( Ch.poS ).add( Ash.ashS );
 	const s2 = P.s2.add( charM.mul( w1.oneMinus() ).mul( 0.04 ) );
 
 	const rgh = mix( mix( u.roughness, float( 0.35 ), charM ), float( 0.95 ), ashM );
