@@ -146,6 +146,7 @@ export const CUBES = [
 		{ name: 'Béton', preset: { family: 'stone', mode: 'concrete', intent: 'board-formed concrete, worn', color: '#6b6965', color2: '#55504b', color3: '#857b70', color4: '#a39a8a', grain_mm: 12, board_mm: 95, formwork: 0.6, bubbles: 0.6, aggregate: 0.35, polish: 0, roughness: 0.85, color_variation: 0.12, seed: 5 }, zoom: 'Granulats, sable, bulles, grains de ciment' },
 		{ name: 'Brique et mortier', preset: { family: 'stone', mode: 'brick', intent: 'red brick wall, running bond', color: '#a4523a', color2: '#5e2a1f', color3: '#8a8478', color4: '#7a3324', brick_mm: 215, course_mm: 65, joint_mm: 10, recess_mm: 4, bond: 0, chips: 0.5, polish: 0, roughness: 0.85, color_variation: 0.3, seed: 6 }, zoom: 'Arêtes ébréchées, sable et chamotte, argile' },
 		{ name: 'Plâtre', preset: { family: 'stone', mode: 'plaster', intent: 'trowelled gypsum plaster', color: '#a29d94', color2: '#86817a', trowel: 0.9, trowel_mm: 120, pores: 0.7, polish: 0, roughness: 0.9, color_variation: 0.1, seed: 7 }, zoom: 'Passes de truelle, trous d’épingle, aiguilles de gypse' },
+		{ name: 'Granito (terrazzo)', preset: { family: 'terrazzo' }, zoom: 'Cristaux de calcite maclés, grains de sable, micro-piqûres du polissage' },
 	] ),
 	g( '13. Sols et grains', [
 		{ name: 'Terre', preset: { family: 'ground', mode: 'soil', intent: 'garden soil', grain_mm: 8, color: '#4a3526', color2: '#6e5640', color3: '#1c140e', stones: 0.35, roots: 0.5, specks: 0.6, roughness: 0.9, seed: 1 }, zoom: 'Mottes, grains minéraux, limon, filaments' },

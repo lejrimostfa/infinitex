@@ -29,7 +29,21 @@ Write a family only when no family has the structure of the matter: what its lev
 
 1. Scaffold: `npm run new-family -- <name>` here, `npx infinitex-new-family <name>` in a game. It copies the template (terrazzo) with the kit imports fixed. The copy already passes the check.
 2. Write `params.js`: real sizes, in `_mm` or `_um` keys. `defineParams` turns them into uniforms in metres.
-3. Write the levels in `levels.js`, coarsest first. After each level, run the check.
+3. Write the levels coarsest first: the shape levels in `levels.js`, the fine ones in `fine.js` (one function each, gated from `levels.js`). After each level, run the check.
+
+   The template shows how a matter keeps revealing structure down to the micrometre. Each level is its own fade and gate:
+
+   | Level | Period | Shows from (camera height, gate view) |
+   |---|---|---|
+   | L0 chips, three stones, veined | 9 mm | 1.6 m |
+   | L0b fine chips in the cement | 2.7 mm | 50 cm |
+   | L1 sand grains, calcite grains, air voids | 0.6 mm | 6 cm |
+   | L2 calcite crystals with twin lamellae, silt | 90 um | 1 cm |
+   | L3 grinding scratches | 40 um | 4 mm |
+   | L3 plucked pits, capillary pores | 15 um | 2 mm |
+   | micro detail (core/micro.js) | 6 um and finer | under 1 mm |
+
+   Every fine tone has zero mean (a centred hash, a sine, a mask minus its measured mean of 0.0779). Pits and voids hand their coverage to the far colour. So the far look does not move when the fine levels are added.
 4. Check: `npm run check-family -- src/families/<name>` here, `npx infinitex-check families/<name>` in a game. Fix until it passes on WebGPU and WebGL2.
 5. Register and use:
 

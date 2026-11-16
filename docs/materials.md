@@ -251,13 +251,16 @@ Limits: the cube light (sun 2.2, ACES) still lifts white matters, so plaster str
 Family `terrazzo` (`src/families/terrazzo/`). Marble chips cast in cement, ground flat and polished: floors, stairs, counters. It got a family because no other one has hard chips of several stones flush in a binder (granite is interlocked crystals, concrete is aggregate cut by chance). It is also the template that `npm run new-family` copies, so it follows every rule of `docs/authoring.md` in a few short files (params.js, levels.js, shader.js, index.js).
 - L0 chips: three stones (`color`, `color2`, `color3`), irregular cells with a size of their own, veined inside; the cement (`matrix` share) sits `edge_um` lower, a rounded step at each border.
 - L0b fines: chips a third of the size in the cement (`fines` share).
-- L1 grains: sand grains in the cement, calcite crystals in the chips (`grain_mm`), air voids (`pores`).
-- L2 polish: grinding scratches (`polish_um`) in patches of one direction.
-The far colour is exact: the chip coverage was measured on 400k samples and tabulated (params.js), so each faded level hands over its true mean. Check: mean shift 0.45 % at worst, shimmer 1.12 at worst, 2.0 to 2.2 ms at 1080p (WebGPU), WebGPU and WebGL2.
+- L1 grains: sand grains in the cement, calcite grains in the chips (`grain_mm`), air voids (`pores`).
+- L2 crystals: inside each grain a mosaic of calcite crystals, half of them twinned (lamellae a quarter of a crystal wide); silt in the cement (`fine_um`).
+- L3 scratches: grinding scratches (`polish_um`) in patches of one direction.
+- L3 pits: plucked crystals on the chips, capillary pores in the cement (`pit_um`, `pits`).
+- Under them the generic micro detail, from 8 um.
+The far colour is exact: the chip coverage was measured on 400k samples and tabulated (params.js), the fine tones have zero mean, pits and voids hand their coverage to the mean. Check: mean shift 0.35 % at worst, shimmer 1.21 at worst, 2.4 to 3.2 ms at 1080p (WebGPU), WebGPU and WebGL2. On the cube wall in row 12.
 
 | Matter | Zoom |
 |---|---|
-| Venetian terrazzo (white, red, grey chips) | chips and fines, cement with voids, calcite crystals, polishing scratches |
+| Venetian terrazzo (white, red, grey chips) | chips and fines, sand and calcite grains, twinned crystals and silt, scratches, plucked pits |
 
 ## 13. Ground and grains (*in progress*: family written, first review)
 

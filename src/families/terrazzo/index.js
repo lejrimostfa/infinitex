@@ -16,7 +16,7 @@ export default {
 	// noise. granular darkens grain borders with a non-zero mean, which goes
 	// away as each octave fades: up to 6.9 % mean shift at 1 mm on a rough,
 	// dark copy of this family (agglomerated cork, measured with the check).
-	micro: [ 'generic', 20e-6 ],
+	micro: [ 'generic', 8e-6 ],
 	// kind: what the check page puts behind it (opaque, transmissive, emissive).
 	kind: 'opaque',
 };

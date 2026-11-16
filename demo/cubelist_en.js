@@ -162,6 +162,7 @@ export const CUBES_EN = {
 	'Béton': { name: 'Concrete', zoom: 'Aggregate, sand, bubbles, cement grains' },
 	'Brique et mortier': { name: 'Brick and mortar', zoom: 'Chipped edges, sand and grog, clay' },
 	'Plâtre': { name: 'Plaster', zoom: 'Trowel passes, pinholes, gypsum needles' },
+	'Granito (terrazzo)': { name: 'Terrazzo', zoom: 'Twinned calcite crystals, sand grains, polishing pits' },
 	// 13. Soils and grains
 	'Terre': { name: 'Soil', zoom: 'Clods, mineral grains, silt, filaments' },
 	'Sable': { name: 'Sand', zoom: 'Frosted quartz grains, glinting facets' },

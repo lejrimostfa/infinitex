@@ -2,7 +2,8 @@
 // and polished (floors, stairs, counters). Not in the catalogue before the
 // kit: no other family has hard chips of several stones flush in a binder.
 // Sizes: chips 3 to 25 mm (Venetian up to 40), fine chips a third of that,
-// sand and calcite crystals 0.2 to 1 mm, polishing scratches 20 to 60 um.
+// sand and calcite grains 0.2 to 1 mm, calcite crystals 50 to 200 um,
+// polishing scratches 20 to 60 um, plucked pits and pores 5 to 30 um.
 // defineParams (src/kit/params.js) names the uniforms from the keys:
 // chip_mm -> u.chipM (metres), matrix_color -> u.matrixColor, ...
 
@@ -22,10 +23,13 @@ const P = defineParams( {
 	color3: '#6b706b', // chips, grey Bardiglio
 	matrix_color: '#d6cfc1', // cement and marble dust
 	veins: 0.5, // veining and mottling inside the chips
-	grain_mm: 0.6, // sand grains in the cement, calcite crystals in the chips
+	grain_mm: 0.6, // sand grains in the cement, calcite grains in the chips
 	pores: 0.4, // air voids in the cement
+	fine_um: 90, // calcite crystals inside the grains, silt in the cement
 	polish_um: 40, // polishing scratch width
-	scratches: 0.4,
+	scratches: 0.5,
+	pit_um: 15, // micro pits: plucked crystals, capillary pores
+	pits: 0.6,
 	edge_um: 15, // the cement sits this much lower than the chips
 	roughness: 0.16, // polished chips
 	matrix_roughness: 0.42,
@@ -72,7 +76,9 @@ export const TERRAZZO_SLIDERS = [
 	[ 'veins', 0, 1, 0.01 ],
 	[ 'grain_mm', 0.2, 2, 0.01 ],
 	[ 'pores', 0, 1, 0.01 ],
+	[ 'fine_um', 30, 300, 1 ],
 	[ 'scratches', 0, 1, 0.01 ],
+	[ 'pits', 0, 1, 0.01 ],
 	[ 'edge_um', 0, 60, 1 ],
 	[ 'roughness', 0.03, 0.8, 0.01 ],
 	[ 'matrix_roughness', 0.05, 0.95, 0.01 ],
