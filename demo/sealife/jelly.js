@@ -17,6 +17,7 @@
 
 import * as THREE from 'three/webgpu';
 import { attribute, positionLocal, normalView, positionView, vec3, float, sin, uniform, mix } from 'three/tsl';
+import { refractedVertex } from '../../src/core/refraction.js';
 import { ixTime } from '../../src/core/clock.js';
 
 function jellyGeometry( R ) {
@@ -72,6 +73,9 @@ export function createJellies( { spots, radius = 0.022, color = '#cfe6ff', glow 
 		const sway = vec3( sin( ixTime.mul( 1.7 ).add( s.mul( 5 ) ).add( phase ) ), 0, sin( ixTime.mul( 1.3 ).add( s.mul( 4 ) ).add( phase.mul( 1.7 ) ) ) ).mul( s.mul( s ) ).mul( radius * 0.5 );
 		const arm = vec3( positionLocal.x.mul( float( 1 ).sub( stroke.mul( 0.16 ) ) ), positionLocal.y.sub( stroke.mul( radius * 0.12 ) ), positionLocal.z.mul( float( 1 ).sub( stroke.mul( 0.16 ) ) ) ).add( sway );
 		m.positionNode = isArm.select( arm, bell );
+		// Seen through the water like the tank: else the walls and the floor,
+		// which look nearer, pass in front of the jellyfish from some angles.
+		m.vertexNode = refractedVertex();
 		// Edge on, the wall is milky; face on, clear.
 		const fres = float( 1 ).sub( normalView.dot( positionView.normalize().negate() ).abs() ).pow( 1.6 );
 		m.colorNode = mix( vec3( new THREE.Color( glow ).r, new THREE.Color( glow ).g, new THREE.Color( glow ).b ).mul( 0.9 ), vec3( new THREE.Color( color ).r, new THREE.Color( color ).g, new THREE.Color( color ).b ).mul( 1.5 ), fres );
