@@ -15,7 +15,9 @@ import { createDemoKit } from './camerakit.js';
 const { vec3 } = TSL;
 
 // animate( t ): poses the scene at time t (seconds).
-export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, params, panel = null, statsLevels = true } ) {
+// vehicle: a flyer (flyer.js) or null. While it is flown, the kit's walk
+// and the orbit controls hold still and the flyer moves the camera.
+export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, params, panel = null, statsLevels = true, vehicle = null } ) {
 
 	// Every animation step also moves the shared material clock (core/clock.js).
 	const animate = ( t ) => { setTime( t ); poseScene( t ); };
@@ -54,6 +56,7 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 	// (camerakit.js). The walk and the controls hold still during the dolly.
 	const kit = createDemoKit( { renderer, scene, camera, controls, params } );
 	const { post, adaptive, walk, lens } = kit;
+	if ( vehicle && ! vehicle.collider ) vehicle.collider = kit.collider; // the walk's BVH rays
 	const stats = createStats( { renderer, camera, ix, fuzz, meshes, post, adaptive, backend: forceWebGL ? 'WebGL2' : 'WebGPU', levels: statsLevels } );
 	const aoBtn = document.getElementById( 'ssao' );
 	const aoLabel = () => { aoBtn.textContent = post.enabled ? 'SSAO off' : 'SSAO on'; };
@@ -67,7 +70,7 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 
 	// Test and film hooks for Playwright (tests/).
 	window.__ix = {
-		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate, adaptive, kit, walk, lens, focus: lens, controls,
+		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate, adaptive, kit, walk, lens, focus: lens, controls, vehicle,
 		ready: true,
 		async runGate( heights ) {
 
@@ -126,7 +129,9 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 		animate( animT );
 
 		let dist = null;
-		const scripted = !! dolly;
+		if ( dolly && vehicle?.active ) vehicle.leave(); // the film path takes the camera
+		vehicle?.update( Math.min( 0.1, dt ), animT );
+		const scripted = !! dolly || !! vehicle?.active;
 		if ( dolly ) {
 
 			const k = Math.min( 1, ( now - dolly.t0 ) / dolly.dur );

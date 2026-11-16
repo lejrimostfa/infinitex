@@ -1,6 +1,8 @@
 // Knit demo: a mannequin in a knitted sweater, with fuzz shells.
 // Panel, stats, SSAO, film and the loop live in app.js.
-// URL flags: ?webgl (WebGL2 backend), ?nofuzz, ?film (recorder mode).
+// URL flags: ?webgl (WebGL2 backend), ?nofuzz, ?film (recorder mode),
+// ?nofly (no mosquito). The mosquito (vehicles/mosquito.js) hovers in
+// front of the chest, off the film's path; V or the panel button flies it (flyer.js, flyhud.js).
 
 import './nav.js';
 import { createMaterial } from '../src/index.js';
@@ -8,6 +10,9 @@ import { createScene } from './scene.js';
 import { createFilm } from './film.js';
 import { startApp } from './app.js';
 import { addCharacterPicker } from './charpick.js';
+import { createMosquito } from './vehicles/mosquito.js';
+import { createFlyer } from './flyer.js';
+import { addFlyHud } from './flyhud.js';
 
 const params = new URLSearchParams( location.search );
 addCharacterPicker( 'concept' );
@@ -29,4 +34,18 @@ const film = createFilm( {
 ctx.gate.fuzz = fuzz;
 ctx.gate.ix = ix;
 
-startApp( { ctx, ix, meshes, fuzz, film, animate: ( t ) => mannequin.animate( t ), params } );
+// Not in film mode: the recorder's shots stay as they were.
+let vehicle = null;
+if ( ! params.has( 'film' ) && ! params.has( 'nofly' ) ) {
+
+	const mosquito = createMosquito();
+	scene.add( mosquito.group );
+	ctx.gate.hide.push( mosquito.group );
+	vehicle = createFlyer( { vehicle: mosquito, camera, controls: ctx.controls, dom: ctx.renderer.domElement,
+		home: new ctx.THREE.Vector3( - 0.1, 1.36, 0.3 ), options: { name: 'mosquito' } } );
+	vehicle.yaw = Math.PI; // facing the chest: boarding shows the sweater ahead
+	addFlyHud( vehicle, { label: 'the mosquito' } );
+
+}
+
+startApp( { ctx, ix, meshes, fuzz, film, animate: ( t ) => mannequin.animate( t ), params, vehicle } );

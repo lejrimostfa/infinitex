@@ -82,7 +82,9 @@ export function createCollider( scene, camera ) {
 	}, 1000 );
 
 	// Distance from origin along unit dir to the nearest solid surface, up to far.
-	function surfaceAhead( origin, dir, far ) {
+	// skip: an object whose meshes do not count (userData.owner === skip),
+	// so a vehicle's own ray does not stop on its own body.
+	function surfaceAhead( origin, dir, far, skip = null ) {
 
 		ray.set( origin, dir );
 		ray.near = 0;
@@ -92,7 +94,7 @@ export function createCollider( scene, camera ) {
 		const keep = ( d, o, hit = null ) => { if ( d < best && d <= far ) { best = d; bestObject = o; bestHit = hit; } };
 		scene.traverseVisible( ( o ) => {
 
-			if ( ! solid( o ) ) return;
+			if ( ! solid( o ) || ( skip && o.userData.owner === skip ) ) return;
 			boundsOf( o );
 			if ( ! ray.ray.intersectsSphere( sphere ) ) return;
 			if ( origin.distanceTo( sphere.center ) - sphere.radius > Math.min( best, far ) + PAD_REACH ) return;
