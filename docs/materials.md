@@ -246,6 +246,19 @@ Polish pass: granite crystals use a box metric in each crystal's frame (`square`
 
 Limits: the cube light (sun 2.2, ACES) still lifts white matters, so plaster strokes read mostly by relief. Granite from afar is a dense speckle, closer to a coarse granite than a fine one. Big marble veins can look like thin dark cracks at the 4 cm view. Sandstone laminae seams are evenly spaced lines. Brick sand grains are still a little bright up close.
 
+## 12b. Terrazzo (*in progress*: family written, first review; the template of the material kit)
+
+Family `terrazzo` (`src/families/terrazzo/`). Marble chips cast in cement, ground flat and polished: floors, stairs, counters. It got a family because no other one has hard chips of several stones flush in a binder (granite is interlocked crystals, concrete is aggregate cut by chance). It is also the template that `npm run new-family` copies, so it follows every rule of `docs/authoring.md` in a few short files (params.js, levels.js, shader.js, index.js).
+- L0 chips: three stones (`color`, `color2`, `color3`), irregular cells with a size of their own, veined inside; the cement (`matrix` share) sits `edge_um` lower, a rounded step at each border.
+- L0b fines: chips a third of the size in the cement (`fines` share).
+- L1 grains: sand grains in the cement, calcite crystals in the chips (`grain_mm`), air voids (`pores`).
+- L2 polish: grinding scratches (`polish_um`) in patches of one direction.
+The far colour is exact: the chip coverage was measured on 400k samples and tabulated (params.js), so each faded level hands over its true mean. Check: mean shift 0.45 % at worst, shimmer 1.12 at worst, 2.0 to 2.2 ms at 1080p (WebGPU), WebGPU and WebGL2.
+
+| Matter | Zoom |
+|---|---|
+| Venetian terrazzo (white, red, grey chips) | chips and fines, cement with voids, calcite crystals, polishing scratches |
+
 ## 13. Ground and grains (*in progress*: family written, first review)
 
 Family `ground` (`src/families/ground/`), one mode per graph. Shared blocks in `grains.js`: packed rounded grains (a Voronoi cell blended with an ellipse by a smooth min, analytic slope; two layers so small grains show in the gaps), curved fibres (one per cell, 3 x 3 search, faded out below two pixels), fbm.
