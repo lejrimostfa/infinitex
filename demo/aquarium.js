@@ -32,6 +32,9 @@ import { createStats } from './stats.js';
 import { createDemoKit } from './camerakit.js';
 import { createShafts } from '../src/core/shafts.js';
 import { createBubbles } from '../src/core/bubbles.js';
+import { createSchool } from './sealife/fish.js';
+import { createJellies } from './sealife/jelly.js';
+import { createCrab } from './sealife/crab.js';
 
 const TW = 1.2, TD = 0.8, TH = 0.5, LEVEL = 0.35; // tank (m)
 const params = new URLSearchParams( location.search );
@@ -223,6 +226,23 @@ view( params.get( 'view' ) ?? 'above' );
 // Strings of bubbles from three points of the floor (src/core/bubbles.js);
 // ?nobubbles. In the scene, not in the tank group: the mirrors skip them.
 if ( ! params.has( 'nobubbles' ) ) scene.add( createBubbles( { box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] }, count: 150, sources: [ [ - 0.36, 0.14 ], [ 0.02, - 0.22 ], [ 0.42, 0.2 ] ] } ) );
+// Life, built by code (demo/sealife): a school of fish that circles above
+// the low cubes, four jellyfish in the free corners, a crab that walks
+// along the front of the floor. ?nolife. The fish and the crab are in the
+// tank group, so the water's mirrors show them.
+const life = [];
+if ( ! params.has( 'nolife' ) ) {
+
+	const school = createSchool( { count: 16, length: 0.045, loop: { centre: [ - 0.14, 0.24, 0.07 ], radii: [ 0.34, 0.035, 0.2 ] } } );
+	tank.add( school.mesh );
+	const jellies = createJellies( { spots: [ [ 0.5, 0.2, 0.0 ], [ - 0.5, 0.17, - 0.28 ], [ 0.05, 0.22, - 0.32 ], [ 0.47, 0.16, 0.3 ] ] } );
+	scene.add( jellies.group );
+	const crab = createCrab( { size: 0.055, from: [ - 0.3, 0, 0.31 ], to: [ 0.22, 0, 0.31 ], y: 0.02 } ); // y: about the mean height of the displaced sand
+	tank.add( crab.group );
+	life.push( school, jellies, crab );
+
+}
+
 // Light shafts in the tank's water (src/core/shafts.js); ?noshafts.
 const shafts = params.has( 'noshafts' ) ? null : createShafts( renderer, camera, { box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] } } );
 const fx = ! params.has( 'nofx' );
@@ -238,6 +258,7 @@ renderer.setAnimationLoop( () => {
 	clock += dt;
 	last = now;
 	setTime( clock );
+	for ( const l of life ) l.update( clock );
 	// Under water the haze tells the distance, not the lens: half the blur.
 	const under = camera.position.y < LEVEL && Math.abs( camera.position.x ) < TW / 2 && Math.abs( camera.position.z ) < TD / 2;
 	if ( lens ) lens.bokehScale = under ? 0.5 : 1;
@@ -248,4 +269,4 @@ renderer.setAnimationLoop( () => {
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, kit, walk, adaptive, lens, focus: lens, fx, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };
+window.__ix = { renderer, scene, camera, controls, kit, life, walk, adaptive, lens, focus: lens, fx, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };
