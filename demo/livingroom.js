@@ -172,6 +172,7 @@ const adaptive = createAdaptiveResolution( renderer, { enabled: ! params.has( 'f
 const walk = createWalk( { camera, controls, scene, maxSpeed: 1.5 } );
 // Depth of field on what the camera aims at (demo/dof.js); F or ?nodof.
 const focus = createFocus( { camera, controls, scene, renderer, enabled: dofWanted( params ) } );
+focus.cast = walk.surfaceAhead;
 // One pipeline (demo/post.js): AO in the lighting, then the blur. ?nolit draws AO over the finished colour.
 const post = createPost( renderer, scene, camera, { focus, lit: ! params.has( 'nolit' ) } );
 // Sun shadows in three slices that follow the focus (demo/shadows.js).

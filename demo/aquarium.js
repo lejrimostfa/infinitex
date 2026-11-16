@@ -29,6 +29,8 @@ import { createStage } from './scene.js';
 import { createStats } from './stats.js';
 import { createAdaptiveResolution } from './adaptive.js';
 import { createWalk } from './walk.js';
+import { createFocus, dofWanted } from './dof.js';
+import { createLinePost } from './linepost.js';
 
 const TW = 1.2, TD = 0.8, TH = 0.5, LEVEL = 0.35; // tank (m)
 const params = new URLSearchParams( location.search );
@@ -152,8 +154,9 @@ addEventListener( 'resize', () => { const s = renderer.getDrawingBufferSize( new
 function draw() {
 
 	const p = camera.position;
-	if ( p.z > TD / 2 ) glassLine.render();
-	else if ( Math.abs( p.x ) < TW / 2 && Math.abs( p.z ) < TD / 2 ) lensLine.render();
+	// ?nofx: the frame as before, no AO and no depth of field.
+	if ( p.z > TD / 2 ) { if ( fx ) fx.line.draw( glassLine, focus.distance.value ); else glassLine.render(); }
+	else if ( Math.abs( p.x ) < TW / 2 && Math.abs( p.z ) < TD / 2 ) { if ( fx ) fx.line.draw( lensLine, focus.distance.value ); else lensLine.render(); }
 	else {
 
 		// Above the water, it is seen through the surface; beside the
@@ -161,7 +164,15 @@ function draw() {
 		if ( p.y > LEVEL ) refractSurface( p, LEVEL ); else refractOff();
 		prepare( camera );
 		renderer.setRenderTarget( null );
-		renderer.render( scene, camera );
+		if ( fx ) {
+
+			// A plain render into the pane's air target, then the same effects.
+			renderer.setRenderTarget( glassLine.rtA );
+			renderer.render( scene, camera );
+			renderer.setRenderTarget( null );
+			fx.line.drawTarget( glassLine.rtA, focus.distance.value );
+
+		} else renderer.render( scene, camera );
 
 	}
 
@@ -202,6 +213,12 @@ adaptive.addEventListener( 'pixelRatioChanged', () => { const s = renderer.getDr
 const stats = createStats( { renderer, camera, adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
 // Arrows or ZQSD to walk, a click to focus (walk.js).
 const walk = createWalk( { camera, controls, scene, maxSpeed: 0.6 } );
+// Depth of field on what the camera aims at (demo/dof.js; F or ?nodof),
+// and AO, through demo/linepost.js: after the two passes of a waterline
+// are mixed, or after a plain render beside the tank.
+const focus = createFocus( { camera, controls, scene, renderer, enabled: dofWanted( params, params.has( 'film' ) ) } );
+focus.cast = walk.surfaceAhead;
+const fx = params.has( 'nofx' ) ? null : { line: createLinePost( renderer, camera, glassLine, { focus } ) };
 let clock = 0, last = performance.now();
 renderer.setAnimationLoop( () => {
 
@@ -212,6 +229,7 @@ renderer.setAnimationLoop( () => {
 	setTime( clock );
 	walk.update( dt );
 	controls.update();
+	focus.update( dt );
 	stats.beginFrame();
 	draw();
 	stats.endFrame( camera.position.distanceTo( controls.target ) );
@@ -219,4 +237,4 @@ renderer.setAnimationLoop( () => {
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, walk, adaptive, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };
+window.__ix = { renderer, scene, camera, controls, walk, adaptive, focus, fx, refraction, apparentPoint, waterBody, tank, LEVEL, TD, view, setTime, draw, dive, glassPan, ready: true };

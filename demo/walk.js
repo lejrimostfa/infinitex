@@ -143,6 +143,7 @@ export function createWalk( { camera, controls, scene, dom = controls.domElement
 
 	};
 
+	bus.surfaceAhead = surfaceAhead; // the BVH ray, shared with the focus (dof.js)
 	return bus;
 
 }

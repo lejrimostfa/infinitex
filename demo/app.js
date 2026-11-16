@@ -128,6 +128,7 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 	// Arrows or ZQSD to walk, a click to focus (walk.js); off in film mode.
 	const walk = createWalk( { camera, controls, scene } );
 	window.__ix.walk = walk;
+	focus.cast = walk.surfaceAhead;
 	loop = () => {
 
 		const now = performance.now();

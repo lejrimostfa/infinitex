@@ -24,6 +24,7 @@
 // Event bus: createFocus returns an EventTarget. It emits
 //   dofToggled   { enabled }           F key or the enabled setter
 //   macroChanged { macro }             the macro lens goes on or off
+// focus.cast = walk.surfaceAhead gives it the walk's fast ray (collide.js).
 // The page calls update( dt ) once per frame, after controls.update(),
 // and draws through demo/post.js, which ends with withDof().
 
@@ -62,8 +63,10 @@ export function createFocus( { camera, controls, scene, renderer, enabled = true
 		for ( const [ x, y ] of AREA ) {
 
 			ray.setFromCamera( centre.set( x, y ), camera );
-			const hit = ray.intersectObjects( scene.children, true ).find( ok );
-			if ( hit && hit.distance < maxFocus && ( best === null || hit.distance < best ) ) best = hit.distance;
+			// bus.cast: the walk's BVH ray (collide.js), about 0.02 ms. Without
+			// it three tests every triangle: 34 ms on the aquarium's fine meshes.
+			const d = bus.cast ? bus.cast( ray.ray.origin, ray.ray.direction, maxFocus ) : ray.intersectObjects( scene.children, true ).find( ok )?.distance;
+			if ( d !== undefined && d < maxFocus && ( best === null || d < best ) ) best = d;
 
 		}
 
