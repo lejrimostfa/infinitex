@@ -1,10 +1,13 @@
-// LOD branches check (core/lod.js gate()): every ground matter drawn on the
-// ground plane of game.html with the branches on and off. The two images
-// must match, and the script prints what the branches save.
+// LOD branches check (core/lod.js gate()): every matter of demo/cubelist.js
+// drawn on the ground plane of game.html with the branches on and off. The
+// two images must match, and the script prints what the branches save.
+// Fuzz shells and 3D hair are separate materials: they are not drawn here.
 // Needs the dev server.
 //
 //   node tests/lod_branches.mjs                  image check and timing, 1080p
-//   node tests/lod_branches.mjs --only soil,sand one or several modes
+//   node tests/lod_branches.mjs --family ground,metal   some families
+//   node tests/lod_branches.mjs --only soil,sand        some modes
+//   node tests/lod_branches.mjs --name Rouille,Terre    names containing
 //   node tests/lod_branches.mjs --notime         image check only
 //   node tests/lod_branches.mjs --dump dir       640x360 captures to dir
 //   node tests/lod_branches.mjs --compare a b    compare two dumps (two
@@ -52,7 +55,7 @@ if ( opt( '--compare' ) ) {
 
 const { launchBrowser } = await import( './chromium.mjs' );
 const URL = process.env.IX_URL ?? 'http://localhost:5211/game.html';
-const dump = opt( '--dump' ), only = opt( '--only' ), timing = ! opt( '--notime' ) && ! dump;
+const dump = opt( '--dump' ), timing = ! opt( '--notime' ) && ! dump;
 const [ W, H ] = dump ? [ 640, 360 ] : [ 1920, 1080 ];
 if ( dump ) mkdirSync( dump, { recursive: true } );
 
@@ -65,7 +68,9 @@ await page.waitForFunction( () => window.__game?.ready, null, { timeout: 180000 
 
 // Page side: the modules the page already loaded (same instances), the
 // ground plane alone in Infinitex, capture and timing helpers.
-const presets = await page.evaluate( async ( only ) => {
+const str = ( name ) => { const v = opt( name ); return typeof v === 'string' ? v.split( ',' ) : null; };
+const filter = { family: str( '--family' ), only: str( '--only' ), name: str( '--name' ) };
+const presets = await page.evaluate( async ( filter ) => {
 
 	const names = performance.getEntriesByType( 'resource' ).map( ( e ) => e.name );
 	const mod = ( re ) => import( names.find( ( n ) => re.test( n ) ) );
@@ -82,7 +87,16 @@ const presets = await page.evaluate( async ( only ) => {
 		at40cm: [ [ 4, 0.3, 3.3 ], [ 4, 0, 3 ] ], at6cm: [ [ 4, 0.05, 3.03 ], [ 4, 0, 3 ] ], at1cm: [ [ 4, 0.01, 3.004 ], [ 4, 0, 3 ] ],
 	};
 	const list = [];
-	for ( const f of cubes.CUBES ) for ( const it of f.items ) if ( it.preset.family === 'ground' && ( ! only || only.split( ',' ).includes( it.preset.mode ) ) ) list.push( it );
+	for ( const f of cubes.CUBES ) for ( const it of f.items ) {
+
+		const pr = it.preset;
+		if ( filter.family && ! filter.family.includes( pr.family ) ) continue;
+		if ( filter.only && ! filter.only.includes( pr.mode ) ) continue;
+		if ( filter.name && ! filter.name.some( ( n ) => it.name.includes( n ) ) ) continue;
+		list.push( it );
+
+	}
+
 	const lut = new Uint8Array( 4097 );
 	for ( let i = 0; i <= 4096; i ++ ) lut[ i ] = Math.round( Math.pow( i / 4096, 1 / 2.2 ) * 255 );
 	window.__lod = {
@@ -144,9 +158,9 @@ const presets = await page.evaluate( async ( only ) => {
 		},
 		views: Object.keys( VIEWS ),
 	};
-	return { names: list.map( ( it ) => `${ it.preset.mode }: ${ it.name }` ), views: Object.keys( VIEWS ), hasSwitch: window.__lod.hasSwitch };
+	return { names: list.map( ( it ) => `${ it.preset.family } ${ it.preset.mode ?? '' }: ${ it.name }` ), views: Object.keys( VIEWS ), hasSwitch: window.__lod.hasSwitch };
 
-}, typeof only === 'string' ? only : null );
+}, filter );
 
 if ( ! presets.hasSwitch && ! dump ) { console.error( 'this version has no setLodBranches: only --dump works' ); await browser.close(); process.exit( 2 ); }
 let bad = 0;
