@@ -53,7 +53,7 @@ Or try it without installing anything: [knit](https://lejrimostfa.github.io/infi
 | `aquarium.html` | A tank of clear water. `?view=above`, `below`, `floor`, `glass` (the waterline through the pane) or `lens` (a camera half in the water). |
 | `livingroom.html` | Ten matters in one scene: an 80s room at sunset over a lava lake (wood strips, plaster, a knotted rug, beige plastic, a CRT, leather, oranges, the lava, a photosphere sun, a cable sweater). `?view=room`, `window`, `tv`, `fruit`, `rug` or `chair`. Geometry built by code in Blender: `blender/livingroom.py`. |
 
-In every demo page: arrows or ZQSD (WASD on QWERTY) to walk along the view direction, Space and C to rise and sink, Shift to go faster, a click on an object to glide to it (`demo/walk.js`). The camera slows down near a surface and stops 0.1 mm from it, so it never goes through (`demo/collide.js`, BVH raycast with three-mesh-bvh).
+In every demo page: arrows or ZQSD (WASD on QWERTY) to walk along the view direction, Space and C to rise and sink, Shift to go faster, a click on an object to glide to it. The camera slows down near a surface and stops 0.1 mm from it, so it never goes through. Close to a surface the lens turns macro (narrower field of view, shallow depth of field); F toggles it. All of it is the camera kit below (`src/camera/`).
 | `index.html` | A knitted mannequin with sliders, live stats and a "level view" that colours each level of detail. |
 
 ## Use it in your scene
@@ -129,6 +129,21 @@ const water = new THREE.Mesh( new THREE.PlaneGeometry( 1.2, 0.8 ), createWaterSu
 const line = createWaterline( renderer, scene, camera, { glassZ: 0.4, prepare: ( c ) => { mirrors.up.render( renderer, c ); mirrors.down.render( renderer, c ); } } );
 // each frame: line.render();
 ```
+
+## Camera kit
+
+The demos' camera is a library too: `infinitex/camera`. Walk keys, collisions that stop 0.1 mm from any surface (BVH, skinned characters included), a macro lens with depth of field focused on the surface at the screen centre, adaptive resolution and ambient occlusion. Each part can be turned off.
+
+```js
+import { createCameraStage, createCameraKit } from 'infinitex/camera';
+
+const { renderer, camera, controls } = await createCameraStage();   // reversed depth, near 1 um
+const kit = createCameraKit( { renderer, scene, camera, controls, options: { dof: true, macro: true } } );
+kit.addEventListener( 'macroChanged', ( e ) => console.log( 'macro', e.detail.macro ) );
+renderer.setAnimationLoop( () => { kit.update( 1 / 60 ); kit.render(); } );
+```
+
+With your own renderer: create it with `{ ...RENDERER_OPTIONS }` (reversed depth) and call `applyCameraSettings( { renderer, camera, controls } )`. Options, events, measured costs and traps: [docs/camera.md](docs/camera.md).
 
 ## How it works
 

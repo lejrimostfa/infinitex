@@ -1,0 +1,833 @@
+{
+  "fails": [],
+  "report": {
+    "index.html webgpu": {
+      "plain": {
+        "lensOn": false,
+        "fov": 40,
+        "base": 40,
+        "check": "ok"
+      },
+      "walk": {
+        "surface": "torso",
+        "startDist": 1,
+        "frames": 613,
+        "stopDist": 0.00010000020523637408,
+        "firstMs": 1.1,
+        "staticMs": {
+          "median": 0.1,
+          "mean": 0.098,
+          "p99": 0.2,
+          "max": 0.8,
+          "n": 612
+        },
+        "animatedMs": {
+          "median": 0,
+          "mean": 0.0682,
+          "p99": 0.3,
+          "max": 0.7,
+          "n": 600
+        },
+        "animatedMinDist": 0.00003123902701345486,
+        "check": "ok",
+        "animatedCheck": "ok"
+      },
+      "errorsPlain": [],
+      "lens": {
+        "baseFov": 40,
+        "surface": "torso",
+        "at1m": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at30cm": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at3cm": {
+          "fov": 22.034,
+          "maxStep": 0.499
+        },
+        "back1m": {
+          "fov": 40,
+          "maxStep": 0.749
+        },
+        "nearToFar": {
+          "fov": 40,
+          "maxStep": 0.753,
+          "farDist": 1.218
+        },
+        "lensMs": {
+          "median": 0.1,
+          "mean": 0.0846,
+          "p99": 0.3,
+          "max": 1.2,
+          "n": 1200
+        },
+        "dofMs": {
+          "size": "1280x720",
+          "off": {
+            "median": 5.3,
+            "mean": 5.3,
+            "p99": 5.7,
+            "max": 5.7,
+            "n": 30
+          },
+          "on": {
+            "median": 5.7,
+            "mean": 5.69,
+            "p99": 6.2,
+            "max": 6.2,
+            "n": 30
+          },
+          "offAgain": {
+            "median": 5.3,
+            "mean": 5.26,
+            "p99": 5.5,
+            "max": 5.5,
+            "n": 30
+          }
+        },
+        "check": "ok ok ok ok ok"
+      },
+      "errorsLens": []
+    },
+    "index.html webgl": {
+      "plain": {
+        "lensOn": false,
+        "fov": 40,
+        "base": 40,
+        "check": "ok"
+      },
+      "walk": {
+        "surface": "torso",
+        "startDist": 1,
+        "frames": 613,
+        "stopDist": 0.00010000020523637408,
+        "firstMs": 1.1,
+        "staticMs": {
+          "median": 0.1,
+          "mean": 0.1011,
+          "p99": 0.3,
+          "max": 0.6,
+          "n": 612
+        },
+        "animatedMs": {
+          "median": 0,
+          "mean": 0.0663,
+          "p99": 0.3,
+          "max": 0.3,
+          "n": 600
+        },
+        "animatedMinDist": 0.00003123902701345486,
+        "check": "ok",
+        "animatedCheck": "ok"
+      },
+      "errorsPlain": [],
+      "lens": {
+        "baseFov": 40,
+        "surface": "torso",
+        "at1m": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at30cm": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at3cm": {
+          "fov": 22.034,
+          "maxStep": 0.499
+        },
+        "back1m": {
+          "fov": 40,
+          "maxStep": 0.749
+        },
+        "nearToFar": {
+          "fov": 40,
+          "maxStep": 0.753,
+          "farDist": 1.218
+        },
+        "lensMs": {
+          "median": 0.1,
+          "mean": 0.084,
+          "p99": 0.3,
+          "max": 0.6,
+          "n": 1200
+        },
+        "dofMs": {
+          "size": "1280x720",
+          "off": {
+            "median": 6.6,
+            "mean": 6.6367,
+            "p99": 7,
+            "max": 7,
+            "n": 30
+          },
+          "on": {
+            "median": 7.6,
+            "mean": 7.6533,
+            "p99": 8.2,
+            "max": 8.2,
+            "n": 30
+          },
+          "offAgain": {
+            "median": 6.7,
+            "mean": 6.6867,
+            "p99": 7.3,
+            "max": 7.3,
+            "n": 30
+          }
+        },
+        "check": "ok ok ok ok ok"
+      },
+      "errorsLens": []
+    },
+    "cubes.html?family=10 webgpu": {
+      "plain": {
+        "lensOn": false,
+        "fov": 40,
+        "base": 40,
+        "check": "ok"
+      },
+      "walk": {
+        "surface": "Mesh",
+        "startDist": 1,
+        "frames": 613,
+        "stopDist": 0.0001000002053105144,
+        "firstMs": 1.1,
+        "staticMs": {
+          "median": 0.1,
+          "mean": 0.0574,
+          "p99": 0.2,
+          "max": 0.8,
+          "n": 612
+        },
+        "check": "ok"
+      },
+      "errorsPlain": [],
+      "lens": {
+        "baseFov": 40,
+        "surface": "Mesh",
+        "at1m": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at30cm": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at3cm": {
+          "fov": 22.034,
+          "maxStep": 0.499
+        },
+        "back1m": {
+          "fov": 40,
+          "maxStep": 0.749
+        },
+        "nearToFar": {
+          "fov": 40,
+          "maxStep": 0.749,
+          "farDist": "nothing"
+        },
+        "lensMs": {
+          "median": 0,
+          "mean": 0.0523,
+          "p99": 0.2,
+          "max": 0.8,
+          "n": 1200
+        },
+        "dofMs": {
+          "size": "1280x720",
+          "off": {
+            "median": 3.7,
+            "mean": 3.7067,
+            "p99": 4.2,
+            "max": 4.2,
+            "n": 30
+          },
+          "on": {
+            "median": 4.1,
+            "mean": 4.18,
+            "p99": 5.3,
+            "max": 5.3,
+            "n": 30
+          },
+          "offAgain": {
+            "median": 3.4,
+            "mean": 3.4433,
+            "p99": 3.8,
+            "max": 3.8,
+            "n": 30
+          }
+        },
+        "check": "ok ok ok ok ok"
+      },
+      "errorsLens": []
+    },
+    "cubes.html?family=10 webgl": {
+      "plain": {
+        "lensOn": false,
+        "fov": 40,
+        "base": 40,
+        "check": "ok"
+      },
+      "walk": {
+        "surface": "Mesh",
+        "startDist": 1,
+        "frames": 613,
+        "stopDist": 0.0001000002053105144,
+        "firstMs": 1.1,
+        "staticMs": {
+          "median": 0.1,
+          "mean": 0.0637,
+          "p99": 0.2,
+          "max": 0.5,
+          "n": 612
+        },
+        "check": "ok"
+      },
+      "errorsPlain": [],
+      "lens": {
+        "baseFov": 40,
+        "surface": "Mesh",
+        "at1m": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at30cm": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at3cm": {
+          "fov": 22.034,
+          "maxStep": 0.499
+        },
+        "back1m": {
+          "fov": 40,
+          "maxStep": 0.749
+        },
+        "nearToFar": {
+          "fov": 40,
+          "maxStep": 0.749,
+          "farDist": "nothing"
+        },
+        "lensMs": {
+          "median": 0,
+          "mean": 0.0544,
+          "p99": 0.2,
+          "max": 0.5,
+          "n": 1200
+        },
+        "dofMs": {
+          "size": "1280x720",
+          "off": {
+            "median": 4.7,
+            "mean": 4.7433,
+            "p99": 5.2,
+            "max": 5.2,
+            "n": 30
+          },
+          "on": {
+            "median": 6,
+            "mean": 5.97,
+            "p99": 8.8,
+            "max": 8.8,
+            "n": 30
+          },
+          "offAgain": {
+            "median": 4.4,
+            "mean": 4.3967,
+            "p99": 4.7,
+            "max": 4.7,
+            "n": 30
+          }
+        },
+        "check": "ok ok ok ok ok"
+      },
+      "errorsLens": []
+    },
+    "character.html webgpu": {
+      "plain": {
+        "lensOn": false,
+        "fov": 40,
+        "base": 40,
+        "check": "ok"
+      },
+      "walk": {
+        "surface": "char1",
+        "startDist": 1,
+        "frames": 630,
+        "stopDist": 0.00010000020812049979,
+        "firstMs": 1.3,
+        "staticMs": {
+          "median": 0.1,
+          "mean": 0.1216,
+          "p99": 0.3,
+          "max": 2.1,
+          "n": 629
+        },
+        "animatedMs": {
+          "median": 0.1,
+          "mean": 0.0907,
+          "p99": 0.3,
+          "max": 0.4,
+          "n": 600
+        },
+        "animatedMinDist": 0.0001368731978111912,
+        "check": "ok",
+        "animatedCheck": "ok"
+      },
+      "errorsPlain": [],
+      "lens": {
+        "baseFov": 40,
+        "surface": "char1",
+        "at1m": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at30cm": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at3cm": {
+          "fov": 22.032,
+          "maxStep": 0.499
+        },
+        "back1m": {
+          "fov": 40,
+          "maxStep": 0.749
+        },
+        "nearToFar": {
+          "fov": 40,
+          "maxStep": 0.711,
+          "farDist": 0.462
+        },
+        "lensMs": {
+          "median": 0.1,
+          "mean": 0.0812,
+          "p99": 0.3,
+          "max": 0.9,
+          "n": 1200
+        },
+        "dofMs": {
+          "size": "1280x720",
+          "off": {
+            "median": 3.7,
+            "mean": 3.7033,
+            "p99": 4,
+            "max": 4,
+            "n": 30
+          },
+          "on": {
+            "median": 4.2,
+            "mean": 4.2033,
+            "p99": 4.5,
+            "max": 4.5,
+            "n": 30
+          },
+          "offAgain": {
+            "median": 3.7,
+            "mean": 3.7,
+            "p99": 4.4,
+            "max": 4.4,
+            "n": 30
+          }
+        },
+        "check": "ok ok ok ok ok"
+      },
+      "errorsLens": []
+    },
+    "character.html webgl": {
+      "plain": {
+        "lensOn": false,
+        "fov": 40,
+        "base": 40,
+        "check": "ok"
+      },
+      "walk": {
+        "surface": "char1",
+        "startDist": 1,
+        "frames": 630,
+        "stopDist": 0.00010000020812049979,
+        "firstMs": 1.4,
+        "staticMs": {
+          "median": 0.1,
+          "mean": 0.1146,
+          "p99": 0.3,
+          "max": 0.9,
+          "n": 629
+        },
+        "animatedMs": {
+          "median": 0.1,
+          "mean": 0.0863,
+          "p99": 0.3,
+          "max": 0.3,
+          "n": 600
+        },
+        "animatedMinDist": 0.0001368731978111912,
+        "check": "ok",
+        "animatedCheck": "ok"
+      },
+      "errorsPlain": [],
+      "lens": {
+        "baseFov": 40,
+        "surface": "char1",
+        "at1m": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at30cm": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at3cm": {
+          "fov": 22.032,
+          "maxStep": 0.499
+        },
+        "back1m": {
+          "fov": 40,
+          "maxStep": 0.749
+        },
+        "nearToFar": {
+          "fov": 40,
+          "maxStep": 0.711,
+          "farDist": 0.462
+        },
+        "lensMs": {
+          "median": 0.1,
+          "mean": 0.0763,
+          "p99": 0.2,
+          "max": 0.7,
+          "n": 1200
+        },
+        "dofMs": {
+          "size": "1280x720",
+          "off": {
+            "median": 4.2,
+            "mean": 4.2333,
+            "p99": 4.7,
+            "max": 4.7,
+            "n": 30
+          },
+          "on": {
+            "median": 5.2,
+            "mean": 5.1667,
+            "p99": 5.4,
+            "max": 5.4,
+            "n": 30
+          },
+          "offAgain": {
+            "median": 4.3,
+            "mean": 4.3167,
+            "p99": 6.1,
+            "max": 6.1,
+            "n": 30
+          }
+        },
+        "check": "ok ok ok ok ok"
+      },
+      "errorsLens": []
+    },
+    "livingroom.html webgpu": {
+      "plain": {
+        "lensOn": false,
+        "fov": 40,
+        "base": 40,
+        "check": "ok"
+      },
+      "walk": {
+        "surface": "lava",
+        "startDist": 1,
+        "frames": 613,
+        "stopDist": 0.00010000020529199825,
+        "firstMs": 0.7,
+        "staticMs": {
+          "median": 0,
+          "mean": 0.0132,
+          "p99": 0.1,
+          "max": 0.1,
+          "n": 612
+        },
+        "animatedMs": {
+          "median": 0,
+          "mean": 0.0098,
+          "p99": 0.1,
+          "max": 0.1,
+          "n": 600
+        },
+        "animatedMinDist": 0.00010000000012426323,
+        "check": "ok",
+        "animatedCheck": "ok"
+      },
+      "errorsPlain": [],
+      "lens": {
+        "baseFov": 40,
+        "surface": "lava",
+        "at1m": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at30cm": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at3cm": {
+          "fov": 22.034,
+          "maxStep": 0.499
+        },
+        "back1m": {
+          "fov": 40,
+          "maxStep": 0.749
+        },
+        "nearToFar": {
+          "fov": 40,
+          "maxStep": 0.815,
+          "farDist": 101.116
+        },
+        "lensMs": {
+          "median": 0,
+          "mean": 0.0137,
+          "p99": 0.1,
+          "max": 0.2,
+          "n": 1200
+        },
+        "dofMs": {
+          "size": "1280x720",
+          "off": {
+            "median": 2.5,
+            "mean": 2.55,
+            "p99": 2.9,
+            "max": 2.9,
+            "n": 30
+          },
+          "on": {
+            "median": 3.3,
+            "mean": 3.26,
+            "p99": 3.5,
+            "max": 3.5,
+            "n": 30
+          },
+          "offAgain": {
+            "median": 2.5,
+            "mean": 2.5167,
+            "p99": 3.4,
+            "max": 3.4,
+            "n": 30
+          }
+        },
+        "check": "ok ok ok ok ok"
+      },
+      "errorsLens": []
+    },
+    "livingroom.html webgl": {
+      "plain": {
+        "lensOn": false,
+        "fov": 40,
+        "base": 40,
+        "check": "ok"
+      },
+      "walk": {
+        "surface": "lava",
+        "startDist": 1,
+        "frames": 613,
+        "stopDist": 0.00010000020529199825,
+        "firstMs": 0.7,
+        "staticMs": {
+          "median": 0,
+          "mean": 0.0147,
+          "p99": 0.1,
+          "max": 0.1,
+          "n": 612
+        },
+        "animatedMs": {
+          "median": 0,
+          "mean": 0.01,
+          "p99": 0.1,
+          "max": 0.2,
+          "n": 600
+        },
+        "animatedMinDist": 0.00010000000012426323,
+        "check": "ok",
+        "animatedCheck": "ok"
+      },
+      "errorsPlain": [],
+      "lens": {
+        "baseFov": 40,
+        "surface": "lava",
+        "at1m": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at30cm": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at3cm": {
+          "fov": 22.034,
+          "maxStep": 0.499
+        },
+        "back1m": {
+          "fov": 40,
+          "maxStep": 0.749
+        },
+        "nearToFar": {
+          "fov": 40,
+          "maxStep": 0.815,
+          "farDist": 101.116
+        },
+        "lensMs": {
+          "median": 0,
+          "mean": 0.0161,
+          "p99": 0.1,
+          "max": 0.2,
+          "n": 1200
+        },
+        "dofMs": {
+          "size": "1280x720",
+          "off": {
+            "median": 4.1,
+            "mean": 4.1633,
+            "p99": 4.6,
+            "max": 4.6,
+            "n": 30
+          },
+          "on": {
+            "median": 4.9,
+            "mean": 4.9767,
+            "p99": 5.6,
+            "max": 5.6,
+            "n": 30
+          },
+          "offAgain": {
+            "median": 4,
+            "mean": 4.0267,
+            "p99": 4.7,
+            "max": 4.7,
+            "n": 30
+          }
+        },
+        "check": "ok ok ok ok ok"
+      },
+      "errorsLens": []
+    },
+    "aquarium.html webgpu": {
+      "plain": {
+        "lensOn": false,
+        "fov": 40,
+        "base": 40,
+        "check": "ok"
+      },
+      "walk": {
+        "surface": "Mesh",
+        "startDist": 1,
+        "frames": 613,
+        "stopDist": 0.00010000020530943906,
+        "firstMs": 0.8,
+        "staticMs": {
+          "median": 0,
+          "mean": 0.0075,
+          "p99": 0.1,
+          "max": 0.1,
+          "n": 612
+        },
+        "check": "ok"
+      },
+      "errorsPlain": [],
+      "lens": {
+        "baseFov": 40,
+        "surface": "Mesh",
+        "at1m": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at30cm": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at3cm": {
+          "fov": 22.034,
+          "maxStep": 0.499
+        },
+        "back1m": {
+          "fov": 40,
+          "maxStep": 0.749
+        },
+        "nearToFar": {
+          "fov": 40,
+          "maxStep": 0.682,
+          "farDist": 0.323
+        },
+        "lensMs": {
+          "median": 0,
+          "mean": 0.0058,
+          "p99": 0.1,
+          "max": 0.1,
+          "n": 1200
+        },
+        "dofMs": "no depth of field on this page",
+        "check": "ok ok ok ok ok"
+      },
+      "errorsLens": []
+    },
+    "aquarium.html webgl": {
+      "plain": {
+        "lensOn": false,
+        "fov": 40,
+        "base": 40,
+        "check": "ok"
+      },
+      "walk": {
+        "surface": "Mesh",
+        "startDist": 1,
+        "frames": 613,
+        "stopDist": 0.00010000020530943906,
+        "firstMs": 0.6,
+        "staticMs": {
+          "median": 0,
+          "mean": 0.0067,
+          "p99": 0.1,
+          "max": 0.1,
+          "n": 612
+        },
+        "check": "ok"
+      },
+      "errorsPlain": [],
+      "lens": {
+        "baseFov": 40,
+        "surface": "Mesh",
+        "at1m": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at30cm": {
+          "fov": 40,
+          "maxStep": 0
+        },
+        "at3cm": {
+          "fov": 22.034,
+          "maxStep": 0.499
+        },
+        "back1m": {
+          "fov": 40,
+          "maxStep": 0.749
+        },
+        "nearToFar": {
+          "fov": 40,
+          "maxStep": 0.682,
+          "farDist": 0.323
+        },
+        "lensMs": {
+          "median": 0,
+          "mean": 0.0061,
+          "p99": 0.1,
+          "max": 0.2,
+          "n": 1200
+        },
+        "dofMs": "no depth of field on this page",
+        "check": "ok ok ok ok ok"
+      },
+      "errorsLens": []
+    }
+  }
+}
