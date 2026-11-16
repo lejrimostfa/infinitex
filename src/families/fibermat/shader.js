@@ -30,6 +30,9 @@ function fiberLayer( p, fp, u, k ) {
 	const x = vec2( q.x.div( cA ), q.y.div( cX ) ).add( k * 13.1 );
 	const b = floor( x );
 	let cov = float( 0 ), sl = vec2( 0 ), tone = float( 1 ), fid = float( 0 );
+	// The top fiber's place along and across it, its seed and direction:
+	// its cuticle scales are drawn once, after the search.
+	let wt = float( 0 ), ws = float( 0 ), wy = float( 0 ), wdir = vec2( 1, 0 );
 	const wScale = fadeIn( u.fiberW.mul( 0.4 ), fp, 2.0, 5.0 ).mul( u.scales );
 	for ( let oy = - 1; oy <= 1; oy ++ ) for ( let ox = - 1; ox <= 1; ox ++ ) {
 
@@ -54,20 +57,26 @@ function fiberLayer( p, fp, u, k ) {
 		const cv = clamp( rEff.sub( d ).div( fp ).add( 0.5 ), 0, 1 ).mul( r.div( rEff ) );
 		const s = clamp( dv.dot( perp ).div( rEff ), - 0.95, 0.95 );
 		const sAcross = s.div( sqrt( float( 1 ).sub( s.mul( s ) ) ) ).negate().mul( u.flatten ).mul( 0.7 );
-		// Cuticle scales of wool: a slow rise then a sharp step every
-		// 0.4 fiber width, the step lines a little slanted and wavy.
-		const sc = fract( t.div( u.fiberW.mul( 0.4 ) ).add( s.mul( 0.25 ) ).add( valueNoise( vec2( t.div( u.fiberW.mul( 0.6 ) ), h.y.mul( 50 ) ) ).mul( 0.5 ) ) );
-		const step1 = smoothstep( 0.82, 1.0, sc );
-		const sAlong = float( 0.25 ).sub( step1.mul( 1.4 ) ).mul( wScale );
-		const slope = perp.mul( sAcross ).add( dir.mul( sAlong ) );
-		const scaleLine = step1.mul( wScale );
+		// The first cell always wins (cv >= 0): no start value survives.
 		const win = step( cov, cv );
 		cov = cov.max( cv ).toVar();
-		sl = mix( sl, slope, win ).toVar();
-		tone = mix( tone, h.z.sub( scaleLine.mul( 0.35 ) ), win ).toVar();
+		sl = mix( sl, perp.mul( sAcross ), win ).toVar();
+		tone = mix( tone, h.z, win ).toVar();
 		fid = mix( fid, hash1( id.add( 9.9 + k ) ), win ).toVar();
+		wt = mix( wt, t, win ).toVar();
+		ws = mix( ws, s, win ).toVar();
+		wy = mix( wy, h.y, win ).toVar();
+		wdir = mix( wdir, dir, win ).toVar();
 
 	}
+
+	// Cuticle scales of wool, on the top fiber: a slow rise then a sharp
+	// step every 0.4 fiber width, the step lines a little slanted and wavy.
+	const sc = fract( wt.div( u.fiberW.mul( 0.4 ) ).add( ws.mul( 0.25 ) ).add( valueNoise( vec2( wt.div( u.fiberW.mul( 0.6 ) ), wy.mul( 50 ) ) ).mul( 0.5 ) ) );
+	const step1 = smoothstep( 0.82, 1.0, sc );
+	const sAlong = float( 0.25 ).sub( step1.mul( 1.4 ) ).mul( wScale );
+	sl = sl.add( wdir.mul( sAlong ) );
+	tone = tone.sub( step1.mul( wScale ).mul( 0.35 ) );
 
 	// Back to the surface frame: rotate by the layer angle.
 	return { cov, slope: vec2( sl.x.mul( ca ).sub( sl.y.mul( sa ) ), sl.x.mul( sa ).add( sl.y.mul( ca ) ) ), tone, fid };

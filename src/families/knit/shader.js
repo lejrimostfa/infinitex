@@ -7,11 +7,13 @@
 // Stitch patterns (rib, garter, seed, cable, lace, crochet) swap L1 for
 // patterns.js and add a macro relief; fleece has its own graph (fleece.js).
 //
-// Real branches (gate() in core/lod.js): the ply and fiber levels run only
-// where the plies show. Jersey also gates its stitch level: under 4 px per
-// stitch only the means are computed. A pattern keeps its stitch level
-// outside: far away the ply variance still reads the radius of the piece
-// on top (purl bumps and crochet pieces have their own).
+// Real branches (gate() in core/lod.js): the ply level runs only where the
+// plies show, the fiber level only where the fibers show. Jersey also gates
+// its stitch level: under 4 px per stitch only the means are computed. A
+// pattern keeps its stitch level outside: far away the ply variance still
+// reads the radius of the piece on top (purl bumps and crochet pieces have
+// their own). So does the colour from an image: its lookup reads screen
+// derivatives (core/colormap.js), which may not sit inside a branch.
 
 import { uv, vec2, vec3, float, step, sin, mix, mx_cell_noise_float, TBNViewMatrix, normalView, tangentView, bitangentView } from 'three/tsl';
 import { applySurface } from '../../core/surface.js';
@@ -33,13 +35,13 @@ const asVar = ( n ) => n.isVarNode ? n : n.toVar();
 function joinLevels( u, s0, fp, w1, st, c, s2Far ) {
 
 	// What the ply gate reads from the stitch level and is read outside too.
-	const v = {};
-	for ( const k of [ 'brn', 'bt', 'bcol', 'brow', 'dir', 'len', 'Rm', 'covered', 'nYarn' ] ) v[ k ] = asVar( s0[ k ] );
-	const s = { ...s0, ...v };
+	const v0 = {};
+	for ( const k of [ 'brn', 'bt', 'bcol', 'brow', 'dir', 'len', 'Rm', 'covered', 'nYarn' ] ) v0[ k ] = asVar( s0[ k ] );
+	const s = { ...s0, ...v0 };
 	const { bz, bcol, brow, edgeFade, covered, nYarn } = s;
 	// L2 and L3: plies and fibers. Off where w2 = fadeIn( plyPeriod ) *
 	// covered * w1 is zero, then their colour, AO and normal are the means.
-	const shared = [ fp, w1, st.dvda, st.dvds, st.gl, st.plyPeriod, c.meanColor, ...Object.values( v ) ];
+	const shared = [ fp, w1, st.dvda, st.dvds, st.gl, st.plyPeriod, c.meanColor, ...Object.values( v0 ) ];
 	if ( c.color.isVarNode ) shared.push( c.color, c.heather );
 	const D = gate( fadeOn( st.plyPeriod, fp ).and( fadeOn( u.stitchW, fp, 4.0 ) ).and( covered.greaterThan( 0 ) ), {
 		plyCol: { node: c.meanColor, size: 3 }, fibF: 1, aoPly: AO_PLY_MEAN, aoFiber: AO_FIBER_MEAN, w2: 0, w3: 0, w4: 0,
@@ -47,20 +49,29 @@ function joinLevels( u, s0, fp, w1, st, c, s2Far ) {
 	}, () => {
 
 		const ply = plyLevel( u, s, fp, st );
-		const fib = fiberLevel( u, s, ply, fp );
 		const { v, plyIdx, w2, plyEdge } = ply;
-		const { fIdx, fDepth, profile, w3, fiberEdge } = fib;
+		const nPly = ply.nPly.toVar();
 		const hPly = mx_cell_noise_float( vec3( plyIdx, bcol, brow.add( u.seed ) ) );
-		const hFiber = mx_cell_noise_float( vec3( fIdx, plyIdx, bcol.add( brow.mul( 131 ) ) ) );
 		const plyColor = pick( step( hPly, u.heatherFrac ), c.heather, c.color );
+		// L3: fibers. Off under 2 px per fiber (w3 = fadeIn( fiberDiam ) * w2).
+		const F = gate( fadeOn( u.fiberDiam, fp ), { fibF: 1, aoFiber: AO_FIBER_MEAN, w3: 0, w4: 0, nFiber: { node: nPly.normalize(), size: 3 } }, () => {
+
+			const { fIdx, fDepth, profile, w3, w4, fiberEdge, nFiber } = fiberLevel( u, s, { ...ply, nPly }, fp );
+			const hFiber = mx_cell_noise_float( vec3( fIdx, plyIdx, bcol.add( brow.mul( 131 ) ) ) );
+			return {
+				fibF: hFiber.mul( 2 ).sub( 1 ).mul( u.fiberVar ).mul( w3 ).mul( fiberEdge ).add( 1 ),
+				// Gap darkening scales with fiber depth. Its mean is analytic (yarn.js).
+				aoFiber: mix( float( AO_FIBER_MEAN ), float( 1 ).sub( fDepth.mul( 0.3 ).mul( float( 1 ).sub( profile ) ) ), w3 ),
+				w3, w4, nFiber,
+			};
+
+		}, [ fp, nPly, v, plyIdx, w2, st.dvda, st.dvds, st.gl, st.plyPeriod, ...Object.values( v0 ) ] );
 		return {
 			// Hard colour borders (ply, leg, fiber) also fade to the mean within a pixel.
 			plyCol: mix( c.meanColor, plyColor, w2.mul( plyEdge ) ),
-			fibF: hFiber.mul( 2 ).sub( 1 ).mul( u.fiberVar ).mul( w3 ).mul( fiberEdge ).add( 1 ),
+			fibF: F.fibF,
 			aoPly: mix( float( AO_PLY_MEAN ), sin( v.mul( Math.PI ) ).mul( 0.4 ).add( 0.6 ), w2 ),
-			// Gap darkening scales with fiber depth. Its mean is analytic (yarn.js).
-			aoFiber: mix( float( AO_FIBER_MEAN ), float( 1 ).sub( fDepth.mul( 0.3 ).mul( float( 1 ).sub( profile ) ) ), w3 ),
-			w2, w3, w4: fib.w4, nFiber: fib.nFiber,
+			aoFiber: F.aoFiber, w2, w3: F.w3, w4: F.w4, nFiber: F.nFiber,
 		};
 
 	}, shared );
