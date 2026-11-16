@@ -9,6 +9,7 @@ import { createPost } from './post.js';
 import { setTime } from '../src/core/clock.js';
 import { createStats } from './stats.js';
 import { createAdaptiveResolution } from './adaptive.js';
+import { createWalk } from './walk.js';
 
 const { vec3 } = TSL;
 
@@ -114,10 +115,14 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 	};
 
 	camera.lookAt( controls.target );
+	// Arrows or ZQSD to walk, a click to focus (walk.js); off in film mode.
+	const walk = createWalk( { camera, controls, scene } );
+	window.__ix.walk = walk;
 	loop = () => {
 
 		const now = performance.now();
-		animT += Math.min( 0.1, ( now - last ) / 1000 );
+		const dt = ( now - last ) / 1000;
+		animT += Math.min( 0.1, dt );
 		last = now;
 		animate( animT );
 
@@ -135,6 +140,7 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 
 		} else {
 
+			walk.update( dt );
 			controls.update();
 			dist = updateClip();
 

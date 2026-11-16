@@ -1,6 +1,6 @@
-// Walk and click to focus, for the scene demos (living room, aquarium,
-// knit). Works with the page's OrbitControls: the mouse still orbits and
-// zooms; this adds
+// Walk and click to focus, for every demo page (knit, all matters, game
+// characters through app.js; living room; aquarium). Works with the
+// page's OrbitControls: the mouse still orbits and zooms; this adds
 //   keys     arrows, or ZQSD on AZERTY / WASD on QWERTY (read by physical
 //            key, e.code, so both layouts work): move on the ground plane
 //            along the view. Space up, C down, Shift faster. Camera and
