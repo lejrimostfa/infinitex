@@ -5,9 +5,13 @@
 //      its own direction and bent by a smooth warp; the top fiber of each
 //      layer covers the ones below, the deep mat shows in between
 // Coordinates in meters.
+//
+// The fibers sit in a gate() (core/lod.js): once five fiber widths are under
+// 1.5 px only their mean colour is computed. The papier-mache pieces and the
+// fused drops sit in gates on their amount, so the other mats skip them.
 
 import { uv, vec2, vec3, float, floor, fract, clamp, smoothstep, step, sqrt, mix, sin, cos, normalView, tangentView, bitangentView } from 'three/tsl';
-import { footprint, fadeIn, composeRoughness, specularAA, perturbNormal } from '../../core/lod.js';
+import { footprint, fadeIn, fadeOn, gate, composeRoughness, specularAA, perturbNormal } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { applySurface } from '../../core/surface.js';
@@ -26,6 +30,9 @@ function fiberLayer( p, fp, u, k ) {
 	const x = vec2( q.x.div( cA ), q.y.div( cX ) ).add( k * 13.1 );
 	const b = floor( x );
 	let cov = float( 0 ), sl = vec2( 0 ), tone = float( 1 ), fid = float( 0 );
+	// The top fiber's place along and across it, its seed and direction:
+	// its cuticle scales are drawn once, after the search.
+	let wt = float( 0 ), ws = float( 0 ), wy = float( 0 ), wdir = vec2( 1, 0 );
 	const wScale = fadeIn( u.fiberW.mul( 0.4 ), fp, 2.0, 5.0 ).mul( u.scales );
 	for ( let oy = - 1; oy <= 1; oy ++ ) for ( let ox = - 1; ox <= 1; ox ++ ) {
 
@@ -50,53 +57,91 @@ function fiberLayer( p, fp, u, k ) {
 		const cv = clamp( rEff.sub( d ).div( fp ).add( 0.5 ), 0, 1 ).mul( r.div( rEff ) );
 		const s = clamp( dv.dot( perp ).div( rEff ), - 0.95, 0.95 );
 		const sAcross = s.div( sqrt( float( 1 ).sub( s.mul( s ) ) ) ).negate().mul( u.flatten ).mul( 0.7 );
-		// Cuticle scales of wool: a slow rise then a sharp step every
-		// 0.4 fiber width, the step lines a little slanted and wavy.
-		const sc = fract( t.div( u.fiberW.mul( 0.4 ) ).add( s.mul( 0.25 ) ).add( valueNoise( vec2( t.div( u.fiberW.mul( 0.6 ) ), h.y.mul( 50 ) ) ).mul( 0.5 ) ) );
-		const step1 = smoothstep( 0.82, 1.0, sc );
-		const sAlong = float( 0.25 ).sub( step1.mul( 1.4 ) ).mul( wScale );
-		const slope = perp.mul( sAcross ).add( dir.mul( sAlong ) );
-		const scaleLine = step1.mul( wScale );
+		// The first cell always wins (cv >= 0): no start value survives.
 		const win = step( cov, cv );
 		cov = cov.max( cv ).toVar();
-		sl = mix( sl, slope, win ).toVar();
-		tone = mix( tone, h.z.sub( scaleLine.mul( 0.35 ) ), win ).toVar();
+		sl = mix( sl, perp.mul( sAcross ), win ).toVar();
+		tone = mix( tone, h.z, win ).toVar();
 		fid = mix( fid, hash1( id.add( 9.9 + k ) ), win ).toVar();
+		wt = mix( wt, t, win ).toVar();
+		ws = mix( ws, s, win ).toVar();
+		wy = mix( wy, h.y, win ).toVar();
+		wdir = mix( wdir, dir, win ).toVar();
 
 	}
+
+	// Cuticle scales of wool, on the top fiber: a slow rise then a sharp
+	// step every 0.4 fiber width, the step lines a little slanted and wavy.
+	const sc = fract( wt.div( u.fiberW.mul( 0.4 ) ).add( ws.mul( 0.25 ) ).add( valueNoise( vec2( wt.div( u.fiberW.mul( 0.6 ) ), wy.mul( 50 ) ) ).mul( 0.5 ) ) );
+	const step1 = smoothstep( 0.82, 1.0, sc );
+	const sAlong = float( 0.25 ).sub( step1.mul( 1.4 ) ).mul( wScale );
+	sl = sl.add( wdir.mul( sAlong ) );
+	tone = tone.sub( step1.mul( wScale ).mul( 0.35 ) );
 
 	// Back to the surface frame: rotate by the layer angle.
 	return { cov, slope: vec2( sl.x.mul( ca ).sub( sl.y.mul( sa ) ), sl.x.mul( sa ).add( sl.y.mul( ca ) ) ), tone, fid };
 
 }
 
-export function buildFibermatNodes( u, opts = {} ) {
+// Thermo-bonded synthetic felt: fused drops where fibers met, smooth
+// and a little glossy, laid over the fibers.
+function bondDrops( p0, fp, u ) {
 
-	const p0 = ( opts.coords ?? uv() ).toVar( 'ix_coords' );
-	const fp = footprint( p0 ).toVar( 'ix_fp' );
+	const bCell = u.fiberW.mul( 9 );
+	const bq = p0.div( bCell ).add( 3.3 );
+	let bond = float( 0 ), bSlope = vec2( 0 );
+	for ( let oy = 0; oy <= 1; oy ++ ) for ( let ox = 0; ox <= 1; ox ++ ) {
+
+		const id = floor( bq.sub( 0.5 ) ).add( vec2( ox, oy ) );
+		const bh = hash3( id.add( 41.0 ) );
+		const R = u.fiberW.mul( bh.z.mul( 1.8 ).add( 1.4 ) );
+		const wv = bq.sub( id.add( bh.xy.mul( 0.4 ).add( 0.3 ) ) ).mul( bCell );
+		const dd = wv.length();
+		const on = step( hash1( id.add( 8.8 ) ), u.bonds );
+		const bcov = clamp( R.sub( dd ).div( fp ).add( 0.5 ), 0, 1 ).mul( on ).mul( R.div( R.max( fp ) ) );
+		const rr = dd.div( R ).clamp( 0, 0.95 );
+		const bs = wv.normalize().mul( rr.div( sqrt( float( 1 ).sub( rr.mul( rr ) ) ) ).negate().mul( 0.22 ) ); // flattened drops
+		bSlope = mix( bSlope, bs, bcov ).toVar();
+		bond = bond.max( bcov ).toVar();
+
+	}
+
+	return { bond: bond.mul( step( 0.001, u.bonds ) ), bSlope };
+
+}
+
+// L1: the fiber layers and the fused drops. Returns the fiber colour, its
+// slope and the drop share, each already weighted by the fibers' fade.
+function fiberLevel( p0, fp, u, meanCol, wFib ) {
+
 	// Fibers bend: a smooth warp over about a fiber length.
 	const wq = p0.div( u.fiberL.mul( 1.3 ) );
 	const wq2 = p0.div( u.fiberL.mul( 0.35 ) ).add( 9.1 );
 	const p = p0.add( vec2( valueNoise( wq ), valueNoise( wq.add( 3.7 ) ) ).sub( 0.5 ).mul( u.fiberL ).mul( u.curl ).mul( 0.9 ) )
 		.add( vec2( valueNoise( wq2 ), valueNoise( wq2.add( 2.9 ) ) ).sub( 0.5 ).mul( u.fiberL ).mul( u.curl ).mul( 0.2 ) ).toVar();
 
-	// L0 formation: cloudy density on two scales.
-	const fq = p0.div( u.formationM );
-	const form = valueNoise( fq ).mul( 0.65 ).add( valueNoise( fq.mul( 2.7 ).add( 1.3 ) ).mul( 0.35 ) );
-	// Lumps: a soft height field, slope by finite differences.
-	const lq = p0.div( u.lumpsM );
-	const e = 0.08;
-	const l0 = valueNoise( lq ), lx = valueNoise( lq.add( vec2( e, 0 ) ) ), ly = valueNoise( lq.add( vec2( 0, e ) ) );
-	const wL = fadeIn( u.lumpsM, fp, 1.0, 4.0 );
-	const sLump = vec2( lx.sub( l0 ), ly.sub( l0 ) ).div( e ).mul( u.lumps ).mul( 0.25 ).mul( wL );
-	// Flutes of corrugated board under the liner.
-	const fluteOn = step( 1e-5, u.fluteM );
-	const fl = p0.x.div( u.fluteM.max( 1e-5 ) ).mul( Math.PI * 2 );
-	const wF = fadeIn( u.fluteM.max( 1e-5 ), fp, 1.0, 4.0 ).mul( fluteOn );
-	const sFlute = vec2( cos( fl ).mul( u.fluteDepth ).mul( 0.35 ).mul( wF ), 0 );
-	const fluteShade = mix( float( 1 ), sin( fl ).mul( 0.12 ).add( 0.94 ), wF.mul( u.fluteDepth ) );
+	let col = meanCol.mul( 0.55 ); // the deep mat between the top fibers
+	let slope = vec2( 0 );
+	for ( let k = 0; k < LAYERS; k ++ ) {
 
-	// Papier-mache: torn pieces, each its own paper tone, some printed.
+		const L = fiberLayer( p, fp, u, k );
+		const fc = mix( u.color, u.color2, step( L.fid, 0.35 ) ).mul( L.tone.sub( 0.5 ).mul( u.colorVar ).add( 1 ) ).mul( 0.8 + 0.07 * k );
+		col = mix( col, fc, L.cov );
+		slope = mix( slope, L.slope, L.cov );
+
+	}
+
+	// Drops only where the preset has some: bond carries step( 0.001, bonds ).
+	const B = gate( u.bonds.greaterThanEqual( 0.001 ), { bond: 0, bSlope: [ 0, 0 ] }, () => bondDrops( p0, fp, u ), [ p0, fp ] );
+	col = mix( col, meanCol.mul( 1.08 ), B.bond );
+	slope = mix( slope, B.bSlope, B.bond );
+	return { fibers: mix( meanCol.mul( 0.85 ), col, wFib ), sFib: slope.mul( wFib ), bond: B.bond.mul( wFib ) };
+
+}
+
+// Papier-mache: torn pieces, each its own paper tone, some printed.
+function patchLevel( p0, fp, u ) {
+
 	// Torn pieces: the cell borders wander (large warp) and fray (fine warp).
 	const pq = p0.div( u.patchM );
 	const pw = pq.add( vec2( valueNoise( pq.mul( 1.3 ) ), valueNoise( pq.mul( 1.3 ).add( 5.5 ) ) ).sub( 0.5 ).mul( 0.7 ) )
@@ -121,52 +166,46 @@ export function buildFibermatNodes( u, opts = {} ) {
 	const wInk = fadeIn( float( 3e-4 ), fp, 1.0, 3.0 );
 	const printed = step( ph.z, u.print ).mul( patchOn ).mul( float( 1 ).sub( rim ) );
 	const ink = printed.mul( mix( float( 0.18 ), letter.mul( 0.85 ), wInk ) );
+	return { patchTone, rim, sPatch, ink, wP };
 
-	// L1 fibers, four layers, the last on top.
+}
+
+export function buildFibermatNodes( u, opts = {} ) {
+
+	const p0 = ( opts.coords ?? uv() ).toVar( 'ix_coords' );
+	const fp = footprint( p0 ).toVar( 'ix_fp' );
+
+	// L0 formation: cloudy density on two scales.
+	const fq = p0.div( u.formationM );
+	const form = valueNoise( fq ).mul( 0.65 ).add( valueNoise( fq.mul( 2.7 ).add( 1.3 ) ).mul( 0.35 ) );
+	// Lumps: a soft height field, slope by finite differences.
+	const lq = p0.div( u.lumpsM );
+	const e = 0.08;
+	const l0 = valueNoise( lq ), lx = valueNoise( lq.add( vec2( e, 0 ) ) ), ly = valueNoise( lq.add( vec2( 0, e ) ) );
+	const wL = fadeIn( u.lumpsM, fp, 1.0, 4.0 );
+	const sLump = vec2( lx.sub( l0 ), ly.sub( l0 ) ).div( e ).mul( u.lumps ).mul( 0.25 ).mul( wL );
+	// Flutes of corrugated board under the liner.
+	const fluteOn = step( 1e-5, u.fluteM );
+	const fl = p0.x.div( u.fluteM.max( 1e-5 ) ).mul( Math.PI * 2 );
+	const wF = fadeIn( u.fluteM.max( 1e-5 ), fp, 1.0, 4.0 ).mul( fluteOn );
+	const sFlute = vec2( cos( fl ).mul( u.fluteDepth ).mul( 0.35 ).mul( wF ), 0 );
+	const fluteShade = mix( float( 1 ), sin( fl ).mul( 0.12 ).add( 0.94 ), wF.mul( u.fluteDepth ) );
+
+	// Papier-mache pieces. Every output carries step( 0.001, patches ):
+	// the other mats skip them.
+	const P = gate( u.patches.greaterThanEqual( 0.001 ), { patchTone: 1, rim: 0, sPatch: [ 0, 0 ], ink: 0, wP: 0 }, () => patchLevel( p0, fp, u ), [ p0, fp ] );
+
+	// L1 fibers, four layers, the last on top. Under 1.5 px per five fiber
+	// widths (wFib = 0) the gate skips the warp, the layers and the drops.
 	const wFib = fadeIn( u.fiberW.mul( 5 ), fp, 1.5, 5.0 ).toVar();
-	const meanCol = mix( u.color, u.color2, 0.35 );
-	let col = meanCol.mul( 0.55 ); // the deep mat between the top fibers
-	let slope = vec2( 0 );
-	for ( let k = 0; k < LAYERS; k ++ ) {
+	const meanCol = mix( u.color, u.color2, 0.35 ).toVar();
+	const F = gate( fadeOn( u.fiberW.mul( 5 ), fp, 1.5 ), { fibers: { node: meanCol.mul( 0.85 ), size: 3 }, sFib: [ 0, 0 ], bond: 0 },
+		() => fiberLevel( p0, fp, u, meanCol, wFib ), [ p0, fp, meanCol, wFib ] );
 
-		const L = fiberLayer( p, fp, u, k );
-		const fc = mix( u.color, u.color2, step( L.fid, 0.35 ) ).mul( L.tone.sub( 0.5 ).mul( u.colorVar ).add( 1 ) ).mul( 0.8 + 0.07 * k );
-		col = mix( col, fc, L.cov );
-		slope = mix( slope, L.slope, L.cov );
-
-	}
-
-	// Thermo-bonded synthetic felt: fused drops where fibers met, smooth
-	// and a little glossy, laid over the fibers.
-	const bCell = u.fiberW.mul( 9 );
-	const bq = p0.div( bCell ).add( 3.3 );
-	const bc = floor( bq );
-	let bond = float( 0 ), bSlope = vec2( 0 );
-	for ( let oy = 0; oy <= 1; oy ++ ) for ( let ox = 0; ox <= 1; ox ++ ) {
-
-		const id = floor( bq.sub( 0.5 ) ).add( vec2( ox, oy ) );
-		const bh = hash3( id.add( 41.0 ) );
-		const R = u.fiberW.mul( bh.z.mul( 1.8 ).add( 1.4 ) );
-		const wv = bq.sub( id.add( bh.xy.mul( 0.4 ).add( 0.3 ) ) ).mul( bCell );
-		const dd = wv.length();
-		const on = step( hash1( id.add( 8.8 ) ), u.bonds );
-		const bcov = clamp( R.sub( dd ).div( fp ).add( 0.5 ), 0, 1 ).mul( on ).mul( R.div( R.max( fp ) ) );
-		const rr = dd.div( R ).clamp( 0, 0.95 );
-		const bs = wv.normalize().mul( rr.div( sqrt( float( 1 ).sub( rr.mul( rr ) ) ) ).negate().mul( 0.22 ) ); // flattened drops
-		bSlope = mix( bSlope, bs, bcov ).toVar();
-		bond = bond.max( bcov ).toVar();
-
-	}
-
-	bond = bond.mul( step( 0.001, u.bonds ) );
-	col = mix( col, meanCol.mul( 1.08 ), bond );
-	slope = mix( slope, bSlope, bond );
-
-	const fibers = mix( meanCol.mul( 0.85 ), col, wFib );
-	let color = mix( meanCol.mul( 0.85 ), fibers, u.contrast.min( 1 ) );
-	color = color.mul( form.sub( 0.5 ).mul( u.formation ).mul( 0.6 ).add( 1 ) ).mul( fluteShade ).mul( patchTone );
-	color = mix( color, vec3( 0.93, 0.91, 0.86 ), rim.mul( 0.7 ).mul( wP ) );
-	color = mix( color, vec3( 0.06 ), ink );
+	let color = mix( meanCol.mul( 0.85 ), F.fibers, u.contrast.min( 1 ) );
+	color = color.mul( form.sub( 0.5 ).mul( u.formation ).mul( 0.6 ).add( 1 ) ).mul( fluteShade ).mul( P.patchTone );
+	color = mix( color, vec3( 0.93, 0.91, 0.86 ), P.rim.mul( 0.7 ).mul( P.wP ) );
+	color = mix( color, vec3( 0.06 ), P.ink );
 
 	// Boiled wool: the knit it was made from, shrunk and felted. Rows of
 	// V stitches survive as soft chevron ridges under the fibers.
@@ -181,20 +220,20 @@ export function buildFibermatNodes( u, opts = {} ) {
 	const sKnit = vec2( dk.mul( fxk.sign() ).mul( 0.9 ).div( 0.8 ).mul( 0.8 ), dk ).mul( wK );
 	color = color.mul( mix( float( 1 ), kh.mul( 0.1 ).add( 0.92 ), wK ) );
 
-	const sFib = slope.mul( wFib ).mul( u.contrast ).add( sKnit );
-	const total = sFib.add( sLump ).add( sFlute ).add( sPatch );
+	const sFib = F.sFib.mul( u.contrast ).add( sKnit );
+	const total = sFib.add( sLump ).add( sFlute ).add( P.sPatch );
 	const base = ( opts.baseNormal ?? normalView ).toVar( 'ix_base_normal' );
 	const normalNode = perturbNormal( base, total, tangentView, bitangentView ).toVar( 'ix_normal' );
 
 	const s2 = float( 1 ).sub( wFib ).mul( 0.04 ).mul( u.contrast ).mul( u.flatten.add( 0.3 ) );
-	const roughnessNode = specularAA( composeRoughness( mix( u.roughness, float( 0.32 ), bond.mul( wFib ) ), s2 ), normalNode );
+	const roughnessNode = specularAA( composeRoughness( mix( u.roughness, float( 0.32 ), F.bond ), s2 ), normalNode );
 	const nodes = {
 		colorNode: color, normalNode, roughnessNode, metalnessNode: float( 0 ),
 		sheenNode: meanCol.mul( u.sheenAmt ), sheenRoughnessNode: float( 0.6 ),
 	};
 	const cavity = float( 1 ).sub( l0 ).mul( 0.5 ).mul( u.lumps ).add( float( 1 ).sub( sin( fl ).mul( 0.5 ).add( 0.5 ) ).mul( 0.4 ).mul( wF ) );
 	applySurface( nodes, u.surface, { cavity, flatNormal: base, porosity: 1 } );
-	nodes.debug = { fp, w1: wFib, w2: wL, w3: wP, covered: float( 1 ) };
+	nodes.debug = { fp, w1: wFib, w2: wL, w3: P.wP, covered: float( 1 ) };
 	return nodes;
 
 }

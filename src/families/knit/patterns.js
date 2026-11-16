@@ -81,10 +81,10 @@ const MODES = { rib: knitPurl, garter: knitPurl, seed: knitPurl, crochet, cable:
 
 // Same frame as stitchLevel(): stitch widths, rows that wander a little.
 // No parallax probe: patterns already cost two to three times the legs.
-export function patternLevel( u, uvm, fp ) {
+// w1: fadeIn( stitchW, fp, 4, 12 ) as a variable, from shader.js.
+export function patternLevel( u, uvm, fp, w1 ) {
 
 	const g = u.pattern;
-	const w1 = fadeIn( u.stitchW, fp, 4.0, 12.0 ).toVar();
 	const p0 = uvm.div( u.stitchW );
 	const wob = vec2( valueNoise( p0.div( 7 ) ), valueNoise( p0.div( 7 ).add( 37.7 ) ) ).sub( 0.5 ).mul( u.irregular.mul( 0.35 ) );
 	let p = p0.add( wob ).toVar();

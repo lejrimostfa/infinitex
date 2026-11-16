@@ -9,9 +9,12 @@
 //      fibre ends laid every way on top of each tuft, round and a little
 //      glossy (polyester, not wool: no scales).
 // The fuzz shells (fuzz.js) add the loose fibres standing above the pile.
+//
+// Tufts, fibres and pills each sit in a gate() (core/lod.js): a level whose
+// fade is zero is skipped, only its mean is used.
 
 import { uv, vec2, vec3, float, floor, smoothstep, step, clamp, sqrt, sin, cos, mix, normalView, tangentView, bitangentView } from 'three/tsl';
-import { footprint, fadeIn, composeRoughness, specularAA, perturbNormal } from '../../core/lod.js';
+import { footprint, fadeIn, fadeOn, gate, composeRoughness, specularAA, perturbNormal } from '../../core/lod.js';
 import { hash1, hash3, valueNoise } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { applySurface } from '../../core/surface.js';
@@ -66,68 +69,93 @@ export function buildFleeceNodes( u, opts = {} ) {
 	const mq = p.div( 0.012 );
 	const mottle = valueNoise( mq ).mul( 0.6 ).add( valueNoise( mq.mul( 2.9 ).add( 4.1 ) ).mul( 0.4 ) );
 
-	// L1 tufts: rounded clumps, warped so they are not cells.
-	const tq = p.div( u.pileM );
-	const tw = tq.add( vec2( valueNoise( tq.mul( 0.4 ) ), valueNoise( tq.mul( 0.4 ).add( 7.7 ) ) ).sub( 0.5 ).mul( 1.6 ) )
-		.add( vec2( valueNoise( tq.mul( 2.3 ) ), valueNoise( tq.mul( 2.3 ).add( 1.9 ) ) ).sub( 0.5 ).mul( 0.35 ) );
-	const v = voronoi( tw.add( u.seed.mul( 3.1 ) ), 0.9 );
+	// L1 tufts: rounded clumps, warped so they are not cells. Under 1.5 px
+	// per tuft (wT = 0) the gate skips the warp and the cells.
 	const wT = fadeIn( u.pileM, fp, 1.5, 5.0 ).toVar();
-	const rim = smoothstep( 0.0, 0.6, v.edge ); // 0 in the crevice, soft: the pile spills over
-	const tuftH = hash3( v.id1 );
-	// Dome: slope points away from the tuft centre, steeper near the rim.
-	const toC = v.toSeed;
-	const sTuft = toC.mul( float( 1 ).sub( rim ).mul( 0.35 ).add( 0.12 ) ).mul( wT );
-	const tuftAO = mix( float( 0.88 ), rim.mul( 0.22 ).add( 0.76 ).mul( tuftH.x.mul( 0.1 ).add( 0.95 ) ), wT );
+	const T = gate( fadeOn( u.pileM, fp, 1.5 ), { sTuft: [ 0, 0 ], tuftAO: 0.88, tuftCavity: 0 }, () => {
+
+		const tq = p.div( u.pileM );
+		const tw = tq.add( vec2( valueNoise( tq.mul( 0.4 ) ), valueNoise( tq.mul( 0.4 ).add( 7.7 ) ) ).sub( 0.5 ).mul( 1.6 ) )
+			.add( vec2( valueNoise( tq.mul( 2.3 ) ), valueNoise( tq.mul( 2.3 ).add( 1.9 ) ) ).sub( 0.5 ).mul( 0.35 ) );
+		const v = voronoi( tw.add( u.seed.mul( 3.1 ) ), 0.9 );
+		const rim = smoothstep( 0.0, 0.6, v.edge ); // 0 in the crevice, soft: the pile spills over
+		const tuftH = hash3( v.id1 );
+		// Dome: slope points away from the tuft centre, steeper near the rim.
+		const toC = v.toSeed;
+		return {
+			sTuft: toC.mul( float( 1 ).sub( rim ).mul( 0.35 ).add( 0.12 ) ).mul( wT ),
+			tuftAO: mix( float( 0.88 ), rim.mul( 0.22 ).add( 0.76 ).mul( tuftH.x.mul( 0.1 ).add( 0.95 ) ), wT ),
+			tuftCavity: float( 1 ).sub( rim ).mul( wT ).mul( 0.6 ),
+		};
+
+	}, [ p, fp, wT ] );
 
 	// L2 fibres: three layers, the last on top; the deep pile between them.
+	// Under 1.5 px per six fibre widths (wF = 0) the gate skips the layers.
 	const wF = fadeIn( u.fiberDiam.mul( 6 ), fp, 1.5, 5.0 ).toVar();
-	let cover = float( 0 ), sF = vec2( 0 ), tone = float( 0.62 );
-	for ( let k = 0; k < 3; k ++ ) {
+	const F = gate( fadeOn( u.fiberDiam.mul( 6 ), fp, 1.5 ), { fibreTone: 0.8, cover: 0, sF: [ 0, 0 ] }, () => {
 
-		const L = fibreLayer( p, fp, u, k );
-		tone = mix( tone, L.tone.mul( 0.9 + 0.06 * k ), L.cov );
-		sF = mix( sF, L.slope, L.cov );
-		cover = cover.max( L.cov );
+		let cover = float( 0 ), sF = vec2( 0 ), tone = float( 0.62 );
+		for ( let k = 0; k < 3; k ++ ) {
 
-	}
+			const L = fibreLayer( p, fp, u, k );
+			tone = mix( tone, L.tone.mul( 0.9 + 0.06 * k ), L.cov );
+			sF = mix( sF, L.slope, L.cov );
+			cover = cover.max( L.cov );
 
-	const fibreTone = mix( float( 0.8 ), tone, wF );
+		}
+
+		// Weighted by the fade: cover and sF are only read through wF.
+		return { fibreTone: mix( float( 0.8 ), tone, wF ), cover: cover.mul( wF ), sF: sF.mul( wF ) };
+
+	}, [ p, fp, wF ] );
+
+	const fibreTone = F.fibreTone.toVar();
 	// Glints: polyester fibres are smooth, so their tops shine a little.
-	const fibreRough = mix( u.roughness, u.roughness.mul( 0.75 ), cover.mul( wF ) );
+	const fibreRough = mix( u.roughness, u.roughness.mul( 0.75 ), F.cover );
 
 	// Pills: sparse balls on a jittered grid, one chance per cell. Their
 	// outline is lumpy and soft (loose fibres), their top a tangle.
-	const pq = p.div( u.pillCell );
-	let pill = float( 0 ), sPill = vec2( 0 ), pillShadow = float( 0 );
-	for ( let oy = 0; oy <= 1; oy ++ ) for ( let ox = 0; ox <= 1; ox ++ ) {
+	const wPill = fadeIn( u.pillM, fp, 1.0, 3.0 ).toVar();
+	const pills = ( color ) => {
 
-		const id = floor( pq.sub( 0.5 ) ).add( vec2( ox, oy ) );
-		const h = hash3( id.add( 91.0 ) );
-		const R = u.pillM.mul( 0.5 ).mul( h.z.mul( 0.7 ).add( 0.65 ) );
-		const d = pq.sub( id.add( h.xy.mul( 0.6 ).add( 0.2 ) ) ).mul( u.pillCell );
-		const on = step( hash1( id.add( 12.5 ) ), 0.85 );
-		const lumpy = R.mul( valueNoise( d.div( R.mul( 0.45 ) ).add( id.mul( 7.1 ) ) ).mul( 0.45 ).add( 0.75 ) );
-		const dl = d.length();
-		const soft = fp.max( R.mul( 0.12 ) );
-		const cv = clamp( lumpy.sub( dl ).div( soft ).add( 0.5 ), 0, 1 ).mul( on );
-		const k = dl.div( lumpy ).min( 0.95 );
-		const sl = d.div( lumpy ).mul( float( 1 ).div( sqrt( float( 1 ).sub( k.mul( k ) ) ) ) ).mul( 0.45 );
-		sPill = mix( sPill, sl, cv );
-		pill = pill.max( cv );
-		pillShadow = pillShadow.max( smoothstep( 1.8, 1.0, dl.div( lumpy ) ).mul( on ) );
+		const pq = p.div( u.pillCell );
+		let pill = float( 0 ), sPill = vec2( 0 ), pillShadow = float( 0 );
+		for ( let oy = 0; oy <= 1; oy ++ ) for ( let ox = 0; ox <= 1; ox ++ ) {
 
-	}
+			const id = floor( pq.sub( 0.5 ) ).add( vec2( ox, oy ) );
+			const h = hash3( id.add( 91.0 ) );
+			const R = u.pillM.mul( 0.5 ).mul( h.z.mul( 0.7 ).add( 0.65 ) );
+			const d = pq.sub( id.add( h.xy.mul( 0.6 ).add( 0.2 ) ) ).mul( u.pillCell );
+			const on = step( hash1( id.add( 12.5 ) ), 0.85 );
+			const lumpy = R.mul( valueNoise( d.div( R.mul( 0.45 ) ).add( id.mul( 7.1 ) ) ).mul( 0.45 ).add( 0.75 ) );
+			const dl = d.length();
+			const soft = fp.max( R.mul( 0.12 ) );
+			const cv = clamp( lumpy.sub( dl ).div( soft ).add( 0.5 ), 0, 1 ).mul( on );
+			const k = dl.div( lumpy ).min( 0.95 );
+			const sl = d.div( lumpy ).mul( float( 1 ).div( sqrt( float( 1 ).sub( k.mul( k ) ) ) ) ).mul( 0.45 );
+			sPill = mix( sPill, sl, cv );
+			pill = pill.max( cv );
+			pillShadow = pillShadow.max( smoothstep( 1.8, 1.0, dl.div( lumpy ) ).mul( on ) );
 
-	const wPill = fadeIn( u.pillM, fp, 1.0, 3.0 );
-	const onPill = pill.mul( wPill ).toVar();
-	const tang = valueNoise( p.div( u.fiberDiam.mul( 6 ) ) );
+		}
 
-	const base = mix( u.color, u.heather, mottle.mul( u.heatherFrac.mul( 2 ) ).clamp( 0, 1 ) );
-	let color = base.mul( fibreTone ).mul( tuftAO ).mul( mottle.sub( 0.5 ).mul( 0.12 ).add( 1 ) );
-	color = color.mul( float( 1 ).sub( pillShadow.mul( 0.4 ).mul( wPill ).mul( float( 1 ).sub( pill ) ) ) );
-	// On a pill the fibres are tangled every way: same fibres, steeper.
-	color = mix( color, base.mul( fibreTone ).mul( tang.mul( 0.2 ).add( 0.95 ) ), onPill );
-	const slope = sTuft.mul( float( 1 ).sub( onPill ) ).add( sF.mul( wF ).mul( onPill.mul( 0.8 ).add( 0.7 ) ) ).add( sPill.mul( onPill ) );
+		const onPill = pill.mul( wPill ).toVar();
+		const tang = valueNoise( p.div( u.fiberDiam.mul( 6 ) ) );
+		color = color.mul( float( 1 ).sub( pillShadow.mul( 0.4 ).mul( wPill ).mul( float( 1 ).sub( pill ) ) ) );
+		// On a pill the fibres are tangled every way: same fibres, steeper.
+		color = mix( color, base.mul( fibreTone ).mul( tang.mul( 0.2 ).add( 0.95 ) ), onPill );
+		return { color, onPill, sPill: sPill.mul( onPill ) };
+
+	};
+
+	const base = mix( u.color, u.heather, mottle.mul( u.heatherFrac.mul( 2 ) ).clamp( 0, 1 ) ).toVar();
+	const color0 = base.mul( fibreTone ).mul( T.tuftAO ).mul( mottle.sub( 0.5 ).mul( 0.12 ).add( 1 ) ).toVar();
+	// Pills: under 1 px per pill (wPill = 0) the gate skips them.
+	const P = gate( fadeOn( u.pillM, fp, 1.0 ), { color: { node: color0, size: 3 }, onPill: 0, sPill: [ 0, 0 ] },
+		() => pills( color0 ), [ p, fp, wPill, base, color0, fibreTone ] );
+	const { color, onPill } = P;
+	const slope = T.sTuft.mul( float( 1 ).sub( onPill ) ).add( F.sF.mul( onPill.mul( 0.8 ).add( 0.7 ) ) ).add( P.sPill );
 	const rough = mix( fibreRough, float( 0.95 ), onPill );
 
 	const flat = ( opts.baseNormal ?? normalView ).toVar( 'ix_base_normal' );
@@ -138,7 +166,7 @@ export function buildFleeceNodes( u, opts = {} ) {
 		colorNode: color, normalNode, roughnessNode, metalnessNode: float( 0 ),
 		sheenNode: u.sheenColor.mul( u.sheen ).mul( u.sheenKeep ).mul( base.add( 0.2 ) ), sheenRoughnessNode: u.sheenRoughness,
 	};
-	applySurface( nodes, u.surface, { cavity: float( 1 ).sub( rim ).mul( wT ).mul( 0.6 ), flatNormal: flat, porosity: 0.6 } );
+	applySurface( nodes, u.surface, { cavity: T.tuftCavity, flatNormal: flat, porosity: 0.6 } );
 	nodes.debug = { fp, w1: wT, w2: wF, w3: wPill, covered: float( 1 ) };
 	return nodes;
 

@@ -10,7 +10,7 @@ import {
 	vec2, vec3, float, floor, smoothstep, step, sin, cos, asin, sqrt, max, clamp, mix, PI,
 	positionView, normalView, tangentView, bitangentView,
 } from 'three/tsl';
-import { fadeIn, pick } from '../../core/lod.js';
+import { pick } from '../../core/lod.js';
 import { hash3, valueNoise } from '../../core/hash.js';
 import { CANDIDATES } from './legs.js';
 import { AO_BACKGROUND, AO_MIN } from './stats.js';
@@ -79,10 +79,10 @@ function topHeight( u, p ) {
 
 }
 
-export function stitchLevel( u, uvm, fp ) {
+// w1: fadeIn( stitchW, fp, 4, 12 ) as a variable, from shader.js.
+export function stitchLevel( u, uvm, fp, w1 ) {
 
 	const R = u.R, arch = u.arch;
-	const w1 = fadeIn( u.stitchW, fp, 4.0, 12.0 ).toVar();
 	// Rows and columns wander a little, like hand knitting.
 	const p0 = uvm.div( u.stitchW );
 	const wob = vec2( valueNoise( p0.div( 7 ) ), valueNoise( p0.div( 7 ).add( 37.7 ) ) ).sub( 0.5 ).mul( u.irregular.mul( 0.35 ) );
