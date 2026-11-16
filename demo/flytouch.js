@@ -4,8 +4,9 @@
 //   left stick    the arrows: forward, back, turn
 //   right stick   Z / S / Q / D: up on the stick dips the nose (Z), down
 //                 raises it (S), left and right move sideways
-//   buttons       above the right stick: up (Space) and down (C); above
-//                 the left one: slow (Shift), all held
+//   buttons       above the right stick: up (Space) and down (C), held;
+//                 above the left one: the top speed (Shift), a tap goes
+//                 slow, medium, fast
 //   look          a drag anywhere else on the scene looks around (chase.js)
 // Analog: half way, half the speed or rate. Each control keeps its own
 // pointer (setPointerCapture), so both thumbs work together.
@@ -27,7 +28,7 @@ body.film #ix-pad { display: none; }
 #ix-pad .btn { width: 52px; height: 52px; display: grid; place-items: center; }
 #ix-pad .btn.on { background: rgba(217,164,65,.85); color: #101114; }
 #ix-pad .up { right: 82px; bottom: 214px; } #ix-pad .down { right: 22px; bottom: 214px; }
-#ix-pad .slow { left: 22px; bottom: 214px; font-size: 12px; }
+#ix-pad .gearbtn { left: 22px; bottom: 214px; width: 68px; border-radius: 26px; font-size: 12px; }
 `;
 
 export function addFlyTouch( flyer ) {
@@ -42,7 +43,7 @@ export function addFlyTouch( flyer ) {
 	pad.id = 'ix-pad';
 	pad.innerHTML = '<div class="stick l"><small>move, turn</small><div class="knob"></div></div>'
 		+ '<div class="stick r"><small>nose, side</small><div class="knob"></div></div>'
-		+ '<div class="btn up">▲</div><div class="btn down">▼</div><div class="btn slow">slow</div>';
+		+ '<div class="btn up">▲</div><div class="btn down">▼</div><div class="btn gearbtn gear">' + flyer.gear + '</div>';
 	document.body.appendChild( pad );
 
 	// A stick: the knob follows the thumb within the ring; set( x, y ) gets
@@ -90,7 +91,8 @@ export function addFlyTouch( flyer ) {
 	const lift = () => { touch.lift = ( rise ? 1 : 0 ) - ( sink ? 1 : 0 ); };
 	hold( '.up', ( on ) => { rise = on; lift(); } );
 	hold( '.down', ( on ) => { sink = on; lift(); } );
-	hold( '.slow', ( on ) => { touch.slow = on; } );
+	const gb = pad.querySelector( '.gearbtn' ); // its label follows gearChanged (flyhud.js)
+	gb.addEventListener( 'pointerdown', ( e ) => { flyer.nextGear(); e.preventDefault(); } );
 
 	flyer.addEventListener( 'vehicleLeft', () => releases.forEach( ( r ) => r() ) );
 

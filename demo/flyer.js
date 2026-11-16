@@ -3,7 +3,8 @@
 // One controller, tuned per vehicle (FLYER_DEFAULTS):
 //   keys      (flyinput.js, with touch from flytouch.js) Space / C up and
 //             down, Z / S nose down and up, Q / D sideways, arrows
-//             forward, back and turn, Shift slower, V boards or leaves. The nose
+//             forward, back and turn, Shift the next top speed (slow,
+//             medium, fast), V boards or leaves. The nose
 //             keeps its angle when the key is released.
 //   hover     no move key: the speed eases to zero and the vehicle hangs
 //             in place (a mosquito, a bee, a helicopter all can)
@@ -26,6 +27,8 @@
 // Event bus: an EventTarget. It emits
 //   vehicleBoarded { name }   the camera now follows the vehicle
 //   vehicleLeft    { name }   the orbit camera is back, centred on it
+//   gearChanged    { name, gear, label }   the top speed changed (0 slow,
+//                  1 medium, 2 fast)
 // The page's UI (flyhud.js) listens; the loop calls update( dt, t ).
 
 import * as THREE from 'three/webgpu';
@@ -34,7 +37,8 @@ import { createFlyInput } from './flyinput.js';
 
 export const FLYER_DEFAULTS = Object.freeze( {
 	name: 'vehicle', key: 'KeyV', idle: 'hover',
-	maxSpeed: 0.5, minSpeed: 0.008, near: 2.5, turnRate: 2.2, pitchRate: 1.1, maxPitch: 1.35, response: 3, slow: 0.3,
+	maxSpeed: 0.5, minSpeed: 0.008, near: 2.5, turnRate: 2.2, pitchRate: 1.1, maxPitch: 1.35, response: 3,
+	gears: [ 0.3, 1, 2.5 ], // shares of maxSpeed: slow, medium, fast (Shift cycles)
 	chase: 0.03, chaseMin: 0.008, chaseMax: 0.6, chaseLift: 0.3,
 	plane: true, bank: 0.7, nose: 0.3, tilt: 0.15, // nose: share of the aim a helicopter body shows
 	bounds: null,
@@ -44,10 +48,10 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 
 	const o = { ...FLYER_DEFAULTS, ...options };
 	const bus = new EventTarget();
-	const emit = ( type ) => bus.dispatchEvent( new CustomEvent( type, { detail: { name: o.name } } ) );
+	const emit = ( type, extra = {} ) => bus.dispatchEvent( new CustomEvent( type, { detail: { name: o.name, ...extra } } ) );
 	const { group } = vehicle;
 	const pos = home.clone(), vel = new THREE.Vector3();
-	let yaw = 0, aim = 0, pitch = 0, roll = 0, active = false; // aim: the nose angle the keys set, radians up
+	let yaw = 0, aim = 0, pitch = 0, roll = 0, active = false, gear = 1; // aim: the nose angle the keys set, radians up; gear: the top speed, medium to start
 
 	// The kit's BVH collider (collide.js), set here or later by app.js.
 	bus.collider = collider ?? null;
@@ -55,8 +59,16 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 	const chase = createChase( { camera, controls, dom, radius: vehicle.radius, ahead, o, isActive: () => active } );
 
 	// Keys and touch (flyinput.js); input.touch is written by flytouch.js.
-	const input = createFlyInput( { key: o.key, toggle: () => active ? leave() : board(), isActive: () => active } );
+	const input = createFlyInput( { key: o.key, toggle: () => active ? leave() : board(), isActive: () => active, gear: () => nextGear() } );
 	bus.input = input;
+
+	const GEARS = [ 'slow', 'medium', 'fast' ];
+	function nextGear() {
+
+		gear = ( gear + 1 ) % o.gears.length;
+		emit( 'gearChanged', { gear, label: GEARS[ gear ] } );
+
+	}
 
 	function board() {
 
@@ -87,14 +99,14 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 	// One frame of flight. Returns how fast it goes, 0 to 1.
 	function fly( dt ) {
 
-		const { throttle, strafe, lift, turn, nose, slow } = input.read();
+		const { throttle, strafe, lift, turn, nose } = input.read();
 		yaw += turn * o.turnRate * dt;
 		aim = THREE.MathUtils.clamp( aim + nose * o.pitchRate * dt, - o.maxPitch, o.maxPitch );
 		fwd.set( Math.sin( yaw ) * Math.cos( aim ), Math.sin( aim ), Math.cos( yaw ) * Math.cos( aim ) ); // where the nose points
 		side.set( - Math.cos( yaw ), 0, Math.sin( yaw ) ); // the vehicle's right, level
 
 		// The wanted move, then its speed: the room ahead sets the top speed,
-		// as the walk does; Shift slows down.
+		// as the walk does; the gear (Shift) scales it.
 		want.copy( fwd ).multiplyScalar( throttle ).addScaledVector( side, strafe );
 		want.y += lift;
 		if ( want.lengthSq() > 1 ) want.normalize();
@@ -102,7 +114,7 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 		if ( want.lengthSq() > 1e-6 ) {
 
 			const room = ahead( pos, dir.copy( want ).normalize(), o.maxSpeed * 4 );
-			top = THREE.MathUtils.clamp( ( room - vehicle.radius ) * o.near, o.minSpeed, o.maxSpeed ) * ( slow ? o.slow : 1 );
+			top = THREE.MathUtils.clamp( ( room - vehicle.radius ) * o.near, o.minSpeed, o.maxSpeed ) * o.gears[ gear ];
 
 		}
 
@@ -175,6 +187,8 @@ export function createFlyer( { vehicle, camera, controls, dom, collider = null, 
 	};
 
 	bus.board = board;
+	bus.nextGear = nextGear;
+	Object.defineProperty( bus, 'gear', { get: () => GEARS[ gear ] } );
 	bus.leave = leave;
 	bus.dispose = () => {
 

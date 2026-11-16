@@ -4,8 +4,8 @@
 // (flytouch.js): the button floats at the top right (the phone layout
 // hides the panel, the nav fills the bottom), the pill moves to the top
 // and lists the touch controls, and the touch pad is added.
-// Event bus: listens to the flyer's vehicleBoarded and vehicleLeft
-// (flyer.js); the button calls flyer.board() or flyer.leave().
+// Event bus: listens to the flyer's vehicleBoarded, vehicleLeft and
+// gearChanged (flyer.js); the button calls flyer.board() or flyer.leave().
 
 import { isTouch, addFlyTouch } from './flytouch.js';
 
@@ -40,8 +40,8 @@ export function addFlyHud( flyer, { label = 'the vehicle', key = 'V', fly = 'Fly
 	const name = { KeyW: 'W', KeyA: 'A' };
 	const fill = () => {
 
-		hint.innerHTML = touch ? `<b>Left</b> move, turn &nbsp; <b>Right</b> nose, sideways &nbsp; <b>▲ ▼</b> up, down<br>Drag the scene to look around`
-			: `<b>Space C</b> up, down &nbsp; <b>${ name.KeyW } S</b> nose down, up &nbsp; <b>${ name.KeyA } D</b> sideways &nbsp; <b>arrows</b> move, turn &nbsp; <b>Shift</b> slower<br>`
+		hint.innerHTML = touch ? `<b>Left</b> move, turn &nbsp; <b>Right</b> nose, sideways &nbsp; <b>▲ ▼</b> up, down &nbsp; speed: <span class="gear">${ flyer.gear }</span><br>Drag the scene to look around`
+			: `<b>Space C</b> up, down &nbsp; <b>${ name.KeyW } S</b> nose down, up &nbsp; <b>${ name.KeyA } D</b> sideways &nbsp; <b>arrows</b> move, turn &nbsp; <b>Shift</b> speed: <span class="gear">${ flyer.gear }</span><br>`
 				+ `Drag to look around, scroll for the distance, <b>${ key }</b> to ${ land.toLowerCase() }`;
 
 	};
@@ -71,5 +71,7 @@ export function addFlyHud( flyer, { label = 'the vehicle', key = 'V', fly = 'Fly
 	const show = ( on ) => { document.body.classList.toggle( 'flying', on ); if ( btn ) btn.textContent = text( on ); };
 	flyer.addEventListener( 'vehicleBoarded', () => show( true ) );
 	flyer.addEventListener( 'vehicleLeft', () => show( false ) );
+	// The top speed (Shift, or the touch pad's speed button).
+	flyer.addEventListener( 'gearChanged', ( e ) => { for ( const g of document.querySelectorAll( '.gear' ) ) g.textContent = e.detail.label; } );
 
 }
