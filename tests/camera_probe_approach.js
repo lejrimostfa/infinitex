@@ -3,7 +3,9 @@
 //   keys    felt zoom while walking in: d ln( magnification ) / dt, with
 //           magnification = 1 / ( distance * tan( fov / 2 ) ). It must stay
 //           in a band from 1 m down to 3 times the stop distance (it used
-//           to jump 4x near the end).
+//           to jump 4x near the end). Only while that surface is the
+//           nearest thing: another object closer beside the path slows the
+//           walk on purpose (walk.js sideLimit, its own strafe check).
 //   wheel   the orbit pivot is put up to 3 m behind the surface: the zoom must
 //           not go through, and each wheel step must magnify by about the
 //           same factor far and near.
@@ -40,15 +42,16 @@ export async function approachCheck( ix ) {
 		kit.update( DT );
 		if ( i % 15 ) continue;
 		const d = h(), m = logM();
-		samples.push( [ d, ( m - prev ) / ( 15 * DT ) ] );
+		const ahead = kit.collider( camera.position, c.fwd(), d * 2 ), alone = kit.collider.near?.( camera.position, ahead, kit.collider.object ) === Infinity;
+		samples.push( [ d, ( m - prev ) / ( 15 * DT ), alone ] );
 		prev = m;
 
 	}
 
 	dispatchEvent( new KeyboardEvent( 'keyup', { code: 'KeyW' } ) );
 	// Before the gentle stop: farther than 3 times the stop distance.
-	const stopAt = h(), felt = samples.filter( ( [ d ] ) => d < 0.9 && d > 3 * stopAt ).map( ( [ , v ] ) => v );
-	out.keysFelt = { min: Math.min( ...felt ), max: Math.max( ...felt ), n: felt.length, stopAt };
+	const stopAt = h(), band = samples.filter( ( [ d ] ) => d < 0.9 && d > 3 * stopAt ), felt = band.filter( ( [ , , alone ] ) => alone ).map( ( [ , v ] ) => v );
+	out.keysFelt = { min: Math.min( ...felt ), max: Math.max( ...felt ), n: felt.length, beside: band.length - felt.length, stopAt };
 
 	// Wheel: pivot up to 3 m behind the surface, 160 steps in at the screen centre.
 	c.place( P.clone().addScaledVector( dir, - 1 ), dir, Math.min( 4, controls.maxDistance * 0.8 ) ); // pivot behind the surface, inside maxDistance

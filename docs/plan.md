@@ -140,7 +140,7 @@ Rules:
 | 4 Depth paint | refracted flake layers, glints, thin film, holo foil | same gate |
 | 5 Authoring | schemas, prompt-to-preset CLI, photo stats, CMA-ES fit | a prompt gives a usable preset |
 | 6 Package | npm package, docs, public demo | install in a fresh three.js project in under 5 minutes |
-| 7 Tiny vehicles | one flyer per demo page, built in code from the library's own matters (`demo/flyer.js`, `demo/vehicles/`): a mosquito on Knit, a bee in Room, a toy helicopter in All matters, a toy submarine in Water. Then a touch joystick for phones | mosquito done 2026-11-16: hovers, banks, stops 1.2 mm from the wool, 120 fps, gate passes. Bee, helicopter, submarine to do |
+| 7 Tiny vehicles | one flyer per demo page, built in code from the library's own matters (`demo/flyer.js`, `demo/vehicles/`): a mosquito on Knit, a bee in Room, a toy helicopter in All matters, a toy submarine in Water. Then a touch joystick for phones | mosquito and toy helicopter done 2026-11-16: Z / S set the nose angle, Space flies along it, hover with no key, stop at the body radius, 120 fps. Bee and submarine to do. The 1 to 3 s freeze near the glass cubes is fixed (warmup.js) |
 
 ## 6. Open checks before coding
 

@@ -21,8 +21,17 @@ export function addFlyHud( flyer, { label = 'the vehicle', key = 'V' } = {} ) {
 
 	const hint = document.createElement( 'div' );
 	hint.id = 'ix-fly';
-	hint.innerHTML = `<b>W S</b> forward, back &nbsp; <b>A D</b> turn &nbsp; <b>Space C</b> up, down &nbsp; <b>Shift</b> faster<br>`
-		+ `Drag to look around, scroll for the distance, <b>${ key }</b> to land`;
+	// Key names as the visitor's layout prints them (Z on AZERTY, W on
+	// QWERTY), where the browser tells (Chrome's keyboard map).
+	const name = { KeyW: 'W', KeyA: 'A' };
+	const fill = () => {
+
+		hint.innerHTML = `<b>${ name.KeyW } S</b> nose up, down &nbsp; <b>${ name.KeyA } D</b> turn &nbsp; <b>Space</b> forward &nbsp; <b>C</b> back &nbsp; <b>Shift</b> faster<br>`
+			+ `Drag to look around, scroll for the distance, <b>${ key }</b> to land`;
+
+	};
+	fill();
+	navigator.keyboard?.getLayoutMap?.().then( ( m ) => { for ( const k in name ) name[ k ] = ( m.get( k ) ?? name[ k ] ).toUpperCase(); fill(); } ).catch( () => {} );
 	document.body.appendChild( hint );
 
 	const btn = document.getElementById( 'fly' );
