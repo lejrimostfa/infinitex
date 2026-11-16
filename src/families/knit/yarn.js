@@ -9,9 +9,25 @@ import {
 import { fadeIn } from '../../core/lod.js';
 import { hash1, valueNoise } from '../../core/hash.js';
 
-export function plyLevel( u, s, fp ) {
+// Ply rates (per meter along the yarn and across it) and the slope
+// variance of the plies, for a yarn radius Rm in meters. Variables: the
+// variance is read outside the ply gate too (shader.js).
+export function plyStats( u, Rm ) {
+
+	const dvda = u.plyCount.mul( u.plyTwistPerM ).toVar();
+	const dvds = u.twistSign.mul( u.plyCount ).div( PI.mul( 2 ).mul( Rm ) ).toVar();
+	const gl = sqrt( dvda.mul( dvda ).add( dvds.mul( dvds ) ) ).toVar();
+	const plyPeriod = float( 1 ).div( gl ).toVar();
+	const s2Ply = u.plyDepth.mul( Rm ).mul( PI ).mul( gl ).pow( 2 ).mul( 0.5 ).toVar();
+	return { dvda, dvds, gl, plyPeriod, s2Ply };
+
+}
+
+// st: plyStats() of this yarn.
+export function plyLevel( u, s, fp, st ) {
 
 	const { brn, bt, bside, bcol, brow, len, dir, perp, core, Rm, covered, w1, nYarn } = s;
+	const { dvda, dvds, gl, plyPeriod, s2Ply } = st;
 	const alongM = bt.mul( len ).mul( u.stitchW );
 	const phi = asin( clamp( brn, - 0.999, 0.999 ) );
 	const legHash = mx_cell_noise_float( vec3( bcol, brow.add( bside.mul( 0.5 ) ), u.seed ) ).toVar();
@@ -20,10 +36,6 @@ export function plyLevel( u, s, fp ) {
 	const plyCoord = alongM.mul( u.plyTwistPerM ).add( u.twistSign.mul( phi ).div( PI.mul( 2 ) ) ).add( legHash ).add( twistDrift ).mul( u.plyCount );
 	const v = fract( plyCoord ).toVar();
 	const plyIdx = floor( plyCoord ).add( legHash.mul( 97 ) ).toVar();
-	const dvda = u.plyCount.mul( u.plyTwistPerM );
-	const dvds = u.twistSign.mul( u.plyCount ).div( PI.mul( 2 ).mul( Rm ) );
-	const gl = sqrt( dvda.mul( dvda ).add( dvds.mul( dvds ) ) );
-	const plyPeriod = float( 1 ).div( gl );
 	const w2 = fadeIn( plyPeriod, fp ).mul( covered ).mul( w1 ).toVar();
 	const plyDepthM = u.plyDepth.mul( Rm );
 	// Crease anti-aliasing: the groove between two plies is a V crease, so
@@ -33,7 +45,6 @@ export function plyLevel( u, s, fp ) {
 	const along3 = vec3( dir, 0 );
 	const around3 = vec3( perp.mul( core ), brn.negate() );
 	const nPly = nYarn.sub( along3.mul( dvda ).add( around3.mul( dvds ) ).mul( kPly ).mul( w2 ) ).normalize();
-	const s2Ply = plyDepthM.mul( PI ).mul( gl ).pow( 2 ).mul( 0.5 );
 
 	return { alongM, phi, v, plyIdx, dvda, dvds, gl, plyPeriod, w2, plyEdge, along3, around3, nPly, s2Ply };
 
