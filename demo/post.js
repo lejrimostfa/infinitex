@@ -68,7 +68,7 @@ export function createPost( renderer, scene, camera ) {
 
 	let enabled = true;
 	return {
-		pipeline, aoPass, strength, hairPass,
+		pipeline, aoPass, strength, hairPass, scenePass,
 		get enabled() { return enabled; },
 		set enabled( on ) { enabled = on; strength.value = on ? 1 : 0; },
 		// dist: camera to surface, meters.

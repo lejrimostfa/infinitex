@@ -66,6 +66,11 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 	window.__ix = {
 		ix, renderer, camera, scene, meshes, fuzz, setLevelView, TSL, film, post, animate, adaptive,
 		ready: true,
+		// Draw one frame in renderEvery. A page that compiles its materials
+		// in the background (demo/warmup.js) raises it while it loads: the
+		// compile only runs between frames, and drawing every frame left it
+		// a quarter of the main thread.
+		renderEvery: 1,
 		async runGate( heights ) {
 
 			if ( ! ctx.gate ) throw new Error( 'this demo has no gate swatch' );
@@ -114,8 +119,10 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 	};
 
 	camera.lookAt( controls.target );
+	let tick = 0;
 	loop = () => {
 
+		if ( ++ tick % window.__ix.renderEvery ) return;
 		const now = performance.now();
 		animT += Math.min( 0.1, ( now - last ) / 1000 );
 		last = now;
@@ -141,6 +148,11 @@ export function startApp( { ctx, ix, meshes, fuzz, film, animate: poseScene, par
 		}
 
 		stats.beginFrame();
+		// The frame draws to the screen. A background compile (demo/warmup.js,
+		// three r187 compileAsync) leaves its own target and MRT set while it
+		// yields: a frame drawn then built a pipeline for the wrong targets.
+		renderer.setRenderTarget( null );
+		renderer.setMRT( null );
 		post.update( dist );
 		post.render();
 		stats.endFrame( dist );

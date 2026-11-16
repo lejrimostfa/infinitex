@@ -41,7 +41,9 @@ export function createFlyover( { camera, scene, keys, C, V, ignore = () => false
 		if ( ! k.ray ) return { ...k, free: true, P: V( ...k.pos ), L: V( ...k.look ) };
 		const [ from, to ] = k.ray( C, V );
 		ray.set( from, to.clone().sub( from ).normalize() );
-		const hit = ray.intersectObjects( scene.children, true ).find( ( h ) => h.object.isMesh && ! ignore( h.object ) );
+		// With targets, only them (not their children): the cube wall cast
+		// 600 rays through 241 cubes and their fuzz shells, 14 s at startup.
+		const hit = ray.intersectObjects( targets ?? scene.children, ! targets ).find( ( h ) => h.object.isMesh && ! ignore( h.object ) );
 		if ( ! hit ) throw new Error( `flyover: key at ${ k.at } s hits nothing` );
 		const tri = [ hit.face.a, hit.face.b, hit.face.c ];
 		return { ...k, mesh: hit.object, tri, side: hit.face.normal.clone().transformDirection( hit.object.matrixWorld ).dot( ray.ray.direction ) < 0 ? 1 : - 1, P: new THREE.Vector3(), N: new THREE.Vector3(), L: new THREE.Vector3() };
