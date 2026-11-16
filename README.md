@@ -52,6 +52,8 @@ Or try it without installing anything: [knit](https://lejrimostfa.github.io/infi
 | `cubes.html` | The whole catalogue. `?family=10` builds one row only (much faster to load), `?fly` plays a flyover, `?env=room` swaps the sky for a studio light. |
 | `aquarium.html` | A tank of clear water. `?view=above`, `below`, `floor`, `glass` (the waterline through the pane) or `lens` (a camera half in the water). |
 | `livingroom.html` | Ten matters in one scene: an 80s room at sunset over a lava lake (wood strips, plaster, a knotted rug, beige plastic, a CRT, leather, oranges, the lava, a photosphere sun, a cable sweater). `?view=room`, `window`, `tv`, `fruit`, `rug` or `chair`. Geometry built by code in Blender: `blender/livingroom.py`. |
+
+In the living room and the aquarium: arrows or ZQSD (WASD on QWERTY) to walk, Space and C to rise and sink, Shift to go faster, a click on an object to glide to it (`demo/walk.js`).
 | `index.html` | A knitted mannequin with sliders, live stats and a "level view" that colours each level of detail. |
 
 ## Use it in your scene
