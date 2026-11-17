@@ -16,7 +16,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js';
 import { createMaterial } from '../../src/index.js';
-import { waterBody } from '../../src/core/underwater.js';
+import { waterBody, hazeColor } from '../../src/core/underwater.js';
 import { refractedVertex } from '../../src/core/refraction.js';
 
 // A plane with UVs in metres, facing +z before it is placed.
@@ -102,7 +102,7 @@ export function buildTank( { scene, tank, params, sky, TW, TD, TH, LEVEL } ) {
 	for ( const [ w, x, z, ry ] of [ [ TW, 0, TD / 2, Math.PI ], [ TD, - TW / 2, 0, Math.PI / 2 ], [ TD, TW / 2, 0, - Math.PI / 2 ] ] ) {
 
 		const hm = new THREE.MeshBasicNodeMaterial();
-		hm.colorNode = waterBody.inscatter.mul( 0.55 );
+		hm.colorNode = hazeColor( positionWorld.sub( cameraPosition ).normalize() ).mul( 0.55 ); // lighter up, deeper down, as the water in front of it
 		hm.vertexNode = refractedVertex();
 		const m = new THREE.Mesh( new THREE.PlaneGeometry( w, LEVEL, Math.ceil( w / 0.02 ), Math.ceil( LEVEL / 0.02 ) ), hm );
 		m.position.set( x, LEVEL / 2, z );

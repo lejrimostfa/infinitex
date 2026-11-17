@@ -20,7 +20,7 @@
 import * as THREE from 'three/webgpu';
 import { attribute, varying, instancedDynamicBufferAttribute, positionLocal, positionGeometry, positionWorld, cameraPosition, normalView, reflectVector, uv, vec3, float, color, sin, exp, mix, step, smoothstep, clamp, fract, min } from 'three/tsl';
 import { createMaterial } from '../../src/index.js';
-import { waterBody as W } from '../../src/core/underwater.js';
+import { waterBody as W, rimLight, tintUnderwater } from '../../src/core/underwater.js';
 
 export const FISH_LOOKS = {
 	school: { back: '#1f4256', side: '#a7b8be', belly: '#f0f2ec', stripe: '#24323a', stripeY: 0.12, stripeAmt: 0.55, fin: '#8ea69e', finEdge: 0.1, iris: '#e0d49a',
@@ -83,12 +83,16 @@ export function fishMaterial( { L, sh, look, motion, pecAmp = 0.35, preset = {} 
 	const path = mix( depth.div( V.normalize().y.abs().max( 0.08 ) ), V.length(), step( cameraPosition.y, W.level ) ).mul( W.depthScale );
 	let gain = vec3( float( k.gain ?? 1 ).mul( varying( sdw ) ) );
 	if ( k.vivid ) gain = gain.mul( exp( W.absorb.mul( path ).mul( k.vivid ) ).min( vec3( 4 ) ) );
-	m.colorNode = m.colorNode.mul( bodyTint.mul( isBody ).add( finTint.mul( isFin ) ).mul( gain ).add( vec3( isEye ) ) );
+	tintUnderwater( m, bodyTint.mul( isBody ).add( finTint.mul( isFin ) ).mul( gain ).add( vec3( isEye ) ) );
 	// Shiny guanine sides: part mirror where the scales are. Glint: those
 	// mirrors catch the bright window of the surface above (Snell's window,
 	// about 48 degrees around the vertical) when the reflected view ray
 	// points into it: a fish that rolls in a turn flashes.
 	m.metalnessNode = m.metalnessNode.add( scaleMask.mul( k.metal ) );
+	// The light of the surface on the fish's back and edges (rimLight,
+	// core/underwater.js; waterBody.rim, 0 by default): it lifts the fish
+	// off the haze behind it.
+	m.emissiveNode = m.emissiveNode.add( rimLight( k.rim ?? 1 ) );
 	// Below the window the surface still mirrors the lit tank (total internal
 	// reflection), dimmer. The glint fades along the eye's path like the rest.
 	if ( k.glint ) {

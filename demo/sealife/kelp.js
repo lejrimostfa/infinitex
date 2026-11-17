@@ -18,6 +18,7 @@ import * as THREE from 'three/webgpu';
 import { attribute, positionLocal, uv, vec3, sin, sqrt } from 'three/tsl';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createMaterial } from '../../src/index.js';
+import { tintUnderwater } from '../../src/core/underwater.js';
 import { ixTime } from '../../src/core/clock.js';
 import { rng, rgb, current, lod, wetMaterial } from './seabed.js';
 
@@ -130,7 +131,7 @@ export function createKelp( { spots, floor = () => 0, seed = 9, preset = {} } ) 
 		bubbles: 0.5, relief: 1, translucency: 0.8, roughness: 0.35, seed: 11, underwater: 1, ...preset }, { coords: uv() } );
 	const m = ix.material, shade = attribute( 'shade', 'float' );
 	m.side = THREE.DoubleSide;
-	m.colorNode = m.colorNode.mul( shade );
+	tintUnderwater( m, shade );
 	// Far away (seabed.js lod): the matter's mean colour, plain.
 	const far = wetMaterial( { color: rgb( '#64501a' ).mul( shade ), roughness: 0.4, sss: 0.6, side: THREE.DoubleSide } );
 	// The sway. plant = ( root x, root z, height ), the same on every vertex.

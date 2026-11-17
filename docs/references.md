@@ -265,5 +265,19 @@ Other sizes in the code (fibre diameters, grain sizes, pore sizes, droplet sizes
 - **The surface from below** is a bright moving pattern, no Snell window.
 - **Life in instances.** Schools of small fish as flat silhouettes, jellyfish, swaying grass. Cheap, and it fills the depth.
 
-Not in Infinitex yet: colour presets per place, and the shadow of an object in a light shaft. Life is in the aquarium since (`demo/sealife/`, code only: three kinds of fish, jellyfish, a crab that walks on the dunes, seagrass, kelp, anemones, corals, starfish). Done since: light shafts that follow the caustics (`src/core/shafts.js`), ring bubbles (`src/core/bubbles.js`), half the blur under water. Done after this reading: the eye's own share under water (`src/core/underlens.js`), AO and depth of field on the aquarium (`src/camera/targetpost.js`).
+Not in Infinitex yet: several places with their own colours in one scene, and the shadow of an object in a light shaft. Life is in the aquarium since (`demo/sealife/`, code only: three kinds of fish, jellyfish, a crab that walks on the dunes, seagrass, kelp, anemones, corals, starfish). Done since: light shafts that follow the caustics (`src/core/shafts.js`), ring bubbles (`src/core/bubbles.js`), half the blur under water. Done after this reading: the eye's own share under water (`src/core/underlens.js`), AO and depth of field on the aquarium (`src/camera/targetpost.js`).
+
+### Mood of the aquarium: a sunlit reef in an animated film
+
+17 November 2026. Before, the tank was one flat turquoise: one haze colour in every direction, grey shadows, a veil of shafts with a hatch on it. What changed, and where (`?nomood` gives the plain water back):
+
+- **The haze has a direction** (`hazeColor`, `src/core/underwater.js`). Aqua towards the surface, deep blue level and down (`waterBody.deep`), a halo around the sun (`sunGlow`). The matter's glow, the pane's haze, the shafts and the specks all read it.
+- **Warm sun, blue shade.** The bright lines of the caustic net take a warm colour (`causticTint`). The shadows get the water's own light (`fill`), so they are blue and not the grey of the sky. Less red is absorbed, so the sand stays warm.
+- **Edge light on the life** (`rimLight`): a line of surface light on the back of a fish or a blade, against the haze.
+- **Separate beams** (`shaftCut`, `src/core/shafts.js`). A shaft starts above 1.5 times the mean light, not at the mean. Read with sixteen taps one texel apart (a 4 by 4 box): neighbours one texel apart cancel the jitter. Taps two texels apart all read the same phase of it and left a comb of fibres at depth edges. 16 steps instead of 8 cost about 2.5 ms more at 1080p for little: 8 stay (`?shaftsteps=` to compare).
+- **Marine snow** (`src/core/snow.js`): 500 specks that sink and sway, added light, larger and dimmer near the eye.
+- **Bloom and grade** (`src/camera/grade.js`), after the depth effects; `?nograde`.
+
+A trap met: the fill is in the emissive, so a tint put on the colour afterwards does not reach it. A red fish in blue fill turned pink. `tintUnderwater( material, tint )` applies the tint to both.
+
 

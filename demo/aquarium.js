@@ -9,6 +9,9 @@
 //   arrows or ZQSD walk, Space and C up and down, a click focuses, F the
 //   lens (the camera kit, src/camera, through camerakit.js)
 //   ?nofx   no AO and no depth of field
+//   ?nograde  no bloom and no colour grade (src/camera/grade.js)
+//   ?nomood   the plain physical water: one haze colour, no fill, no rim
+//   ?nosnow   no floating specks (src/core/snow.js)
 //   ?nofly  no toy submarine. Without it, a toy submarine floats in the
 //           tank; V or the button at the bottom right steers it (flyer.js)
 // window.__ix: renderer, scene, camera, ready, view( name ), setTime( s ),
@@ -31,6 +34,7 @@ import { createStats } from './stats.js';
 import { createDemoKit } from './camerakit.js';
 import { createShafts } from '../src/core/shafts.js';
 import { createBubbles } from '../src/core/bubbles.js';
+import { createSnow } from '../src/core/snow.js';
 import { buildTank } from './aquarium/tank.js';
 import { createLife } from './aquarium/life.js';
 import { createShots } from './aquarium/shots.js';
@@ -59,6 +63,28 @@ waterBody.sizeM.value = 0.6; // pool swell: long, gentle ripples from every side
 waterBody.featureM.value = 0.1;
 waterBody.amount.value = 0.5;
 waterBody.turbidity.value = 0.35;
+// The mood, a sunlit reef in an animated film (core/underwater.js, "mood").
+// One warm sun, and the water answers in blue: aqua under the surface,
+// deep blue level and down, blue in the shadows, a halo around the sun,
+// a line of light on the back of what swims. ?nomood: the plain water.
+const mood = ! params.has( 'nomood' );
+if ( mood ) {
+
+	sun.color.set( 0xffe4bc );
+	sun.intensity = 2.8;
+	scene.environmentIntensity = 0.55; // the grey sky light gives way to the water's fill
+	waterBody.inscatter.value.set( '#4fd6e4' );
+	waterBody.deep.value.set( '#1f6fd6' );
+	waterBody.sunGlow.value = 1.3;
+	waterBody.fill.value = 0.22;
+	waterBody.causticTint.value.set( '#ffe0b0' );
+	waterBody.rim.value = 0.3;
+	waterBody.absorb.value.set( 0.3, 0.06, 0.02 ); // less red lost: the sand stays warm in the sun
+	waterBody.turbidity.value = 0.2; // clearer: what is near keeps its colours
+	waterBody.shafts.value = 1.1;
+	waterBody.shaftCut.value = 1.5; // separate beams, not a veil
+
+}
 
 // Everything in the tank sits in a clipping group: the water's mirrors
 // render it cut at the level (core/mirror.js).
@@ -142,14 +168,17 @@ view( params.get( 'view' ) ?? 'above' );
 // Strings of bubbles from three points of the floor (src/core/bubbles.js);
 // ?nobubbles. In the scene, not in the tank group: the mirrors skip them.
 if ( ! params.has( 'nobubbles' ) ) scene.add( createBubbles( { box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] }, count: 150, sources: [ [ - 0.36, 0.14 ], [ 0.02, - 0.22 ], [ 0.42, 0.2 ] ] } ) );
+// Marine snow: specks that float in the water and catch its light
+// (src/core/snow.js); ?nosnow. In the scene, like the bubbles.
+if ( ! params.has( 'nosnow' ) ) scene.add( createSnow( { box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] }, count: 500 } ) );
 // Life, built by code (aquarium/life.js, demo/sealife): fish, jellyfish,
 // a crab, plants, corals, starfish. ?nolife, ?noflora.
 const { life, flora } = createLife( { scene, tank, params, sand, sun, water, hideUp, TW, TD } );
 
 // Light shafts in the tank's water (src/core/shafts.js); ?noshafts.
-const shafts = params.has( 'noshafts' ) ? null : createShafts( renderer, camera, { box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] } } );
+const shafts = params.has( 'noshafts' ) ? null : createShafts( renderer, camera, { steps: + params.get( 'shaftsteps' ) || 8, box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] } } );
 const fx = ! params.has( 'nofx' );
-const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 0.6, shadows: false, ao: fx, dof: fx, target: fx ? glassLine.rtC : null, shafts } } );
+const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 0.6, shadows: false, ao: fx, dof: fx, target: fx ? glassLine.rtC : null, shafts, grade: fx && ! params.has( 'nograde' ) ? {} : null } } );
 const { walk, adaptive, lens } = kit;
 kit.addEventListener( 'pixelRatioChanged', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );
 const stats = createStats( { renderer, camera, adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
@@ -185,6 +214,11 @@ renderer.setAnimationLoop( () => {
 	// Under water the haze tells the distance, not the lens: half the blur.
 	const under = camera.position.y < LEVEL && Math.abs( camera.position.x ) < TW / 2 && Math.abs( camera.position.z ) < TD / 2;
 	if ( lens ) lens.bokehScale = under ? 0.5 : 1;
+	// From the air the shafts are seen across the whole tank, side on: a
+	// third of their strength there, or they stand as blue columns.
+	if ( mood ) waterBody.shafts.value = under ? 1.1 : 0.45;
+	// The grade's blue push and low bloom threshold are for the eye under water (src/camera/grade.js).
+	if ( kit.post?.grade ) kit.post.grade.uniforms.water.value = under ? 1 : 0;
 	vehicle?.update( dt, clock ); // while steered, it moves the camera and the walk holds still
 	kit.update( dt, { move: ! vehicle?.active, dist: vehicle?.active ? () => camera.position.distanceTo( controls.target ) : null } ); // flying: AO follows the vehicle, not the autofocus
 	stats.beginFrame();

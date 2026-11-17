@@ -18,6 +18,7 @@
 import * as THREE from 'three/webgpu';
 import { attribute, positionLocal, uv, vec2, vec3, sin, cos } from 'three/tsl';
 import { createMaterial } from '../../src/index.js';
+import { tintUnderwater } from '../../src/core/underwater.js';
 import { rng, rgb, current, lod, wetMaterial } from './seabed.js';
 
 const V = THREE.Vector3;
@@ -139,7 +140,7 @@ export function createCorals( { list, floor = () => 0, seed = 31 } ) {
 		const t = attribute( 'tint', 'float' );
 		// Growing tips are paler (a staghorn's axial corallite).
 		const tint = vec3( 1 ).add( vec3( fan ? 0.5 : 1.3, fan ? 0.45 : 1.25, fan ? 0.5 : 1.45 ).mul( t ) );
-		ix.material.colorNode = ix.material.colorNode.mul( tint );
+		tintUnderwater( ix.material, tint );
 		// Far away (seabed.js lod): the matter's mean colour, plain.
 		const far = wetMaterial( { color: rgb( fan ? '#80307e' : '#9c5a72' ).mul( tint ), roughness: 0.8 } );
 		for ( const m of [ ix.material, far ] ) {

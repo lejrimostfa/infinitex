@@ -20,8 +20,8 @@
 // (the fine ones do not survive the scattering).
 
 import { RenderTarget, HalfFloatType, QuadMesh, NodeMaterial, Matrix4, Vector2, Vector3 } from 'three/webgpu';
-import { vec2, vec3, vec4, float, uniform, texture, uv, exp, getViewPosition, interleavedGradientNoise, screenCoordinate } from 'three/tsl';
-import { waterBody } from './underwater.js';
+import { vec2, vec3, vec4, float, uniform, texture, uv, exp, smoothstep, getViewPosition, interleavedGradientNoise, screenCoordinate } from 'three/tsl';
+import { waterBody, hazeColor } from './underwater.js';
 import { reliefLight } from './relief.js';
 import { ixTime } from './clock.js';
 import { causticLight } from './caustics.js';
@@ -55,7 +55,9 @@ export function createShafts( renderer, camera, { box, steps = 8, waves = 5 }, W
 	const ly = float( 1 ).sub( lt.dot( lt ) ).max( 0.05 ).sqrt();
 	const sigma = W.absorb.add( W.turbidity ).dot( vec3( 1 / 3 ) );
 	const t = ixTime.mul( W.speed );
-	const jitter = interleavedGradientNoise( screenCoordinate );
+	// The jitter moves every 60th of a second: what the nine taps leave of
+	// it is then a fine grain in time, not a fixed hatch on the picture.
+	const jitter = interleavedGradientNoise( screenCoordinate.add( ixTime.mul( 60 ).floor().mod( 64 ).mul( 5.588238 ) ) );
 	let acc = float( 0 );
 	for ( let i = 0; i < steps; i ++ ) {
 
@@ -67,27 +69,32 @@ export function createShafts( renderer, camera, { box, steps = 8, waves = 5 }, W
 		const wf = waveField( Q.mul( W.depthScale ), float( 0.02 ), {
 			lmax: W.sizeM, lmin: W.sizeM.mul( 0.35 ), angle: W.angle, steep: W.amount.mul( 0.14 ), t, rate: W.speed, seed: W.seed, count: waves, spreadDeg: 180,
 		} );
-		const streak = causticLight( wf.hess, D, { blur: 0.2, peak: 5 } ).sub( 1 ).max( 0 );
-		acc = acc.add( streak.mul( exp( sigma.negate().mul( D.div( ly ) ) ) ).mul( exp( sigma.negate().mul( ts.sub( tn ).mul( W.depthScale ) ) ) ) );
+		const streak = causticLight( wf.hess, D, { blur: 0.2, peak: 5 } ).sub( W.shaftCut ).max( 0 );
+		// Not against the lens: a beam the eye stands in would veil the frame.
+		acc = acc.add( streak.mul( exp( sigma.negate().mul( D.div( ly ) ) ) ).mul( exp( sigma.negate().mul( ts.sub( tn ).mul( W.depthScale ) ) ) ).mul( smoothstep( 0.02, 0.14, ts ) ) );
 
 	}
 
 	const mat = new NodeMaterial();
 	// GAIN: the share of the focused light that the water scatters to the eye,
 	// set by eye so that shafts = 1 reads as clear water on a sunny day.
-	mat.fragmentNode = vec4( W.inscatter.mul( acc ).mul( len.mul( W.depthScale ).div( steps ) ).mul( W.shafts ).mul( GAIN ), 1 );
+	// Its colour is the water's light in that direction (hazeColor): a
+	// shaft towards the sun is brighter and warmer, as the haze behind it.
+	mat.fragmentNode = vec4( hazeColor( dir, W ).mul( acc ).mul( len.mul( W.depthScale ).div( steps ) ).mul( W.shafts ).mul( GAIN ), 1 );
 	const quad = new QuadMesh( mat );
 
-	// The page reads the shafts with five taps (centre and a cross two
-	// texels wide): it hides the dither of the jittered steps.
+	// The page reads the shafts with sixteen taps, one texel apart (a box of
+	// four by four). The dither of the jittered steps is strongest from one
+	// texel to the next: neighbours one texel apart cancel it wherever the
+	// tap falls. Taps two texels apart all read the same phase of it and
+	// left a comb at depth edges; five taps on a cross left a hatch.
 	const texel = uniform( new Vector2( 1, 1 ) );
 	const tex = texture( rt.texture );
 	const sample = ( p ) => {
 
-		const o = texel.mul( 1.5 );
-		return tex.sample( p ).rgb.mul( 0.36 )
-			.add( tex.sample( p.add( vec2( o.x, o.y ) ) ).rgb.add( tex.sample( p.sub( vec2( o.x, o.y ) ) ).rgb )
-				.add( tex.sample( p.add( vec2( o.x, o.y.negate() ) ) ).rgb ).add( tex.sample( p.sub( vec2( o.x, o.y.negate() ) ) ).rgb ).mul( 0.16 ) );
+		let sum = vec3( 0 );
+		for ( let j = 0; j < 4; j ++ ) for ( let i = 0; i < 4; i ++ ) sum = sum.add( tex.sample( p.add( texel.mul( vec2( i - 1.5, j - 1.5 ) ) ) ).rgb );
+		return sum.div( 16 );
 
 	};
 

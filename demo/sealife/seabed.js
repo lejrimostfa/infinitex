@@ -19,7 +19,7 @@
 import * as THREE from 'three/webgpu';
 import { vec2, vec3, float, sin } from 'three/tsl';
 import { ixTime } from '../../src/core/clock.js';
-import { applyUnderwater } from '../../src/core/underwater.js';
+import { applyUnderwater, rimLight } from '../../src/core/underwater.js';
 
 export const rng = ( seed ) => {
 
@@ -119,13 +119,14 @@ export function lod( levels ) {
 }
 
 // color: a vec3 node (linear). sss: the light through a thin tissue (a
-// blade, a tentacle), 0 for none. Opaque: no blending under the water.
-export function wetMaterial( { color, roughness = 0.6, sss = 0, side = THREE.FrontSide } ) {
+// blade, a tentacle), 0 for none. rim: its share of the water's edge
+// light (core/underwater.js rimLight). Opaque: no blending under the water.
+export function wetMaterial( { color, roughness = 0.6, sss = 0, side = THREE.FrontSide, rim = 0.6 } ) {
 
 	const m = sss ? new THREE.MeshSSSNodeMaterial( { side } ) : new THREE.MeshStandardNodeMaterial( { side } );
 	const nodes = applyUnderwater( { colorNode: color } );
 	m.colorNode = nodes.colorNode;
-	m.emissiveNode = nodes.emissiveNode;
+	m.emissiveNode = rim ? nodes.emissiveNode.add( rimLight( rim ) ) : nodes.emissiveNode; // the surface's light on its edges (waterBody.rim, 0 by default)
 	m.vertexNode = nodes.vertexNode;
 	m.roughnessNode = float( roughness );
 	m.metalnessNode = float( 0 );

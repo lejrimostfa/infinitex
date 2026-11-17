@@ -20,6 +20,7 @@
 import * as THREE from 'three/webgpu';
 import { attribute, uv, vec3, mix } from 'three/tsl';
 import { createMaterial } from '../../src/index.js';
+import { tintUnderwater } from '../../src/core/underwater.js';
 import { rng, rgb, lod, wetMaterial } from './seabed.js';
 
 // Gradient noise in 3D (improved Perlin), about -0.7..0.7.
@@ -105,7 +106,7 @@ export function createBrainCorals( { list, floor = () => 0, seed = 51, preset = 
 	const ix = createMaterial( { family: 'organic', mode: 'coral', intent: 'living brain coral', size_mm: 1.3, cell_um: 90, color: '#a8a060', color2: '#c8b878', color3: '#3a3418',
 		color_variation: 0.1, relief: 1, roughness: 0.8, seed: 43, underwater: 1, ...preset }, { coords: uv() } );
 	const r = attribute( 'ridge', 'float' ), tint = mix( vec3( 0.42, 0.55, 0.32 ), vec3( 1.2, 1.15, 1.0 ), r.pow( 1.5 ) );
-	ix.material.colorNode = ix.material.colorNode.mul( tint );
+	tintUnderwater( ix.material, tint );
 	const far = wetMaterial( { color: rgb( '#9c9456' ).mul( tint ), roughness: 0.8 } ); // the matter's mean colour
 	for ( const c of list ) {
 
