@@ -6,8 +6,11 @@
 // and lists the touch controls, and the touch pad is added.
 // Event bus: listens to the flyer's vehicleBoarded, vehicleLeft and
 // gearChanged (flyer.js); the button calls flyer.board() or flyer.leave().
+// It also adds the coach (coach.js): the card that pushes the visitor to
+// zoom in and to board the vehicle. Returns the coach's bus.
 
 import { isTouch, addFlyTouch } from './flytouch.js';
+import { addCoach } from './coach.js';
 
 const css = `
 #ix-fly { position: fixed; left: 50%; bottom: 58px; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px));
@@ -73,5 +76,6 @@ export function addFlyHud( flyer, { label = 'the vehicle', key = 'V', fly = 'Fly
 	flyer.addEventListener( 'vehicleLeft', () => show( false ) );
 	// The top speed (Shift, or the touch pad's speed button).
 	flyer.addEventListener( 'gearChanged', ( e ) => { for ( const g of document.querySelectorAll( '.gear' ) ) g.textContent = e.detail.label; } );
+	return addCoach( flyer, { label, key, touch } );
 
 }
