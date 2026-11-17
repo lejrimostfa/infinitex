@@ -1,22 +1,26 @@
 // The submarine tour (tests/reel.mjs): one minute around the aquarium of
-// the Water page. The toy submarine follows a written path (a spline
+// the Water page. It opens outside: a turn around the tank, then up to the
+// front pane at the waterline, where the meniscus climbs the glass
+// (INTRO seconds). Then a cut to the water inside. The toy submarine follows a written path (a spline
 // through WAY) over the bronze cube, past the corals, up the driftwood
 // post, over the granite cube and back low over the sand. The camera
 // turns around it and, a few times, leaves it for the matter next to it.
 // Nothing is steered by keys: setup() replaces the flyer's update, so the
 // same film comes out at every run.
-//   REEL_SECONDS  film length (default 62: 58 s of path, 4 s of end card)
+//   REEL_SECONDS  film length (default 72: 10 s outside, 58 s of path, 4 s of end card)
 export const url = '/aquarium.html?dof&fullres';
-export const seconds = Number( process.env.REEL_SECONDS ?? 62 );
+export const seconds = Number( process.env.REEL_SECONDS ?? 72 );
 export const title = { text: 'The submarine tour', sub: 'An aquarium built in code. three.js, no texture files.', seconds: 4 };
 export const end = { text: 'github.com/lejrimostfa/infinitex', sub: 'Open source, MIT. Press V in the live demo to steer it.', seconds: 4 };
+export const INTRO = 10; // seconds outside the tank before the tour
 export const captions = [
-	[ 4.3, 7.3, 'A 3.5 cm toy submarine' ],
-	[ 8.8, 12, 'Bronze, computed in the shader' ],
-	[ 18.6, 22, 'Driftwood, down to the grain' ],
-	[ 24, 28, 'Kelp, fish and jellyfish, all built in code' ],
-	[ 35.6, 39.4, 'Polished granite' ],
-	[ 49.8, 52.5, 'Sand grains, 0.35 mm' ],
+	[ 5.6, 9.6, 'Outside: the meniscus climbs 2.9 mm up the glass' ],
+	[ 14.3, 17.3, 'A 3.5 cm toy submarine' ],
+	[ 18.8, 22, 'Bronze, computed in the shader' ],
+	[ 28.6, 32, 'Driftwood, down to the grain' ],
+	[ 34, 38, 'Kelp, fish and jellyfish, all built in code' ],
+	[ 45.6, 49.4, 'Polished granite' ],
+	[ 59.8, 62.5, 'Sand grains, 0.35 mm' ],
 ];
 
 export async function setup( ix ) {
@@ -134,7 +138,26 @@ export async function setup( ix ) {
 
 	};
 
-	window.__tour = { sub, cam, total, speed, WAY, wayTimes: WAY.map( ( _, i ) => L[ Math.min( i * N, L.length - 1 ) ] / speed ), t: 0 };
+	// The opening, outside the tank: a slow turn that comes down to the
+	// waterline, then up to the front pane (z = 0.4), 6 cm from the glass (nearer, the waterline pass draws stray streaks),
+	// where the meniscus rises along it.
+	const LEVEL = 0.35, FRONT = 0.4;
+	const intro = ( t ) => {
+
+		if ( t < 5 ) {
+
+			const k = ease( t / 5 ), a = lerp( 0.8, 0.12, k ), r = lerp( 1.4, 0.75, k );
+			return { p: [ r * Math.sin( a ), lerp( 0.8, LEVEL + 0.03, k ), r * Math.cos( a ) ], l: [ 0, lerp( 0.15, LEVEL - 0.02, k ), 0 ] };
+
+		}
+
+		const k = ease( ( t - 5 ) / 5 ), d = Math.exp( lerp( Math.log( 0.35 ), Math.log( 0.06 ), k ) );
+		const p = [ lerp( 0.09, - 0.04, k ), lerp( LEVEL + 0.03, LEVEL + 0.003, k ), FRONT + d ];
+		return { p, l: mix( [ 0, LEVEL - 0.02, 0 ], [ p[ 0 ] - 0.08, LEVEL - 0.006, FRONT - 0.25 ], k ) };
+
+	};
+
+	window.__tour = { sub, cam, intro, total, speed, WAY, wayTimes: WAY.map( ( _, i ) => L[ Math.min( i * N, L.length - 1 ) ] / speed ), t: 0 };
 
 	// The flyer no longer drives the model: the path does. The propeller
 	// turns as at cruise speed.
@@ -154,8 +177,9 @@ export async function setup( ix ) {
 export function pose( ix, t ) {
 
 	const { camera, controls } = ix, T = window.__tour;
-	T.t = t;
-	const c = T.cam( t );
+	const INTRO = 10; // as exported above (pose runs in the page, no closure)
+	T.t = Math.max( 0, t - INTRO );
+	const c = t < INTRO ? T.intro( t ) : T.cam( t - INTRO );
 	camera.position.set( ...c.p );
 	controls.target.set( ...c.l );
 	camera.lookAt( ...c.l );
