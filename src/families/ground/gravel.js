@@ -22,7 +22,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { packed, grains, fbm, line } from './grains.js';
 
@@ -169,9 +169,9 @@ export function buildGravel( p, fp, u ) {
 	// grains, before any branch (computed inside one, they round
 	// differently and some cell borders move by a pixel).
 	const q = p.add( id.xz.mul( 0.37 ) ).toVar();
-	const cq = mod( q.div( g.mul( 0.09 ) ), 4096 ).add( 2.2 ).toVar();
-	const fq = mod( q.div( g.mul( 0.3 ) ), 4096 ).add( 7.3 ).toVar();
-	const mq = mod( q.div( g.mul( 0.01 ) ), 4096 ).add( 4.4 ).toVar();
+	const cq = wrapCoord( q.div( g.mul( 0.09 ) ) ).add( 2.2 ).toVar();
+	const fq = wrapCoord( q.div( g.mul( 0.3 ) ) ).add( 7.3 ).toVar();
+	const mq = wrapCoord( q.div( g.mul( 0.01 ) ) ).add( 4.4 ).toVar();
 	// Flat and round pebbles: each its own height.
 	const ph = hash3( id.xy.mul( 91 ) ).toVar();
 	const flat = ph.z.mul( 0.8 ).add( 0.35 );

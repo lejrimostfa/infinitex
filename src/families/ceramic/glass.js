@@ -26,7 +26,7 @@
 
 import { vec2, vec3, float, fract, step, smoothstep, sin, cos, mod, positionView, tangentView, bitangentView } from 'three/tsl';
 import { fadeIn, fadeOn, gate, gateGpu, surfaceGradient } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { bubbleCells, bubbleAt, capSlope } from './bubbles.js';
 
@@ -44,7 +44,7 @@ function frosted( p, fp, u, y ) {
 	// Pits: concave, height ~ distance to the pit centre squared.
 	// Skipped under 1.5 px per pit, with their ripples (narrower fade).
 	const wA = fadeIn( f, fp, 1.5, 4.0 ).toVar();
-	const qA = mod( p.div( f ), 4096 ).add( s.mul( 3 ) ).toVar();
+	const qA = wrapCoord( p.div( f ) ).add( s.mul( 3 ) ).toVar();
 	const PA = gateGpu( fadeOn( f, fp, 1.5 ), { slope: [ 0, 0 ], ridge: 0 }, () => {
 
 		const A = voronoi( qA, 0.95 );
@@ -62,7 +62,7 @@ function frosted( p, fp, u, y ) {
 	let slope = PA.slope;
 	// Smaller pits on top. Skipped under 1.5 px per pit.
 	const wB = fadeIn( f.mul( 0.33 ), fp, 1.5, 4.0 ).toVar();
-	const qB = mod( p.div( f.mul( 0.33 ) ), 4096 ).add( 7.7 ).toVar();
+	const qB = wrapCoord( p.div( f.mul( 0.33 ) ) ).add( 7.7 ).toVar();
 	const PB = gateGpu( fadeOn( f.mul( 0.33 ), fp, 1.5 ), { slope: [ 0, 0 ] }, () => ( { slope: voronoi( qB, 0.95 ).toSeed.mul( 0.9 ).mul( wB ) } ), [ wB, qB ] );
 	slope = slope.add( PB.slope );
 	// Unresolved pits go into the roughness (slope variance of a paraboloid

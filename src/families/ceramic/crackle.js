@@ -13,7 +13,7 @@
 
 import { vec2, float, clamp, smoothstep, mod, mix } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 // Coverage of a line of half width w at distance d, conserving its mean.
@@ -28,12 +28,12 @@ function line( d, w, fp, soft = 0 ) {
 // One generation. x: coordinates in cells. Returns coverage, halo, slope.
 function generation( x, cellM, wRel, fp, salt ) {
 
-	const V = voronoi( mod( x, 4096 ).add( salt ), 0.9 );
+	const V = voronoi( wrapCoord( x ).add( salt ), 0.9 );
 	// Width changes along the crack: some open, some barely.
 	const open = valueNoise( x.mul( 2.3 ).add( salt ) ).mul( 0.9 ).add( 0.35 );
 	const w = cellM.mul( wRel ).mul( open );
 	// The crack edge is jagged at the scale of its own width.
-	const jag = valueNoise( mod( x.mul( 90 ), 4096 ).add( salt ) ).sub( 0.5 ).mul( w ).mul( 1.4 ).mul( fadeIn( w.mul( 3 ), fp, 1.0, 3.0 ) );
+	const jag = valueNoise( wrapCoord( x.mul( 90 ) ).add( salt ) ).sub( 0.5 ).mul( w ).mul( 1.4 ).mul( fadeIn( w.mul( 3 ), fp, 1.0, 3.0 ) );
 	const d = V.edge.max( 0 ).mul( cellM ).add( jag ).abs();
 	const f = fadeIn( cellM, fp, 1.5, 4.0 );
 	const mean = w.mul( 3.5 ).div( cellM ); // share of the area covered by the line
@@ -66,7 +66,7 @@ export function crackleNet( p, fp, u, cellM = u.crackleM ) {
 	const fine = u.crackleFine;
 	return {
 		// Ink did not reach every part of a crack evenly.
-		c1: G1.cov.mul( valueNoise( pw.div( cellM.mul( 0.15 ) ).add( 1.9 ) ).mul( 0.6 ).add( 0.5 ) ).mul( valueNoise( mod( pw.div( 4e-5 ), 4096 ) ).sub( 1 ).mul( 0.35 ).mul( fadeIn( float( 4e-5 ), fp, 1.5, 4.0 ) ).add( 1 ) ).min( 1 ), c2: G2.cov.mul( fine ).mul( valueNoise( pw.div( c2.mul( 0.2 ) ).add( 2.9 ) ).mul( 0.8 ).add( 0.4 ) ), c3: G3.cov.mul( fine ).mul( 0.6 ),
+		c1: G1.cov.mul( valueNoise( pw.div( cellM.mul( 0.15 ) ).add( 1.9 ) ).mul( 0.6 ).add( 0.5 ) ).mul( valueNoise( wrapCoord( pw.div( 4e-5 ) ) ).sub( 1 ).mul( 0.35 ).mul( fadeIn( float( 4e-5 ), fp, 1.5, 4.0 ) ).add( 1 ) ).min( 1 ), c2: G2.cov.mul( fine ).mul( valueNoise( pw.div( c2.mul( 0.2 ) ).add( 2.9 ) ).mul( 0.8 ).add( 0.4 ) ), c3: G3.cov.mul( fine ).mul( 0.6 ),
 		halo: G1.halo.add( G2.halo.mul( fine ).mul( 0.6 ) ).min( 1 ),
 		slope: G1.slope.add( G2.slope.mul( fine ).mul( 0.6 ) ).add( G3.slope.mul( fine ).mul( 0.3 ) ),
 		cell: G1.V.id1,

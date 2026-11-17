@@ -10,7 +10,7 @@
 
 import { vec2, float, floor, fract, cos, sin, clamp, smoothstep, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 export const dir2 = ( a ) => vec2( cos( a ), sin( a ) );
@@ -23,7 +23,7 @@ export function fbm( p, scaleM, fp, oct = 4, seed = 0 ) {
 	for ( let i = 0; i < oct; i ++ ) {
 
 		const per = float( scaleM ).mul( 1 / ( 1 << i ) );
-		const q = mod( p.div( per ), 4096 ).add( vec2( seed * 1.7 + i * 5.3, seed * 3.1 + i * 2.9 ) );
+		const q = wrapCoord( p.div( per ) ).add( vec2( seed * 1.7 + i * 5.3, seed * 3.1 + i * 2.9 ) );
 		const n = valueNoise( q ).sub( 0.5 ).mul( fadeIn( per, fp, 1.0, 3.0 ) );
 		sum = sum.add( n.mul( amp ) );
 		total += amp;
@@ -52,7 +52,7 @@ export function fbmGated( p, scaleM, fp, oct = 4, seed = 0 ) {
 		const s = sum.isVarNode ? sum : sum.toVar();
 		return gate( fadeOn( per, fp, 1.0 ), { sum: s }, () => {
 
-			const q = mod( pv.div( per ), 4096 ).add( vec2( seed * 1.7 + i * 5.3, seed * 3.1 + i * 2.9 ) );
+			const q = wrapCoord( pv.div( per ) ).add( vec2( seed * 1.7 + i * 5.3, seed * 3.1 + i * 2.9 ) );
 			const n = valueNoise( q ).sub( 0.5 ).mul( fadeIn( per, fp, 1.0, 3.0 ) );
 			return { sum: octaves( i + 1, amp * 0.5, s.add( n.mul( amp ) ) ) };
 
@@ -81,7 +81,7 @@ export function lines( t, spacing, w, fp, lo = 3.0, hi = 8.0 ) {
 // hash, `inside` (1 on a grain, AA), a domed slope and the fade weight.
 export function grains( p, sizeM, fp, gap = 0.1, seed = 0, jitter = 0.6 ) {
 
-	const V = voronoi( mod( p.div( sizeM ), 4096 ).add( seed * 7.3 ), jitter );
+	const V = voronoi( wrapCoord( p.div( sizeM ) ).add( seed * 7.3 ), jitter );
 	const h = hash3( V.id1.add( seed * 1.9 + 0.7 ) );
 	// A round grain, small enough (with jitter 0.6) that two neighbours
 	// rarely meet, so they never read as one blob split by a line.
@@ -104,7 +104,7 @@ export function grains( p, sizeM, fp, gap = 0.1, seed = 0, jitter = 0.6 ) {
 // random angle, half width wM, shorter than the cell. density 0..1.
 export function scratches( p, fp, cellM, wM, density, seed = 0 ) {
 
-	const q = mod( p.div( cellM ), 4096 ).add( seed * 3.7 );
+	const q = wrapCoord( p.div( cellM ) ).add( seed * 3.7 );
 	const id = floor( q ), f = fract( q ).sub( 0.5 );
 	const h = hash3( id );
 	const d = dir2( h.x.mul( 6.283 ) );

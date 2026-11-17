@@ -31,7 +31,7 @@
 
 import { vec2, vec3, float, exp, asin, sqrt, sin, mod, smoothstep, mix, positionView, normalView } from 'three/tsl';
 import { fadeIn, footprint } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { fbm, flowFbm } from './common.js';
 import { sunspots } from './sunspot.js';
@@ -87,7 +87,7 @@ export function buildPhotosphere( p, fp0, u, t ) {
 	// L3 granules. The warp (0.45 cell) reshapes the lanes over about 30 s.
 	const wx = flowFbm( q, vec2( 0 ), t, 30, S.mul( 1.6 ), fp, 2, 3 );
 	const wy = flowFbm( q, vec2( 0 ), t, 30, S.mul( 1.6 ), fp, 2, 4 );
-	const gq = mod( q.div( S ).add( vec2( wx, wy ).sub( 0.5 ).mul( 0.9 ) ), 4096 ).add( u.seed.mul( 3.7 ) );
+	const gq = wrapCoord( q.div( S ).add( vec2( wx, wy ).sub( 0.5 ).mul( 0.9 ) ) ).add( u.seed.mul( 3.7 ) );
 	const V = voronoi( gq, 0.9 );
 	const h = hash3( V.id1.add( 5.1 ) );
 	// Each cell breathes (period 30 to 80 s): granules live about 10 min
@@ -117,7 +117,7 @@ export function buildPhotosphere( p, fp0, u, t ) {
 
 	// L1 faculae on the supergranule network, near the limb only.
 	const Gn = S.mul( 25 );
-	const N = voronoi( mod( q.div( Gn ), 4096 ).add( u.seed.mul( 1.9 ) ), 0.9 );
+	const N = voronoi( wrapCoord( q.div( Gn ) ).add( u.seed.mul( 1.9 ) ), 0.9 );
 	// The walls are broken into clumps a few granules wide, not lines.
 	const clump = smoothstep( 0.45, 0.7, fbm( q, S.mul( 3 ), fp, 2, 43 ) );
 	const wall = smoothstep( 0, 0.12, N.edge ).oneMinus().mul( clump );

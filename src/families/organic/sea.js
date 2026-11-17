@@ -12,7 +12,7 @@
 
 import { vec2, float, fract, mix, smoothstep, step, atan, mod } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { fbm } from './common.js';
 import { lattice } from './lattice.js';
@@ -23,7 +23,7 @@ export function buildCoral( p, fp, u ) {
 	const tone = fbm( p.add( s ), float( 0.05 ), fp, 4, 2 );
 	const base = mix( u.color, u.color2, smoothstep( 0.4, 0.7, tone ) );
 	// L1: corallites. Cup radius 0.36 cells, a wall ring around it.
-	const V = voronoi( mod( p.div( g ), 4096 ).add( 2.2 ), 0.8 );
+	const V = voronoi( wrapCoord( p.div( g ) ).add( 2.2 ), 0.8 );
 	const k = hash3( V.id1 );
 	const t = V.toSeed;
 	const r = t.length().div( k.x.mul( 0.08 ).add( 0.34 ) );

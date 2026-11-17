@@ -23,7 +23,7 @@
 
 import { vec2, vec3, float, floor, fract, mix, clamp, smoothstep, step, mod, cos, sin } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash1, hash3 } from '../../core/hash.js';
+import { hash1, hash3, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { bubbleField } from '../ceramic/bubbles.js';
 import { ixTime } from '../../core/clock.js';
@@ -38,11 +38,11 @@ import { waveField } from './waves.js';
 // offset of the pixel from its centre (cells), its slope and hash.
 function layer( q, fp, C, t, occ, salt ) {
 
-	const V = voronoi( mod( q.div( C ), 4096 ).add( salt ), 0.9 );
+	const V = voronoi( wrapCoord( q.div( C ) ).add( salt ), 0.9 );
 	const h = hash3( V.id1.add( salt * 0.37 ) );
 	const life = h.x.mul( 10 ).add( 4 );
 	const c = t.div( life ).add( h.y );
-	const n = mod( floor( c ), 4096 ), ph = fract( c );
+	const n = wrapCoord( floor( c ) ), ph = fract( c );
 	const alive = step( hash1( V.id1.add( vec2( n.mul( 7.7 ), n.mul( 3.1 ) ) ) ), occ ).mul( step( ph, 0.93 ) );
 	const grow = smoothstep( 0.0, 0.08, ph ).mul( ph.mul( 0.15 ).add( 0.85 ) );
 	const r = V.toSeed.length();
@@ -80,7 +80,7 @@ export function buildFoam( p, fp, u ) {
 	// a third of size_mm wide, its strands 2 to 12 mm thick, broken here
 	// and there; patches where the net is dense.
 	const lw = vec2( fbm( q, S.mul( 0.5 ), fp, 2, 7 ), fbm( q, S.mul( 0.5 ), fp, 2, 8 ) ).sub( 0.5 ).mul( S.mul( 0.25 ) );
-	const N = voronoi( mod( q.add( lw ).div( S.mul( 0.35 ) ), 4096 ).add( u.seed ), 0.95 );
+	const N = voronoi( wrapCoord( q.add( lw ).div( S.mul( 0.35 ) ) ).add( u.seed ), 0.95 );
 	const strandW = fbm( q, S.mul( 0.2 ), fp, 3, 9 ).mul( 0.2 ).sub( 0.04 ).max( 0.0 );
 	const net = smoothstep( strandW.add( 0.02 ), strandW.sub( 0.02 ), N.edge );
 	const blob = smoothstep( float( 0.6 ).sub( u.amount.mul( 0.3 ) ), float( 0.66 ).sub( u.amount.mul( 0.3 ) ), lace );

@@ -13,7 +13,7 @@
 
 import { vec2, vec3, float, floor, mix, smoothstep, step, clamp, mod, atan, fract } from 'three/tsl';
 import { fadeIn, pick } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { rot2, cells, fbm, band } from './common.js';
 
 const DX = 0.62, DY = 0.48; // petal lattice, in petal sizes
@@ -21,7 +21,7 @@ const DX = 0.62, DY = 0.48; // petal lattice, in petal sizes
 // Petal of lattice cell (col, row): local coordinates, radii, hash.
 function petal( q, col, row ) {
 
-	const id = mod( vec2( col, row ), 4096 );
+	const id = wrapCoord( vec2( col, row ) );
 	const h = hash3( id.add( 3.7 ) ), h2 = hash3( id.add( 9.1 ) );
 	const odd = mod( row, 2 );
 	const c = vec2( col.add( 0.5 ).add( odd.mul( 0.5 ) ).mul( DX ), row.add( 0.5 ).mul( DY ) ).add( h.xy.sub( 0.5 ).mul( 0.3 ) );

@@ -25,6 +25,7 @@ import { createDemoKit } from './camerakit.js';
 import { buildCharacter } from './charbuild.js';
 import riveraine from './characters/riveraine.js';
 import { MATTERS } from './roomMatters.js';
+import { planeCoords } from '../src/core/planecoords.js';
 import { createBee } from './vehicles/bee.js';
 import { streamMaterials } from './warmup.js';
 import { createFlyer } from './flyer.js';
@@ -115,6 +116,22 @@ function rugCoords( g ) {
 
 }
 
+// The lava lake: 600 x 500 m in two triangles. Seen from a bee a few cm
+// over it, the interpolated uv stepped along the screen rows (sawtooth
+// cracks): its coordinates come from each pixel's ray instead
+// (core/planecoords.js), at the height of its top, with the same offset
+// as its uv (read on a top vertex).
+function lakeCoords( mesh ) {
+
+	room.updateMatrixWorld( true );
+	const g = mesh.geometry, P = g.attributes.position, U = g.attributes.uv, N = g.attributes.normal;
+	let i = 0;
+	while ( i < P.count - 1 && N.getY( i ) < 0.9 ) i ++;
+	const w = new THREE.Vector3().fromBufferAttribute( P, i ).applyMatrix4( mesh.matrixWorld );
+	return planeCoords( { height: w.y, offset: [ U.getX( i ) - w.x, U.getY( i ) - w.z ] } );
+
+}
+
 const matters = {};
 const matter = ( k ) => matters[ k ] ??= MATTERS[ k ] ? createMaterial( MATTERS[ k ], COORDS[ k ] ? { coords: COORDS[ k ] } : {} ).material : null;
 const rock = new THREE.MeshStandardMaterial( { color: 0x1a1512, roughness: 0.95 } );
@@ -126,6 +143,7 @@ room.traverse( ( o ) => {
 	const k = o.material.name.replace( /^ix_/, '' );
 	if ( o.geometry.index && o.geometry.attributes.uv ) o.geometry.computeTangents();
 	if ( k === 'rug' ) COORDS.rug = rugCoords( o.geometry );
+	if ( k === 'lava' ) COORDS.lava = lakeCoords( o );
 	o.material = k === 'rock' || k === 'sun' ? rock : matter( k ) ?? rock;
 	const outside = k === 'lava' || k === 'rock' || k === 'sun';
 	o.castShadow = ! outside;

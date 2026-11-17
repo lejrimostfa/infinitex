@@ -17,7 +17,7 @@
 import { vec2, vec3, float, mix, smoothstep, mod, pow, sqrt, fract, abs } from 'three/tsl';
 import { ixTime } from '../../core/clock.js';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { valueNoise } from '../../core/hash.js';
+import { valueNoise, wrapCoord } from '../../core/hash.js';
 import { arrival, heroSeed, rough, ageMeters } from '../../core/front.js';
 import { fbm } from '../stone/common.js';
 import { grains, line } from '../ground/grains.js';
@@ -53,7 +53,7 @@ export function buildInk( p, fp, u, prog ) {
 		const tide = line( abs( fract( tq.add( 0.5 ) ).sub( 0.5 ) ).mul( g.div( 9 ) ), float( 1.5e-4 ), F.fpA )
 			.mul( smoothstep( W, W.mul( 3 ), age ) ).mul( vn( q.mul( 20 ).add( 4.4 ) ) );
 		// Inside: paler and mottled, flowing slowly while wet.
-		const fq = mod( p.div( 8e-3 ), 4096 ).add( vec2( t.mul( 0.05 ), t.mul( - 0.03 ) ) );
+		const fq = wrapCoord( p.div( 8e-3 ) ).add( vec2( t.mul( 0.05 ), t.mul( - 0.03 ) ) );
 		const mott = fbm( p.add( 2.7 ), float( 0.02 ), fp, 3, 5 ).mul( 0.5 ).add( vn( fq ).mul( 0.2 ) ).add( 0.6 );
 		// Pigment grains in the pores and along the fibres, under 20 um
 		// per pixel only.

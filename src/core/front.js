@@ -19,7 +19,7 @@
 
 import { vec2, float, floor, cos, sin, clamp, step, mod, fract, smoothstep } from 'three/tsl';
 import { pick, fadeIn, surfaceGradient } from './lod.js';
-import { hash3, valueNoise } from './hash.js';
+import { hash3, valueNoise, wrapCoord } from './hash.js';
 
 // q: coordinates in cells. o: { jitter, delay (cells of lag at most),
 // len (half length of a segment in cells, 0 for points), salt }.
@@ -34,7 +34,7 @@ export function arrival( q, o = {} ) {
 	for ( let oy = - 1; oy <= 1; oy ++ ) for ( let ox = - 1; ox <= 1; ox ++ ) {
 
 		const id = cell.add( vec2( ox, oy ) );
-		const hid = mod( id, 4096 ).add( salt );
+		const hid = wrapCoord( id ).add( salt );
 		const h = hash3( hid );
 		const c = id.add( 0.5 ).add( h.xy.sub( 0.5 ).mul( jitter ) );
 		let v = q.sub( c );
@@ -84,7 +84,7 @@ export function rough( p, cellM, fp, { top = 0.25, amp = 0.35, oct = 10, minM = 
 	for ( let i = 0; i < oct; i ++ ) {
 
 		const perM = cellM.mul( per );
-		const n = valueNoise( mod( p.div( perM ), 4096 ).add( salt + i * 3.71 ) ).sub( 0.5 );
+		const n = valueNoise( wrapCoord( p.div( perM ) ).add( salt + i * 3.71 ) ).sub( 0.5 );
 		s = s.add( n.mul( per * amp * 2 ).mul( fadeIn( perM, fp, 1.5, 4.0 ) ).mul( step( minM, perM ) ) );
 		per *= 0.5;
 

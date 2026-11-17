@@ -15,7 +15,7 @@
 
 import { vec2, vec3, float, floor, clamp, smoothstep, step, mod, mix, abs, atan, cos, sin, texture, PI } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { valueNoise } from '../../core/hash.js';
+import { valueNoise, wrapCoord } from '../../core/hash.js';
 
 export function buildPrint( p, fp, u ) {
 
@@ -54,7 +54,7 @@ export function buildPrint( p, fp, u ) {
 
 	// L2: fibres the spray missed.
 	const wF = fadeIn( float( 1.5e-5 ), fp, 1.5, 4.0 );
-	const miss = smoothstep( 0.74, 0.9, valueNoise( mod( p.div( vec2( 1.5e-5, 9e-5 ) ), 4096 ) ) ).mul( wF ).mul( 0.45 );
+	const miss = smoothstep( 0.74, 0.9, valueNoise( wrapCoord( p.div( vec2( 1.5e-5, 9e-5 ) ) ) ) ).mul( wF ).mul( 0.45 );
 	const ink = mix( fill, vec3( 0.02, 0.02, 0.03 ), line );
 	const tint = mix( ink, vec3( 1 ), miss );
 	return { tint: clamp( tint, 0, 1 ), cover: float( 0 ) };

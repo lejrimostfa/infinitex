@@ -13,7 +13,7 @@
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, abs, cos, sin, clamp, mod } from 'three/tsl';
 import { fadeIn, pick } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { grains, line, fbm } from './grains.js';
 
@@ -27,7 +27,7 @@ function sideBranches( x, y, sp, salt ) {
 	const ay = abs( y );
 	const q = x.sub( ay.mul( COT ) ).div( sp );
 	const k = floor( q );
-	const h = hash3( vec2( mod( k, 4096 ), step( 0, y ).add( salt ) ) );
+	const h = hash3( vec2( wrapCoord( k ), step( 0, y ).add( salt ) ) );
 	const b = fract( q ).sub( 0.5 ).sub( h.x.sub( 0.5 ).mul( 0.35 ) ).mul( sp ).mul( SIN );
 	return { a: ay.div( SIN ), b, base: k.add( 0.5 ).mul( sp ), h };
 

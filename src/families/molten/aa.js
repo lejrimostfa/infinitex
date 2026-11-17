@@ -17,7 +17,7 @@
 
 import { vec2, float, clamp, smoothstep, mix, mod, cos, sin, step } from 'three/tsl';
 import { fadeIn, surfaceGradient, pick } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { crystals } from '../stone/crystals.js';
 import { frame, fbm, flowFbm, vesicles, microlites } from './common.js';
 import { radiance } from './heat.js';
@@ -27,7 +27,7 @@ import { radiance } from './heat.js';
 function blocks( q, S, fp, g0, salt ) {
 
 	const jag = vec2( fbm( q, S.mul( 0.3 ), fp, 3, salt ), fbm( q, S.mul( 0.3 ), fp, 3, salt + 1 ) ).sub( 0.5 ).mul( 0.5 );
-	const C = crystals( mod( q.div( S ), 4096 ).add( jag ).add( salt * 0.71 ), { elong: 0.8, size: 0.35, square: 0.7 } );
+	const C = crystals( wrapCoord( q.div( S ) ).add( jag ).add( salt * 0.71 ), { elong: 0.8, size: 0.35, square: 0.7 } );
 	const h = hash3( C.id1.add( salt ) );
 	const e = C.gap.sub( g0 );
 	const body = clamp( e.mul( S ).mul( 0.5 ).div( fp ).add( 0.5 ), 0, 1 );
@@ -60,14 +60,14 @@ export function buildAa( p, fp, u, t ) {
 	const wB = fadeIn( S, fp, 2.0, 6.0 );
 
 	// L2: facets and spines, each a face with its own tilt.
-	const Fc = crystals( mod( q.div( u.featureM ), 4096 ).add( bh.xy.mul( 7 ) ), { elong: 1.2, size: 0.4, square: 0.85 } );
+	const Fc = crystals( wrapCoord( q.div( u.featureM ) ).add( bh.xy.mul( 7 ) ), { elong: 1.2, size: 0.4, square: 0.85 } );
 	const fh = hash3( Fc.id1.add( 5.5 ) );
 	const wF = fadeIn( u.featureM, fp, 2.0, 6.0 );
 	const facet = fh.xy.sub( 0.5 ).mul( 1.4 ).mul( wF );
 	const edge = clamp( float( 0.06 ).sub( Fc.gap ).mul( u.featureM ).div( fp ).add( 0.5 ), 0, 1 ).mul( wF );
 	const oxide = smoothstep( 0.62, 0.8, fbm( q, S.mul( 0.5 ), fp, 3, 6 ).add( fh.z.mul( 0.15 ) ) );
 	// A second, finer set of broken faces: clinker is spiny at every scale.
-	const Fd = crystals( mod( q.div( u.featureM.mul( 0.3 ) ), 4096 ).add( 2.2 ), { elong: 1.5, size: 0.4, square: 0.85 } );
+	const Fd = crystals( wrapCoord( q.div( u.featureM.mul( 0.3 ) ) ).add( 2.2 ), { elong: 1.5, size: 0.4, square: 0.85 } );
 	const fd = hash3( Fd.id1.add( 8.8 ) );
 	const wD = fadeIn( u.featureM.mul( 0.3 ), fp, 2.0, 6.0 );
 

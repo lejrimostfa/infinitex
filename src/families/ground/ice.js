@@ -18,7 +18,7 @@
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, clamp, mod, positionView, tangentView, bitangentView, normalView } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { fbm, fibres, line } from './grains.js';
 
@@ -27,7 +27,7 @@ import { fbm, fibres, line } from './grains.js';
 // core and a small highlight.
 function bubbles( q, cell, share, rMax, fp, salt ) {
 
-	const c = mod( q.div( cell ), 4096 );
+	const c = wrapCoord( q.div( cell ) );
 	const id = floor( c );
 	const h = hash3( id.add( salt ) );
 	const ctr = id.add( 0.5 ).add( h.xy.sub( 0.5 ).mul( 0.4 ) );
@@ -84,7 +84,7 @@ export function buildIce( p, fp, u ) {
 	const ps = shift( 0.0015 );
 	const colW = g.mul( 0.4 );
 	const col = floor( ps.x.div( colW ) );
-	const ch = hash3( vec2( mod( col, 4096 ), floor( ps.y.div( g.mul( 8 ) ) ) ).add( s ) );
+	const ch = hash3( vec2( wrapCoord( col ), floor( ps.y.div( g.mul( 8 ) ) ) ).add( s ) );
 	const inCol = step( ch.x, u.bubbles.mul( 0.25 ) );
 	const B3 = bubbles( vec2( ps.x.sub( col.mul( colW ) ).add( colW.mul( 0.5 ) ).sub( colW.mul( ch.y ) ), ps.y ), g.mul( 0.06 ), float( 0.9 ), 0.35, fp, 7.7 );
 	const str = B3.disc.mul( inCol ).mul( step( ps.x.sub( col.mul( colW ) ).sub( colW.mul( ch.y ) ).abs(), g.mul( 0.04 ) ) );

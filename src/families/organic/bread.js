@@ -21,7 +21,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod, sin } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { rot2, cells, fbm, band, packed, grains, ridged } from './common.js';
 
@@ -134,7 +134,7 @@ export function buildCrust( p, fp, u ) {
 // is sharp and catches the light. Coordinates stretched along the rise.
 function foam( p, cellM, fp, salt, share ) {
 
-	const V = voronoi( mod( p.div( cellM ), 4096 ).add( salt ), 0.95 );
+	const V = voronoi( wrapCoord( p.div( cellM ) ).add( salt ), 0.95 );
 	const k = hash3( V.id1.add( salt * 2.3 ) );
 	const t = V.toSeed;
 	const R = k.y.mul( 0.18 ).add( 0.3 );

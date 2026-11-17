@@ -10,12 +10,12 @@
 // Velocities in m/s, periods in seconds, sizes in surface meters.
 
 import { vec2, float, floor, fract, mod } from 'three/tsl';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 
 // Velocity (m/s) of eddies about scaleM wide turning at about `speed`.
 export function curlFlow( p, scaleM, speed, salt = 0 ) {
 
-	const q = mod( p.div( scaleM ), 4096 ).add( salt );
+	const q = wrapCoord( p.div( scaleM ) ).add( salt );
 	const e = 0.05;
 	const n0 = valueNoise( q ), nx = valueNoise( q.add( vec2( e, 0 ) ) ), ny = valueNoise( q.add( vec2( 0, e ) ) );
 	const n1 = valueNoise( q.mul( 2.1 ).add( 7.7 ) );
@@ -31,7 +31,7 @@ export function advect( p, vel, t, period, sample, mean = 0.5 ) {
 
 	const c = float( t ).div( period );
 	const ph0 = fract( c ), ph1 = fract( c.add( 0.5 ) );
-	const k0 = mod( floor( c ), 4096 ), k1 = mod( floor( c.add( 0.5 ) ), 4096 ).add( 0.5 );
+	const k0 = wrapCoord( floor( c ) ), k1 = wrapCoord( floor( c.add( 0.5 ) ) ).add( 0.5 );
 	const w0 = float( 1 ).sub( ph0.mul( 2 ).sub( 1 ).abs() );
 	const w1 = float( 1 ).sub( w0 );
 	const a = sample( p.sub( vel.mul( ph0.mul( period ) ) ), hash3( vec2( k0, 3.1 ) ).xy.mul( 50 ) );

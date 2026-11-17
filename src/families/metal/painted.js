@@ -18,7 +18,7 @@
 
 import { vec2, vec3, float, floor, smoothstep, step, mix, mod, clamp } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { marks } from './scratch.js';
 import { oxideCrust } from './oxide.js';
 
@@ -30,7 +30,7 @@ const aa = ( d, fp ) => clamp( d.div( fp ).add( 0.5 ), 0, 1 );
 // q: p / cellM + seed, taken by the caller before its gate.
 function specks( q, fp, cellM, presence ) {
 
-	const qc = mod( floor( q ), 4096 );
+	const qc = wrapCoord( floor( q ) );
 	const qh = hash3( qc );
 	const qv = q.sub( floor( q ) ).sub( qh.xy.sub( 0.5 ).mul( 0.6 ).add( 0.5 ) );
 	const R = qh.z.mul( 0.04 ).add( 0.04 );
@@ -116,12 +116,12 @@ export function buildPainted( p, fp, u ) {
 	const M = gate( fadeOn( 5.6e-5, fp, 1.5 ), { sp: 0, sMicro: [ 0, 0 ], dust: 0, dustS: [ 0, 0 ], pop: 0, popS: [ 0, 0 ], pr: 0 }, () => {
 
 		// Two octaves on turned lattices, so no grid shows.
-		const tq = mod( vec2( p.x.mul( 0.8 ).sub( p.y.mul( 0.6 ) ), p.x.mul( 0.6 ).add( p.y.mul( 0.8 ) ) ).div( 3e-5 ), 4096 );
-		const sp = vn( tq ).add( vn( mod( p.div( 1.1e-5 ), 4096 ).add( 4.1 ) ) ).sub( 1 ).mul( 0.5 ).mul( fadeIn( 3e-5, fp, 2.0, 6.0 ) );
+		const tq = wrapCoord( vec2( p.x.mul( 0.8 ).sub( p.y.mul( 0.6 ) ), p.x.mul( 0.6 ).add( p.y.mul( 0.8 ) ) ).div( 3e-5 ) );
+		const sp = vn( tq ).add( vn( wrapCoord( p.div( 1.1e-5 ) ).add( 4.1 ) ) ).sub( 1 ).mul( 0.5 ).mul( fadeIn( 3e-5, fp, 2.0, 6.0 ) );
 		const sMicro = vec2( vn( tq.add( 2.2 ) ), vn( tq.add( 9.7 ) ) ).sub( 0.5 ).mul( 0.03 ).mul( fadeIn( 3e-5, fp, 2.0, 6.0 ) );
 		const dust = specks( dq, fp, float( 4e-4 ), 0.25 );
 		const pop = specks( pq, fp, float( 7e-4 ), 0.18 );
-		const pr = vn( mod( p.div( 8e-6 ), 4096 ).add( 3.9 ) ).sub( 0.5 ).mul( fadeIn( 8e-6, fp, 2.0, 6.0 ) );
+		const pr = vn( wrapCoord( p.div( 8e-6 ) ).add( 3.9 ) ).sub( 0.5 ).mul( fadeIn( 8e-6, fp, 2.0, 6.0 ) );
 		return { sp, sMicro, dust: dust.cov, dustS: dust.slope, pop: pop.cov, popS: pop.slope, pr };
 
 	}, [ p, fp, dq, pq ] );

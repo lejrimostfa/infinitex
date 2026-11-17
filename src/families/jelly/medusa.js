@@ -21,7 +21,7 @@
 
 import { vec2, float, floor, fract, clamp, smoothstep, mix, abs, cos, atan, max, min, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash1, valueNoise } from '../../core/hash.js';
+import { hash1, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 const TAU = Math.PI * 2;
@@ -93,8 +93,8 @@ export function buildMedusa( p, fp, u ) {
 	// span 1.5 px (their fade); the L3 level only where the capsules span
 	// 2 px (the widest L3 fade).
 	const wq = p.div( 0.003 ).add( 1.3 ).toVar();
-	const cq = mod( p.div( 1.2e-5 ), 4096 ).add( 9.9 ).toVar(); // ids kept small for the hash
-	const nq = mod( p.div( 3e-5 ), 4096 ).add( 5.5 ).toVar();
+	const cq = wrapCoord( p.div( 1.2e-5 ) ).add( 9.9 ).toVar(); // ids kept small for the hash
+	const nq = wrapCoord( p.div( 3e-5 ) ).add( 5.5 ).toVar();
 	const aq = p.div( 6e-5 ).add( 2.7 ).toVar();
 	const inBellV = inBell.toVar();
 	const off3 = { cellEdge: 0, sCell: [ 0, 0 ], caps: 0, capRim: 0, sCaps: [ 0, 0 ], amoe: 0, fibre: 0, wCap: 0 };

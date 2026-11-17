@@ -17,7 +17,7 @@
 
 import { vec2, vec3, float, clamp, smoothstep, mix, mod, fract, max } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { spectral, viewTangent, upTangent } from '../../core/optics.js';
 import { fbm } from '../stone/common.js';
@@ -34,11 +34,11 @@ export function buildOpal( p, fp, u ) {
 
 	// L1: angular patches, a little stretched along a flow.
 	const warp = vec2( valueNoise( p.div( u.sizeM.mul( 3 ) ).add( s ) ), valueNoise( p.div( u.sizeM.mul( 3 ) ).add( s.add( 9 ) ) ) ).sub( 0.5 ).mul( u.sizeM ).mul( 0.8 );
-	const P1 = voronoi( mod( p.add( warp ).div( u.sizeM ), 4096 ).add( s.mul( 3 ) ), 0.95 );
+	const P1 = voronoi( wrapCoord( p.add( warp ).div( u.sizeM ) ).add( s.mul( 3 ) ), 0.95 );
 	const h1 = hash3( P1.id1.add( 4.1 ) ), k1 = hash3( P1.id1.add( 9.7 ) );
 	const w1 = fadeIn( u.sizeM, fp, 1.5, 4.0 );
 	// L3: pinfire sub-domains jitter the lattice of the patch.
-	const P3 = voronoi( mod( p.div( u.featureM.mul( 0.25 ) ), 4096 ).add( 7.7 ), 0.9 );
+	const P3 = voronoi( wrapCoord( p.div( u.featureM.mul( 0.25 ) ) ).add( 7.7 ), 0.9 );
 	const h3 = hash3( P3.id1.add( 2.3 ) );
 	const w3 = fadeIn( u.featureM.mul( 0.25 ), fp, 1.5, 4.0 );
 	const tilt = h1.xy.sub( 0.5 ).mul( 1.3 ).add( h3.xy.sub( 0.5 ).mul( 0.35 ).mul( w3 ) );

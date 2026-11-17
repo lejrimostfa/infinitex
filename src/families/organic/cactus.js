@@ -17,7 +17,7 @@
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, clamp, mod, cos, sin } from 'three/tsl';
 import { fadeIn, fadeOn, gate, pick } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { rot2, cells, fbm, grains } from './common.js';
 
 // One spine: segment from the areole centre, half width w0 at the base.
@@ -65,7 +65,7 @@ function spineGroup( l, rib, jj, hA, fp, u, i0, i1, st ) {
 	for ( let i = i0; i < i1; i ++ ) {
 
 		const central = i >= nS;
-		const hs = hash3( mod( vec2( rib.mul( 13 ).add( i ), jj ), 4096 ).add( 9.9 ) );
+		const hs = hash3( wrapCoord( vec2( rib.mul( 13 ).add( i ), jj ) ).add( 9.9 ) );
 		const ang = central ? hs.x.mul( 6.283 ) : hs.x.sub( 0.5 ).mul( 0.5 ).add( i * 6.283 / nS ).add( hA.x.mul( 6.283 ) );
 		const len = L.mul( central ? hs.y.mul( 0.35 ).add( 0.6 ) : hs.y.mul( 0.3 ).add( 0.3 ) ).mul( u.density.mul( 0.6 ).add( 0.6 ) );
 		const w0 = u.fiberM.mul( central ? 1.4 : 1 );
@@ -113,7 +113,7 @@ export function buildCactus( p, fp, u ) {
 	const x = a.x.div( S ).add( sway.div( S ) );
 	const rib = floor( x ).toVar();
 	const t = fract( x ).sub( 0.5 ); // 0 on the crest
-	const shift = hash3( vec2( mod( rib, 4096 ), 1.3 ) );
+	const shift = hash3( vec2( wrapCoord( rib ), 1.3 ) );
 	const row = a.y.div( L ).add( shift.x );
 	const j = floor( row );
 	const ty = fract( row ).sub( 0.5 );
@@ -146,7 +146,7 @@ export function buildCactus( p, fp, u ) {
 	for ( let k = - 1; k <= 1; k ++ ) {
 
 		const jj = j.add( k ).toVar();
-		const hA = hash3( mod( vec2( rib, jj ), 4096 ).add( 5.5 ) ).toVar();
+		const hA = hash3( wrapCoord( vec2( rib, jj ) ).add( 5.5 ) ).toVar();
 		const ctr = vec2( rib.add( 0.5 ).mul( S ).sub( sway ), jj.add( 0.5 ).sub( shift.x ).mul( L ) ).add( hA.xy.sub( 0.5 ).mul( S.mul( 0.04 ) ) );
 		const l = a.sub( ctr ).toVar();
 		const rA = hA.z.mul( 0.4 ).add( 0.8 ).mul( 2.2e-3 ).mul( u.fuzz.mul( 0.5 ).add( 0.5 ) ); // wool radius

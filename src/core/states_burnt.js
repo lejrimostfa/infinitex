@@ -13,7 +13,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from './lod.js';
-import { valueNoise } from './hash.js';
+import { valueNoise, wrapCoord } from './hash.js';
 import { voronoi } from './voronoi.js';
 import { grains, fibres, fbm, line } from '../families/ground/grains.js';
 import { blobs, over, hero } from './states_shape.js';
@@ -68,7 +68,7 @@ export function buildBurnt( nodes, ctx ) {
 		// L1 char: brown at the outer edge, black inside, crazed plates.
 		const wC = fadeIn( float( 1e-3 ), fp, 2.0, 6.0 ).toVar();
 		const warp = vec2( valueNoise( p.div( 7e-4 ) ), valueNoise( p.div( 7e-4 ).add( 5.3 ) ) ).sub( 0.5 ).mul( 0.6 );
-		const V = voronoi( mod( p.div( 1e-3 ), 4096 ).add( warp ).add( 2.9 ), 0.9 );
+		const V = voronoi( wrapCoord( p.div( 1e-3 ) ).add( warp ).add( 2.9 ), 0.9 );
 		const gap = line( V.edge.mul( 1e-3 ), float( 6e-5 ), fp ).mul( wC );
 		const plate = valueNoise( V.id1.mul( 0.37 ) );
 		let col = mix( CHAR, SCORCH.mul( 0.25 ), smoothstep( 0.75, 1.0, rho ) ).mul( plate.mul( 0.5 ).add( 0.75 ).mul( wC ).add( wC.oneMinus() ) );

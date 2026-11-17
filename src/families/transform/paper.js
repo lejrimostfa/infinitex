@@ -11,7 +11,7 @@
 
 import { float, mod, smoothstep } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { valueNoise } from '../../core/hash.js';
+import { valueNoise, wrapCoord } from '../../core/hash.js';
 import { fibres } from '../ground/grains.js';
 import { fbm } from '../stone/common.js';
 
@@ -31,8 +31,8 @@ export function paper( p, fp, u ) {
 	const fib = Fb.fib.toVar();
 	// Pores: the gaps between fibres, a little darker and lower.
 	const wF = fadeIn( fM.mul( 28 ), fp, 2.0, 6.0 );
-	const pore = smoothstep( 0.5, 0.9, valueNoise( mod( p.div( fM.mul( 3 ) ), 4096 ).add( 2.3 ) ) ).mul( fib.oneMinus() ).mul( fadeIn( fM.mul( 3 ), fp, 2.0, 6.0 ) );
-	const fibril = valueNoise( mod( p.div( 6e-6 ), 4096 ).add( 5.5 ) ).sub( 0.5 ).mul( fadeIn( 6e-6, fp, 2.0, 6.0 ) );
+	const pore = smoothstep( 0.5, 0.9, valueNoise( wrapCoord( p.div( fM.mul( 3 ) ) ).add( 2.3 ) ) ).mul( fib.oneMinus() ).mul( fadeIn( fM.mul( 3 ), fp, 2.0, 6.0 ) );
+	const fibril = valueNoise( wrapCoord( p.div( 6e-6 ) ).add( 5.5 ) ).sub( 0.5 ).mul( fadeIn( 6e-6, fp, 2.0, 6.0 ) );
 	const tone = floc.sub( 0.5 ).mul( - 0.16 ).add( 1 ).mul( fib.mul( 0.05 ).add( 0.98 ) ).mul( float( 1 ).sub( pore.mul( 0.1 ) ) ).add( fibril.mul( 0.05 ) );
 	const slope = Fb.slope.mul( 0.18 ).mul( u.relief );
 	const s2 = wF.oneMinus().mul( 0.01 );

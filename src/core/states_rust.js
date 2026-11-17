@@ -12,7 +12,7 @@
 
 import { vec2, vec3, float, floor, mix, smoothstep, step, clamp, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate, pick } from './lod.js';
-import { hash3, valueNoise } from './hash.js';
+import { hash3, valueNoise, wrapCoord } from './hash.js';
 import { grains, fbm } from '../families/ground/grains.js';
 import { oxideCrust } from '../families/metal/oxide.js';
 import { blobs, over, hero } from './states_shape.js';
@@ -24,7 +24,7 @@ function streaks( p, g, share, salt, down ) {
 
 	const dl = down.length();
 	const dn = down.div( dl.max( 1e-4 ) ), nn = vec2( dn.y.negate(), dn.x );
-	const q = mod( p.div( g ).add( salt ), 4096 );
+	const q = wrapCoord( p.div( g ).add( salt ) );
 	const c0 = floor( q );
 	let best = float( 0 );
 	for ( let oy = - 2; oy <= 2; oy ++ ) for ( let ox = - 1; ox <= 1; ox ++ ) {

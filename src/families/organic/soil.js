@@ -20,7 +20,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { fbm, band, grains, packed, fibres } from './common.js';
 
@@ -33,7 +33,7 @@ export function buildMould( p, fp, u ) {
 	const Bslope = surfaceGradient( crumb.mul( 4e-4 ), p );
 	const sub = u.color3.mul( fbm( p.add( s ), float( 0.01 ), fp, 4, 3 ).mul( 0.5 ).add( 0.75 ) ).mul( crumb.mul( 0.5 ).add( 0.75 ) );
 	// L0: colonies, one per Voronoi cell, some cells empty.
-	const V = voronoi( mod( p.div( g ), 4096 ).add( s.mul( 0.37 ) ), 0.9 );
+	const V = voronoi( wrapCoord( p.div( g ) ).add( s.mul( 0.37 ) ), 0.9 );
 	const k = hash3( V.id1.add( 1.7 ) );
 	const on = step( k.z, u.density.mul( 0.6 ).add( 0.3 ) );
 	const fbmR = fbm( p.add( 2.2 ), g.mul( 0.3 ), fp, 3, 5 );
@@ -98,7 +98,7 @@ export function buildCompost( p, fp, u ) {
 	// Leaf fragments: flat plates of a paler brown with veins. Only cells
 	// that hold a leaf compute it (leaf and vein are 0 elsewhere, and
 	// leafCol is then weighted by 0).
-	const L = voronoi( mod( p.div( g.mul( 3 ) ), 4096 ).add( 7.3 ), 0.9 );
+	const L = voronoi( wrapCoord( p.div( g.mul( 3 ) ) ).add( 7.3 ), 0.9 );
 	const lk = hash3( L.id1.add( 2.2 ) ).toVar();
 	const LtoSeed = L.toSeed.toVar(), Ledge = L.edge.toVar();
 	const Lf = gate( u.density.mul( 0.35 ).greaterThanEqual( lk.x ), { leaf: 0, vein: 0, leafCol: [ 0, 0, 0 ] }, () => {

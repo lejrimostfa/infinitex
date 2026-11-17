@@ -14,7 +14,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, clamp, step, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 // A net of cracks from Voronoi borders, anisotropic. halfW in meters.
@@ -66,7 +66,7 @@ export function applyAged( W, p, fp, u ) {
 		color = mix( color, mix( vec3( lum ), color, 0.6 ).mul( 1.08 ).add( 0.04 ), c.mul( mottle.mul( 0.6 ).add( 0.4 ) ) );
 		// Pits and loose grains, 3 to 8 um. Skipped under 2 px per 20 um.
 		const wP = fadeIn( float( 2e-5 ), fp, 2.0, 6.0 ).toVar();
-		const pq = mod( p.div( 2e-5 ), 4096 ).add( s.mul( 2 ) ).toVar(); // mod: hashes stay exact
+		const pq = wrapCoord( p.div( 2e-5 ) ).add( s.mul( 2 ) ).toVar(); // mod: hashes stay exact
 		const P = gate( fadeOn( float( 2e-5 ), fp, 2.0 ), { sP: [ 0, 0 ], pit: 0, grain: 0 }, () => {
 
 			const pv = voronoi( pq, 0.9 );

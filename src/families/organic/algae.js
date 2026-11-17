@@ -19,7 +19,7 @@
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, clamp, mod, atan, sin } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { rot2, fbm, band, grains, warp2 } from './common.js';
 
@@ -49,14 +49,14 @@ export function buildSeaweed( p, fp, u ) {
 	const cw = u.cellM, ch = u.cellM.mul( 1.6 );
 	const ar = a.add( warp2( a, cw.mul( 40 ), 4.4 ).mul( cw.mul( 6 ) ) );
 	const row = floor( ar.x.div( cw ) );
-	const hr = hash3( vec2( mod( row, 4096 ), 2.2 ) );
+	const hr = hash3( vec2( wrapCoord( row ), 2.2 ) );
 	const along = ar.y.div( ch ).add( hr.x.mul( 7 ) );
 	const col = floor( along );
-	const hc = hash3( mod( vec2( row, col ), 4096 ).add( 6.6 ) );
+	const hc = hash3( wrapCoord( vec2( row, col ) ).add( 6.6 ) );
 	const fx = fract( ar.x.div( cw ) ), fy = fract( along );
 	const ex = fx.min( fx.oneMinus() ).mul( cw ), ey = fy.min( fy.oneMinus() ).mul( ch );
 	// Every few cells a thicker wall: blocks of cells from one division.
-	const block = step( 0.7, hash3( mod( vec2( row, floor( along.div( 4 ) ) ), 4096 ) ).x );
+	const block = step( 0.7, hash3( wrapCoord( vec2( row, floor( along.div( 4 ) ) ) ) ).x );
 	const wC = fadeIn( cw, fp, 2.0, 6.0 );
 	const wall = band( ex.min( ey.mul( block.mul( - 0.5 ).add( 1 ) ) ), cw.mul( 0.07 ).mul( block.mul( 0.6 ).add( 1 ) ), fp ).mul( fadeIn( cw, fp, 2.0, 6.0 ) );
 	const plast = smoothstep( 0.6, 0.75, valueNoise( ar.div( cw.mul( 0.22 ) ).add( hc.xy.mul( 30 ) ) ) ).mul( fadeIn( cw.mul( 0.22 ), fp, 1.5, 4.0 ) );
@@ -68,7 +68,7 @@ export function buildSeaweed( p, fp, u ) {
 	const bub = ( sizeM, share, salt ) => {
 
 		// A sphere cap per cell, radius 0.15 to 0.4 cells.
-		const V = voronoi( mod( p.div( sizeM ), 4096 ).add( salt ), 0.8 );
+		const V = voronoi( wrapCoord( p.div( sizeM ) ).add( salt ), 0.8 );
 		const h = hash3( V.id1.add( salt ) );
 		const R = h.y.mul( 0.25 ).add( 0.15 );
 		const t = V.toSeed.div( R );
@@ -107,7 +107,7 @@ export function buildPollen( p, fp, u ) {
 	// each a soft dome with a halo of scattered grains around it.
 	const a = rot2( p, u.angle );
 	const grad = a.y.div( 0.3 ).add( fbm( p.add( s ), float( 0.12 ), fp, 2, 2 ).sub( 0.5 ).mul( 0.5 ) );
-	const Hv = voronoi( mod( p.div( 0.03 ), 4096 ).add( s.mul( 1.3 ) ), 0.7 );
+	const Hv = voronoi( wrapCoord( p.div( 0.03 ) ).add( s.mul( 1.3 ) ), 0.7 );
 	const hh = hash3( Hv.id1.add( 7.7 ) );
 	const hr = hh.y.mul( 0.1 ).add( 0.08 ); // heap radius, cells
 	const hd = Hv.toSeed.length().add( valueNoise( Hv.toSeed.mul( 12 ).add( hh.xz.mul( 30 ) ) ).sub( 0.5 ).mul( 0.08 ) ).div( hr );
@@ -119,7 +119,7 @@ export function buildPollen( p, fp, u ) {
 	const clump = smoothstep( 0.35, 0.75, fbm( p, g.mul( 6 ), fp, 2, 5 ) );
 	const den = smoothstep( 0.0, 1.0, grad ).mul( 0.75 ).add( 0.1 ).add( halo.mul( 0.35 ) ).add( heap ).mul( u.dust ).mul( clump.mul( 0.3 ).add( 0.8 ) ).min( 1 ).toVar();
 	// Base: a dark velvety petal with its own cells.
-	const bc = voronoi( mod( p.div( g.mul( 0.9 ) ), 4096 ).add( 1.1 ), 0.8 );
+	const bc = voronoi( wrapCoord( p.div( g.mul( 0.9 ) ) ).add( 1.1 ), 0.8 );
 	const wBc = fadeIn( g.mul( 0.9 ), fp, 2.0, 6.0 );
 	let color = u.color3.mul( fbm( p, float( 0.02 ), fp, 2, 3 ).mul( 0.4 ).add( 0.8 ) )
 		.mul( smoothstep( 0.0, 0.25, bc.edge ).mul( 0.3 ).mul( wBc ).add( float( 1 ).sub( wBc.mul( 0.15 ) ) ) );
@@ -136,7 +136,7 @@ export function buildPollen( p, fp, u ) {
 		const t = G.v.toSeed.div( 0.4 );
 		const r = t.length();
 		const z = float( 1 ).sub( r.mul( r ) ).max( 0.02 ).sqrt();
-		const sp = voronoi( mod( t.div( z.mul( 0.5 ).add( 0.5 ) ).mul( 3.2 ).add( G.id.xy.mul( 40 ) ), 4096 ), 0.5 );
+		const sp = voronoi( wrapCoord( t.div( z.mul( 0.5 ).add( 0.5 ) ).mul( 3.2 ).add( G.id.xy.mul( 40 ) ) ), 0.5 );
 		const wS = fadeIn( g.mul( 0.14 ), fp, 2.0, 5.0 );
 		const sd = sp.toSeed.length();
 		const spike = smoothstep( 0.38, 0.1, sd ).mul( wS );
@@ -160,7 +160,7 @@ export function buildPollen( p, fp, u ) {
 	// Far: grains too small to draw tint the base by their share; the
 	// heaps are lit like domes and shaded at their foot.
 	// Grains about a pixel wide still show as a grainy speckle.
-	const speck = valueNoise( mod( p.div( g ), 4096 ).add( 4.4 ) ).sub( 0.5 ).mul( fadeIn( g, fp, 0.5, 1.5 ) ).mul( wG.oneMinus() );
+	const speck = valueNoise( wrapCoord( p.div( g ) ).add( 4.4 ) ).sub( 0.5 ).mul( fadeIn( g, fp, 0.5, 1.5 ) ).mul( wG.oneMinus() );
 	color = mix( color, u.color.mul( 0.8 ).mul( speck.mul( 0.6 ).add( 1 ) ), wG.oneMinus().mul( den.mul( 0.9 ) ).mul( speck.mul( 0.6 ).add( 1 ) ).min( 1 ) );
 	color = color.mul( smoothstep( 0.0, 0.3, heap ).mul( 0.15 ).add( 1 ) ).mul( float( 1 ).sub( smoothstep( 1.0, 1.3, hd ).mul( smoothstep( 2.0, 1.3, hd ) ).mul( heapOn ).mul( 0.2 ) ) );
 	slope = slope.add( heapSlope );

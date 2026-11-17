@@ -19,7 +19,7 @@
 
 import { vec2, float, clamp, smoothstep, mod, mix, cos, sin, dFdx, dFdy } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { interference, viewTangent } from '../../core/optics.js';
 import { fbm } from '../stone/common.js';
@@ -31,7 +31,7 @@ export function buildCrystal( p, fp, u ) {
 	let N = vec2( 0 ), per = u.sizeM, amp = 1;
 	for ( let i = 0; i < 6; i ++ ) {
 
-		const q = mod( p.div( per ), 4096 ).add( vec2( i * 5.3, i * 2.9 ) ).add( s );
+		const q = wrapCoord( p.div( per ) ).add( vec2( i * 5.3, i * 2.9 ) ).add( s );
 		const n = vec2( valueNoise( q ), valueNoise( q.add( vec2( 31.7, 17.1 ) ) ) ).sub( 0.5 );
 		N = N.add( n.mul( amp ).mul( fadeIn( per, fp, 2.0, 5.0 ) ) );
 		per = per.div( 3 );
@@ -60,7 +60,7 @@ export function buildCrystal( p, fp, u ) {
 	let light = interference( R ).mul( bright );
 
 	// Dust and bubbles: dark rims, a bright dot in a bubble.
-	const B = voronoi( mod( p.div( 6e-4 ), 4096 ).add( 3.7 ), 0.8 );
+	const B = voronoi( wrapCoord( p.div( 6e-4 ) ).add( 3.7 ), 0.8 );
 	const bh = hash3( B.id1.add( 1.1 ) );
 	const rad = bh.x.mul( 0.04 ).add( 0.015 ).mul( 6e-4 );
 	const d = B.toSeed.length().mul( 6e-4 );

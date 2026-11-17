@@ -10,7 +10,7 @@
 // slope variance and a cavity signal. Albedo about 0.08 to 0.12 dry.
 
 import { vec2, float, mix, mod, smoothstep, step } from 'three/tsl';
-import { valueNoise } from '../../core/hash.js';
+import { valueNoise, wrapCoord } from '../../core/hash.js';
 import { fadeIn } from '../../core/lod.js';
 import { fbm, grains } from '../stone/common.js';
 
@@ -18,7 +18,7 @@ export function buildAsphalt( p, fp, u ) {
 
 	// Crushed stone is angular: a warp breaks the round Voronoi grains.
 	const A = float( 0.009 );
-	const wq = mod( p.div( 0.006 ), 4096 );
+	const wq = wrapCoord( p.div( 0.006 ) );
 	const pw = p.add( vec2( valueNoise( wq ), valueNoise( wq.add( 3.3 ) ) ).sub( 0.5 ).mul( 0.0035 ) );
 	const S = grains( pw, A, fp, 0.16, 11, 0.85 );
 	const F = grains( p, float( 8e-4 ), fp, 0.2, 13, 0.9 );

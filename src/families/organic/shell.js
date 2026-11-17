@@ -20,7 +20,7 @@
 
 import { vec3, float, fract, mix, smoothstep, clamp, mod, cos } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { fbm, cells, band } from './common.js';
 
@@ -36,7 +36,7 @@ export function buildEggshell( p, fp, u ) {
 	color = mix( color, u.color3, sp1.max( sp2.mul( 0.8 ) ).mul( u.density ) );
 	// L1: bumpy crust, pores.
 	const B = cells( p, u.sizeM, fp, 2.7, { jitter: 0.9, crown: 0.8 } );
-	const V = voronoi( mod( p.div( u.featureM ), 4096 ).add( 5.5 ), 0.9 );
+	const V = voronoi( wrapCoord( p.div( u.featureM ) ).add( 5.5 ), 0.9 );
 	const d = V.toSeed.length().mul( u.featureM );
 	const rM = hash3( V.id1 ).x.mul( 10e-6 ).add( 10e-6 );
 	const rE = rM.max( fp.mul( 0.6 ) );
@@ -44,7 +44,7 @@ export function buildEggshell( p, fp, u ) {
 	const halo = smoothstep( rM.mul( 4 ), rM, d ).mul( fadeIn( rM.mul( 4 ), fp, 1.0, 3.0 ) );
 	color = color.mul( float( 1 ).sub( pore.mul( 0.7 ) ) ).mul( halo.mul( 0.08 ).add( 1 ) );
 	// L2: crystal facets, flat and tilted.
-	const X = voronoi( mod( p.div( u.cellM ), 4096 ).add( 9.9 ), 0.9 );
+	const X = voronoi( wrapCoord( p.div( u.cellM ) ).add( 9.9 ), 0.9 );
 	const xk = hash3( X.id1 );
 	const wX = fadeIn( u.cellM, fp, 2.0, 5.0 );
 	const facet = xk.xy.sub( 0.5 ).mul( 0.35 ).mul( wX );

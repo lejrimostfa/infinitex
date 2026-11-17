@@ -17,7 +17,7 @@
 
 import { vec2, float, floor, fract, clamp, step, mod, mix } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { viewTangent } from '../../core/optics.js';
 import { orangePeel } from '../ceramic/glaze.js';
 
@@ -27,7 +27,7 @@ import { orangePeel } from '../ceramic/glaze.js';
 function flakes( p, fp, cellM, density, tilt, salt, lo = 1.0, hi = 3.0 ) {
 
 	const q = p.div( cellM ).add( salt );
-	const c = mod( floor( q ), 4096 );
+	const c = wrapCoord( floor( q ) );
 	const h = hash3( c.add( salt.mul( 0.37 ) ) ), g = hash3( c.add( salt.add( 17.3 ) ) );
 	const r = h.z.mul( 0.14 ).add( 0.26 ); // radius, cells
 	const ctr = vec2( 0.5 ).add( h.xy.sub( 0.5 ).mul( float( 1 ).sub( r.mul( 2.2 ) ).max( 0 ) ) );
@@ -58,7 +58,7 @@ export function buildCarPaint( p, fp, u ) {
 	const F1 = flakes( p, fp, u.sizeM, dens.mul( 0.5 ), float( 0.55 ), s.mul( 7 ).add( 3 ), 0.8, 2.5 );
 
 	// Binder: pigment, darker at grazing (flop), grains under the loupe.
-	const grain = valueNoise( mod( p.div( 4e-6 ), 4096 ) ).sub( 0.5 ).mul( fadeIn( float( 4e-6 ), fp, 1.5, 4.0 ) ).mul( 0.25 ).add( 1 );
+	const grain = valueNoise( wrapCoord( p.div( 4e-6 ) ) ).sub( 0.5 ).mul( fadeIn( float( 4e-6 ), fp, 1.5, 4.0 ) ).mul( 0.25 ).add( 1 );
 	const binder = mix( u.color3, u.color, ndv.pow( 0.6 ) ).mul( grain ).mul( cloud.sub( 0.5 ).mul( u.colorVar ).add( 1 ) );
 	// Flakes: aluminium seen through the tinted binder.
 	const flakeCol = ( F ) => u.color2.mul( F.tone.mul( F.tone ).mul( 0.9 ).add( 0.3 ) );

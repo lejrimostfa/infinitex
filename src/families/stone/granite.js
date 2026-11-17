@@ -17,7 +17,7 @@
 
 import { vec2, float, floor, fract, mix, smoothstep, step, clamp, sin, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate, pick, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, lines, scratches, fbmGated } from './common.js';
 import { crystals } from './crystals.js';
@@ -58,7 +58,7 @@ function fineLevels( p, fp, u, C, hc, hm, feld, pinkK, qtz, micaG, alter, iq, dq
 		const dust = smoothstep( 0.32, 0.22, D.toSeed.length() ).mul( step( 0.6, hash1( D.id1 ).add( alter.sub( 0.5 ) ) ) ).mul( fadeIn( float( 1e-5 ), fp, 1.5, 4.0 ) ).mul( feld );
 		// Fluid inclusion trails in the quartz.
 		const ax = dir2( hc.z.mul( 3.1416 ) ), ay = vec2( ax.y.negate(), ax.x );
-		const iq2 = mod( p.div( 2.5e-5 ), 4096 );
+		const iq2 = wrapCoord( p.div( 2.5e-5 ) );
 		const ih = hash3( floor( iq2 ).add( 0.5 ) );
 		const trail = smoothstep( 0.6, 0.75, valueNoise( vec2( p.dot( ax ).div( 4e-5 ), p.dot( ay ).div( 4e-4 ) ).add( 9 ) ) );
 		const incl = smoothstep( 0.32, 0.18, fract( iq2 ).sub( ih.xy.mul( 0.4 ).add( 0.3 ) ).length() ).mul( trail ).mul( fadeIn( float( 5e-6 ), fp, 1.5, 4.0 ) ).mul( qtz );
@@ -109,8 +109,8 @@ export function buildGranite( p, fp, u ) {
 	// Alteration: clouds of clay and sericite dust inside the feldspar.
 	const alter = fbmGated( p.add( hc.xy ), g.mul( 0.25 ), fp, 4, 8 ).toVar();
 	// Cell coordinates of the inclusions and of the dust, before the gate.
-	const iq = mod( p.div( 6e-4 ), 4096 ).add( 7.7 ).toVar();
-	const dq = mod( p.div( 3e-5 ), 4096 ).add( 1.3 ).toVar();
+	const iq = wrapCoord( p.div( 6e-4 ) ).add( 7.7 ).toVar();
+	const dq = wrapCoord( p.div( 3e-5 ) ).add( 1.3 ).toVar();
 	const L = gate( fadeOn( 8e-4, fp, 3.0 ), FINE_OFF, () => fineLevels( p, fp, u, C, hc, hm, feld, pinkK, qtz, micaG, alter, iq, dq ),
 		[ p, fp, C.id1, C.loc, hc, hm, feld, pinkK, qtz, micaG, alter, iq, dq ] );
 	let fCol = mix( u.color2, u.color, pinkK ).mul( fTone ).mul( zone.mul( 0.06 ).add( 0.97 ) ).mul( alter.sub( 0.5 ).mul( 0.5 ).add( 1 ) );

@@ -17,13 +17,13 @@
 
 import { vec2, float, floor, fract, mix, smoothstep, step, clamp, mod, atan, cos, sin } from 'three/tsl';
 import { fadeIn, pick } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { fbm, ridged } from './common.js';
 
 // One layer of loops: an ellipse per cell, 3 x 3 cells searched.
 function loops( p, cellM, w, fp, salt ) {
 
-	const q = mod( p.div( cellM ), 4096 ).add( salt );
+	const q = wrapCoord( p.div( cellM ) ).add( salt );
 	const c0 = floor( q );
 	let cov = float( 0 ), slope = vec2( 0 ), cross = float( 0 );
 	for ( let oy = - 1; oy <= 1; oy ++ ) for ( let ox = - 1; ox <= 1; ox ++ ) {

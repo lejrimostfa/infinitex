@@ -5,14 +5,14 @@
 
 import { vec2, float, floor, smoothstep, clamp, mod, sqrt, mix } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 
 // One bead per cell of cellM at most, radius k (0..1) of its maximum,
 // present in a share of the cells (node).
 // A cap of water: dark refracting rim, bright caustic on the far side.
 export function beads( p, cellM, fp, k, share, salt ) {
 
-	const q = mod( p.div( cellM ), 4096 ).add( salt );
+	const q = wrapCoord( p.div( cellM ) ).add( salt );
 	const id = floor( q );
 	const h = hash3( id );
 	const R = h.z.mul( 0.22 ).add( 0.18 ).mul( k ).mul( smoothstep( share.oneMinus(), share.oneMinus().add( 0.1 ), hash3( id.add( 5.3 ) ).x ) ).max( 1e-4 );

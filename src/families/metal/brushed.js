@@ -17,7 +17,7 @@
 
 import { vec2, vec3, float, floor, clamp, smoothstep, step, mix, mod, sin, cos } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { grooves } from './scratch.js';
 
@@ -55,13 +55,13 @@ export function buildBrushed( p, fp, u ) {
 
 	// L3 grains stretched along the rolling direction, and stringers.
 	const gq = vec2( a.div( u.grainM.mul( 2.2 ) ), c.div( u.grainM ) );
-	const gv = voronoi( mod( gq, 4096 ).add( 4.4 ), 0.9 );
+	const gv = voronoi( wrapCoord( gq ).add( 4.4 ), 0.9 );
 	const wG = fadeIn( u.grainM, fp, 2.0, 6.0 );
 	const gh = hash3( gv.id1 );
 	const grainTone = gh.z.sub( 0.5 ).mul( 0.05 ).mul( wG ).add( 1 )
 		.mul( float( 1 ).sub( float( 1 ).sub( smoothstep( 0.0, 0.06, gv.edge ) ).mul( 0.08 ).mul( wG ) ) );
 	const mq = vec2( a.div( 2e-4 ), c.div( 6e-5 ) ).add( 11.1 );
-	const mc = mod( floor( mq ), 4096 );
+	const mc = wrapCoord( floor( mq ) );
 	const mh = hash3( mc );
 	const mv = mq.sub( floor( mq ) ).sub( mh.xy.mul( 0.5 ).add( 0.25 ) ).mul( vec2( 2e-4, 6e-5 ) );
 	const mL = mh.z.mul( 1e-5 ).add( 1e-5 ), mW = float( 1.5e-6 );

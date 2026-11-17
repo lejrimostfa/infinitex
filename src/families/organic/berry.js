@@ -19,7 +19,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, mod } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { rot2, cells, fbm, grains, hairs } from './common.js';
 
@@ -29,7 +29,7 @@ export function buildBerry( p, fp, u ) {
 	// Staggered net: a skewed square grid (achenes sit on spirals).
 	const a = rot2( p, u.angle ).div( g );
 	const q = vec2( a.x.sub( a.y.mul( 0.577 ) ), a.y.mul( 1.1547 ) );
-	const V = voronoi( mod( q, 4096 ).add( s.mul( 7 ) ), 0.6 );
+	const V = voronoi( wrapCoord( q ).add( s.mul( 7 ) ), 0.6 );
 	const id = hash3( V.id1.add( 2.9 ) );
 	const t = V.toSeed;
 	const off = vec2( t.x.add( t.y.mul( 0.5 ) ), t.y.mul( 0.866 ) ); // back to cells of the fruit

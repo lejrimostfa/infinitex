@@ -17,7 +17,7 @@
 
 import { vec2, float, floor, mix, smoothstep, step, clamp, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, lines, scratches, fbmGated as fbm } from './common.js';
 import { crystals } from './crystals.js';
@@ -69,7 +69,7 @@ export function buildMarble( p, fp, u ) {
 	// Calcite grains, with the twins and cleavage inside them: skipped past
 	// the fade of the grains and of the cleavage (90 um, from 3 px), which
 	// outlives the grains when they are under 60 um.
-	const gq = mod( p.div( g ), 4096 ).add( s.mul( 9.1 ) ).toVar();
+	const gq = wrapCoord( p.div( g ) ).add( s.mul( 9.1 ) ).toVar();
 	const wG = fadeIn( g, fp, 2.0, 6.0 ).toVar();
 	const GR = gate( fadeOn( g, fp, 2.0 ).or( fadeOn( 9e-5, fp, 3.0 ) ), { seamG: 0, gTone: 1, twin: 0, clv: 0, sTilt: [ 0, 0 ], rTilt: 0 }, () => {
 
@@ -81,7 +81,7 @@ export function buildMarble( p, fp, u ) {
 			seamG: band( G.gap.mul( g ).mul( 0.5 ), 4e-6, fp ).mul( wG ),
 			gTone: hg.x.sub( 0.5 ).mul( 0.12 ).mul( wG ).add( 1 ),
 			twin: lines( p.dot( ga ), hg.z.mul( 1.5e-5 ).add( 1.5e-5 ), 1.2e-6, fp ).mul( step( 0.4, hg.z ) ),
-			clv: lines( p.dot( gb ), float( 9e-5 ), 1e-6, fp ).mul( smoothstep( 0.55, 0.7, valueNoise( mod( p.div( 1.5e-4 ), 4096 ).add( hg.xy.mul( 30 ) ) ) ) ),
+			clv: lines( p.dot( gb ), float( 9e-5 ), 1e-6, fp ).mul( smoothstep( 0.55, 0.7, valueNoise( wrapCoord( p.div( 1.5e-4 ) ).add( hg.xy.mul( 30 ) ) ) ) ),
 			// Sugary sparkle: each calcite grain reflects at its own small tilt.
 			sTilt: hg.xy.sub( 0.5 ).mul( 0.09 ).mul( wG ),
 			rTilt: hg.z.mul( 0.04 ).mul( wG ),
@@ -90,11 +90,11 @@ export function buildMarble( p, fp, u ) {
 	}, [ p, fp, gq, wG ] );
 	const seamG = GR.seamG.toVar(), gTone = GR.gTone, twin = GR.twin, clv = GR.clv;
 	// Vein matter: finer dark grains, 40 um.
-	const vg = hash1( floor( mod( p.div( 4e-5 ), 4096 ) ) ).sub( 0.5 ).mul( fadeIn( float( 4e-5 ), fp, 2.0, 5.0 ) );
+	const vg = hash1( floor( wrapCoord( p.div( 4e-5 ) ) ) ).sub( 0.5 ).mul( fadeIn( float( 4e-5 ), fp, 2.0, 5.0 ) );
 
 	// Plucked grains: rare pits a few tens of um wide, and polishing
 	// scratches. Skipped past the fade of the widest pit (20 um, from 1.5 px).
-	const pq = mod( p.div( 2.5e-4 ), 4096 ).add( 5.5 ).toVar();
+	const pq = wrapCoord( p.div( 2.5e-4 ) ).add( 5.5 ).toVar();
 	const PS = gate( fadeOn( 2e-5, fp, 1.5 ), { pit: 0, scr: 0 }, () => {
 
 		const P = voronoi( pq, 0.8 );

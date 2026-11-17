@@ -20,7 +20,7 @@
 
 import { vec2, float, floor, fract, clamp, smoothstep, mix, mod, abs, cos } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { frame, fbm, vesicles, microlites } from './common.js';
 import { radiance } from './heat.js';
@@ -31,7 +31,7 @@ export function buildPahoehoe( p, fp, u, t ) {
 	const L = u.scaleM, S = u.sizeM;
 	// L0 lobes, longer along the flow.
 	const lq = vec2( F.f.x.div( 1.4 ), F.f.y ).div( L ).add( fbm( p, L.mul( 0.5 ), fp, 2, 1 ).sub( 0.5 ).mul( 0.4 ) );
-	const V = voronoi( mod( lq, 4096 ).add( u.seed.mul( 3.7 ) ), 0.8 );
+	const V = voronoi( wrapCoord( lq ).add( u.seed.mul( 3.7 ) ), 0.8 );
 	const lh = hash3( V.id1.add( 1.3 ) );
 	const seamW = float( 0.0006 ).add( lh.x.mul( 0.0012 ) );
 	const seam = clamp( seamW.sub( V.edge.mul( L ) ).div( fp ).add( 0.5 ), 0, 1 ).toVar();

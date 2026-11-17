@@ -17,7 +17,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { grains, fbm, line } from './grains.js';
 
@@ -123,8 +123,8 @@ export function buildMud( p, fp, u ) {
 	// Second-order cracks skipped under 2 px per 0.3 g, craquelure under
 	// 2 px per 0.07 g, crazing under 2 px per 0.012 g.
 	const q2 = pw.div( g.mul( 0.3 ) ).add( 5.5 ).toVar();
-	const q3 = mod( pw.div( g.mul( 0.07 ) ), 4096 ).add( 8.8 ).toVar();
-	const q4 = mod( pw.div( g.mul( 0.012 ) ), 4096 ).add( 6.1 ).toVar();
+	const q3 = wrapCoord( pw.div( g.mul( 0.07 ) ) ).add( 8.8 ).toVar();
+	const q4 = wrapCoord( pw.div( g.mul( 0.012 ) ) ).add( 6.1 ).toVar();
 	const dry = moist.oneMinus().mul( smoothstep( 0.15, 0.02, V.edge ).mul( 0.6 ).add( 0.4 ) ).toVar();
 	const C2 = gate( fadeOn( g.mul( 0.3 ), fp, 2.0 ), { c2: 0 }, () => cracks2( pw, q2, fp, u ), [ fp, pw, q2 ] );
 	const C3 = gate( fadeOn( g.mul( 0.07 ), fp, 2.0 ), { c3: 0, slope: [ 0, 0 ] }, () => craquelure( q3, dry, fp, u ), [ fp, q3, dry ] );
@@ -136,7 +136,7 @@ export function buildMud( p, fp, u ) {
 
 	// L2: silt grains and clay platelets (skipped under 2 px per 4e-4 g),
 	// silt mottle (under 2 px per 1.5e-3 g).
-	const qs = mod( p.div( g.mul( 4e-4 ) ), 4096 ).add( 3.3 ).toVar();
+	const qs = wrapCoord( p.div( g.mul( 4e-4 ) ) ).add( 3.3 ).toVar();
 	const S = gate( fadeOn( g.mul( 4e-4 ), fp, 2.0 ), { tone: 1, gap: 1, slope: [ 0, 0 ], flake: 0, wS: 0 }, () => siltGrains( qs, fp, u ), [ fp, qs ] );
 	color = color.mul( S.tone ).mul( S.gap );
 	const M = gate( fadeOn( g.mul( 1.5e-3 ), fp, 2.0 ), { silt: 1 }, () => ( {

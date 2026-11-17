@@ -12,7 +12,7 @@
 
 import { vec2, float, clamp, mod, step, floor, sin, cos } from 'three/tsl';
 import { pick, fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 export const line = ( d, w, fp ) => clamp( w.sub( d.abs() ).div( fp ).add( 0.5 ), 0, 1 );
@@ -41,7 +41,7 @@ export function grains( p, sizeM, fp, salt, o = {} ) {
 
 	const jitter = o.jitter ?? 0.9, round = float( o.round ?? 0.3 ), crown = float( o.crown ?? 0.3 );
 	// mod: hashes stay exact far from the origin (core/hash.js).
-	const v = voronoi( mod( p.div( sizeM ), 4096 ).add( salt ), jitter );
+	const v = voronoi( wrapCoord( p.div( sizeM ) ).add( salt ), jitter );
 	const id = hash3( v.id1.add( salt * 1.37 ) ).toVar();
 	const gap = float( o.gap ?? 0.05 ).add( id.x.mul( o.sizeVar ?? 0 ).mul( 0.18 ) );
 	const ea = v.edge.sub( gap );
@@ -105,7 +105,7 @@ export function packed( p, sizeM, fp, salt, o = {} ) {
 // the cover (0..1, AA), a cross slope that rounds the fibre, and a hash.
 export function fibres( p, cellM, w, share, fp, salt, curl = 0.35 ) {
 
-	const q = mod( p.div( cellM ), 4096 );
+	const q = wrapCoord( p.div( cellM ) );
 	const c0 = floor( q );
 	let cover = float( 0 ), slope = vec2( 0 ), tone = float( 0 );
 	for ( let oy = - 1; oy <= 1; oy ++ ) for ( let ox = - 1; ox <= 1; ox ++ ) {

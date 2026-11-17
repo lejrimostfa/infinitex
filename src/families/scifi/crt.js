@@ -18,7 +18,7 @@
 import { vec2, vec3, float, floor, fract, clamp, smoothstep, mix, mod, abs, min, step, exp, sin, dot } from 'three/tsl';
 import { ixTime as time } from '../../core/clock.js';
 import { fadeIn } from '../../core/lod.js';
-import { valueNoise } from '../../core/hash.js';
+import { valueNoise, wrapCoord } from '../../core/hash.js';
 import { picture } from './screen.js';
 
 export function buildCrt( p, fp, u ) {
@@ -55,7 +55,7 @@ export function buildCrt( p, fp, u ) {
 	const mask = mix( vec3( 1 ), pick3.mul( open ).mul( 3 / fill ), wMask );
 
 	// L3: phosphor grains.
-	const grain = valueNoise( mod( p.div( 1.5e-5 ), 4096 ) ).sub( 0.5 ).mul( 0.5 ).mul( fadeIn( float( 1.5e-5 ), fp, 1.5, 4.0 ) );
+	const grain = valueNoise( wrapCoord( p.div( 1.5e-5 ) ) ).sub( 0.5 ).mul( 0.5 ).mul( fadeIn( float( 1.5e-5 ), fp, 1.5, 4.0 ) );
 
 	// Glass: corners darker, a slow rolling band.
 	const qf = fract( p.div( 0.3 ) );
@@ -68,7 +68,7 @@ export function buildCrt( p, fp, u ) {
 	const light = img.mul( mix( float( 1 ), beam, wLine ) ).mul( mask ).mul( grain.add( 1 ) ).mul( vig ).mul( roll ).mul( expose );
 
 	// Dull grey-green phosphor screen where unlit, matt grain on the glass.
-	const g = valueNoise( mod( p.div( 6e-5 ), 4096 ) ).sub( 0.5 ).mul( fadeIn( float( 6e-5 ), fp, 2.0, 5.0 ) );
+	const g = valueNoise( wrapCoord( p.div( 6e-5 ) ) ).sub( 0.5 ).mul( fadeIn( float( 6e-5 ), fp, 2.0, 5.0 ) );
 	return {
 		color: u.color3, emissive: light.mul( u.glow ), metal: float( 0 ),
 		slope: vec2( g, g.negate() ).mul( 0.03 ).mul( u.relief ), rough: u.roughness, s2: float( 0.001 ),

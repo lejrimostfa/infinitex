@@ -16,7 +16,7 @@
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, clamp, mod, sqrt, max } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, fbm, net, cells } from './common.js';
 
@@ -75,7 +75,7 @@ export function buildLeaf( p, fp, u ) {
 	const he = hash3( E.V.id1.add( 4.4 ) );
 	// Stomata on their own jittered grid (1.6 cells apart), not over veins:
 	// two kidney guard cells, green, around a dark slit with pale lips.
-	const gq = mod( p.div( cm.mul( 1.6 ) ), 4096 ).add( s.mul( 2.9 ) );
+	const gq = wrapCoord( p.div( cm.mul( 1.6 ) ) ).add( s.mul( 2.9 ) );
 	const gid = floor( gq ), hs = hash3( gid.add( 4.4 ) );
 	const isSt = step( hs.x, u.stomata.mul( 0.45 ) ).mul( float( 1 ).sub( vein.mul( 5 ) ).max( 0 ) ).mul( fadeIn( cm.mul( 0.5 ), fp, 3.0, 9.0 ) );
 	const so = dir2( hs.y.mul( 6.283 ) );
@@ -95,7 +95,7 @@ export function buildLeaf( p, fp, u ) {
 	const slit = pore;
 
 	// Palisade cells under the epidermis: soft green discs, 18 um.
-	const P = voronoi( mod( p.div( cm.mul( 0.36 ) ), 4096 ).add( 6.6 ), 0.8 );
+	const P = voronoi( wrapCoord( p.div( cm.mul( 0.36 ) ) ).add( 6.6 ), 0.8 );
 	const wP = fadeIn( cm.mul( 0.36 ), fp, 2.0, 5.0 );
 	const pal = smoothstep( 0.1, 0.4, P.edge ).sub( 0.5 ).mul( wP );
 

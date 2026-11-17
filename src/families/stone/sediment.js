@@ -16,7 +16,7 @@
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, clamp, mod, max, sin, sign } from 'three/tsl';
 import { fadeIn, pick, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, grains, fbm } from './common.js';
 
@@ -56,7 +56,7 @@ export function buildSandstone( p, fp, u ) {
 	const G = grains( p, gs, fp, 0.1, 2 );
 	const kind = G.h.y;
 	const lith = step( 0.95, kind ), feld = step( 0.86, kind ).sub( lith );
-	const frost = valueNoise( mod( p.div( 6e-6 ), 4096 ) ).sub( 0.5 ).mul( fadeIn( float( 6e-6 ), fp, 2.0, 5.0 ) );
+	const frost = valueNoise( wrapCoord( p.div( 6e-6 ) ) ).sub( 0.5 ).mul( fadeIn( float( 6e-6 ), fp, 2.0, 5.0 ) );
 	// Iron coats every grain thinly, thicker toward its rim.
 	const coat = smoothstep( 0.12, 0.0, G.m ).mul( G.w ).mul( G.h.x.mul( 0.6 ).add( 0.4 ) );
 	let gCol = u.color.mul( G.h.z.sub( 0.5 ).mul( u.colorVar ).mul( 2.5 ).add( 1 ) );
@@ -64,7 +64,7 @@ export function buildSandstone( p, fp, u ) {
 	gCol = mix( gCol, mix( u.color, u.color2, 0.5 ).mul( 0.9 ), feld.mul( 0.7 ) );
 	gCol = mix( gCol, u.color4, lith );
 	gCol = mix( gCol, gCol.mul( u.color2 ).mul( 1.6 ), coat.mul( 0.5 ) ).mul( frost.mul( 0.25 ).add( 1 ) );
-	const cement = u.color3.mul( valueNoise( mod( p.div( gs.mul( 0.15 ) ), 4096 ) ).mul( 0.3 ).add( 0.7 ) );
+	const cement = u.color3.mul( valueNoise( wrapCoord( p.div( gs.mul( 0.15 ) ) ) ).mul( 0.3 ).add( 0.7 ) );
 	let color = mix( cement, gCol, G.inside );
 	// Iron paints whole laminae, grains and cement alike.
 	color = mix( color, color.mul( u.color2 ).mul( 1.7 ), iron.mul( 0.6 ) ).mul( float( 1 ).sub( seamL.mul( 0.35 ) ) );
@@ -101,7 +101,7 @@ export function buildSlate( p, fp, u ) {
 
 	// Lineation and faint bands along the cleavage.
 	const lin = valueNoise( vec2( tx.div( 6e-3 ), ty.div( 2.5e-4 ) ).add( s.mul( 3 ) ) ).sub( 0.5 ).mul( fadeIn( float( 2.5e-4 ), fp, 1.5, 4.0 ) );
-	const lin2 = valueNoise( mod( vec2( tx.div( 4e-4 ), ty.div( 1.5e-5 ) ), 4096 ).add( 9 ) ).sub( 0.5 ).mul( fadeIn( float( 1.5e-5 ), fp, 1.5, 4.0 ) );
+	const lin2 = valueNoise( wrapCoord( vec2( tx.div( 4e-4 ), ty.div( 1.5e-5 ) ) ).add( 9 ) ).sub( 0.5 ).mul( fadeIn( float( 1.5e-5 ), fp, 1.5, 4.0 ) );
 	const bands = valueNoise( vec2( ty.div( 0.02 ), s ) ).sub( 0.5 ).mul( u.layers );
 	const lvTone = hash1( vec2( lev, s.add( 2.0 ) ) ).sub( 0.5 ).mul( 0.08 ); // each layer a slightly different shade
 	const mott = fbm( p, float( 0.03 ), fp, 5, 9 ).sub( 0.5 );
@@ -109,7 +109,7 @@ export function buildSlate( p, fp, u ) {
 	color = mix( color, color.mul( 1.12 ).add( 0.01 ), edge );
 
 	// Sericite flakes: tiny mirrors tilted a little out of the plane.
-	const FV = voronoi( mod( vec2( tx.div( 3e-5 ), ty.div( 1.5e-5 ) ), 4096 ).add( 3.3 ), 0.9 );
+	const FV = voronoi( wrapCoord( vec2( tx.div( 3e-5 ), ty.div( 1.5e-5 ) ) ).add( 3.3 ), 0.9 );
 	const fh = hash3( FV.id1.add( 1.3 ) );
 	const flake = step( float( 1 ).sub( u.mica ), fh.z ).mul( smoothstep( 0.04, 0.12, FV.edge ) );
 	const wFl = fadeIn( float( 2e-5 ), fp, 2.0, 5.0 );

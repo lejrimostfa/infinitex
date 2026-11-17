@@ -19,7 +19,7 @@
 
 import { vec2, vec3, float, floor, mix, smoothstep, step, clamp, mod, fract } from 'three/tsl';
 import { fadeIn, pick } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { rot2, cells, fbm, band, warp2, grains } from './common.js';
 
 export function buildWalnut( p, fp, u ) {
@@ -42,8 +42,8 @@ export function buildWalnut( p, fp, u ) {
 	const w2 = fadeIn( g.mul( 0.8 ), fp, 1.5, 4.0 );
 	const ridgeH = ( x ) => {
 
-		const n1 = valueNoise( mod( x.div( g.mul( 2 ) ), 4096 ).add( 2.2 ) );
-		const n2 = valueNoise( mod( x.div( g.mul( 0.8 ) ), 4096 ).add( 5.1 ) );
+		const n1 = valueNoise( wrapCoord( x.div( g.mul( 2 ) ) ).add( 2.2 ) );
+		const n2 = valueNoise( wrapCoord( x.div( g.mul( 0.8 ) ) ).add( 5.1 ) );
 		const r1 = float( 1 ).sub( n1.mul( 2 ).sub( 1 ).abs() );
 		const r2 = float( 1 ).sub( n2.mul( 2 ).sub( 1 ).abs() );
 		return r1.pow( 1.5 ).mul( 0.7 ).add( r2.mul( r1.mul( 0.5 ).add( 0.5 ) ).mul( 0.3 ).mul( w2 ) ).add( w2.oneMinus().mul( 0.12 ) );
@@ -65,7 +65,7 @@ export function buildWalnut( p, fp, u ) {
 	// Woody fibres on the ridges: streaks 0.1 mm wide, 1 mm long, along
 	// the shell; they wear through on the crests.
 	const fa = rot2( q, u.angle );
-	const fib = valueNoise( mod( vec2( fa.x.div( g.mul( 0.02 ) ), fa.y.div( g.mul( 0.2 ) ) ), 4096 ).add( 8.8 ) );
+	const fib = valueNoise( wrapCoord( vec2( fa.x.div( g.mul( 0.02 ) ), fa.y.div( g.mul( 0.2 ) ) ) ).add( 8.8 ) );
 	const wF = fadeIn( g.mul( 0.02 ), fp, 1.5, 4.0 );
 	color = color.mul( fib.sub( 0.5 ).mul( 0.35 ).mul( wF ).mul( smoothstep( 0.3, 0.7, crest ) ).add( 1 ) );
 	const dFine = rot2( vec2( fib.sub( 0.5 ).mul( 0.4 ), 0 ), u.angle.negate() ).mul( wF );
@@ -98,11 +98,11 @@ function fibreLayer( p, fp, u, ang, salt ) {
 	const sp = w.mul( 3.2 );
 	const r = rot2( p, ang ).add( warp2( p, float( 0.02 ), salt ).mul( 0.006 ) ).add( warp2( p, float( 0.004 ), salt + 3 ).mul( 0.0008 ) );
 	const k = floor( r.x.div( sp ) );
-	const hk = hash3( vec2( mod( k, 4096 ), salt ) );
+	const hk = hash3( vec2( wrapCoord( k ), salt ) );
 	const segL = u.featureM;
 	const along = r.y.add( hk.x.mul( 0.5 ) );
 	const seg = floor( along.div( segL ) );
-	const hs = hash3( mod( vec2( k, seg ), 4096 ).add( salt * 1.7 ) );
+	const hs = hash3( wrapCoord( vec2( k, seg ) ).add( salt * 1.7 ) );
 	const ft = fract( along.div( segL ) );
 	const end = smoothstep( 0.0, 0.08, ft ).mul( smoothstep( 1.0, 0.92, ft ) );
 	const hw = w.mul( 0.5 ).mul( hs.x.mul( 0.8 ).add( 0.6 ) ).mul( end.mul( 0.5 ).add( 0.5 ) );

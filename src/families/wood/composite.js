@@ -9,7 +9,7 @@
 
 import { vec2, float, floor, fract, mix, smoothstep, step, clamp, sin, mod } from 'three/tsl';
 import { fadeIn, pick, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 // A seam where a Voronoi cell ends: 1 on the border, AA by the footprint.
@@ -63,7 +63,7 @@ export function buildCork( p, fp, u ) {
 	const gapW = valueNoise( p.div( g.mul( 0.4 ) ).add( 5.5 ) ).mul( 0.06 ).add( 0.008 );
 	const gap = clamp( gapW.sub( G.edge ).mul( g ).div( fp ).add( 0.5 ), 0, 1 ).mul( fadeIn( g.mul( 0.1 ), fp, 1.0, 3.0 ) ).toVar();
 	// Cork cells: a honeycomb of thin walls, cut open.
-	const C = voronoi( mod( p.div( u.cellM ), 4096 ).add( G.id1.mul( 0.37 ) ), 0.6 ); // mod: hashes stay exact
+	const C = voronoi( wrapCoord( p.div( u.cellM ) ).add( G.id1.mul( 0.37 ) ), 0.6 ); // mod: hashes stay exact
 	const wC = fadeIn( u.cellM, fp, 2.0, 6.0 );
 	const cw = float( 1 ).sub( smoothstep( 0.03, 0.1, C.edge ) ).mul( wC );
 	const lumen = smoothstep( 0.1, 0.35, C.edge ).mul( wC );

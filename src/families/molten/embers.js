@@ -18,7 +18,7 @@
 
 import { vec2, float, clamp, smoothstep, mix, mod } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { lines } from '../stone/common.js';
 import { frame, fbm, flowFbm } from './common.js';
@@ -41,7 +41,7 @@ export function buildEmbers( p, fp, u, t ) {
 	const heat = warm.mul( breath.mul( 0.6 ).add( 0.55 ) ).add( breath.sub( 0.5 ).mul( 0.2 ) ).clamp( 0, 1 ).toVar();
 
 	// L1: char blocks, longer along the grain, domed, deep cracks.
-	const cv = voronoi( mod( vec2( x.div( S.mul( 1.6 ) ), y.div( S ) ), 4096 ).add( u.seed.mul( 5 ) ), 0.8 );
+	const cv = voronoi( wrapCoord( vec2( x.div( S.mul( 1.6 ) ), y.div( S ) ) ).add( u.seed.mul( 5 ) ), 0.8 );
 	const bh = hash3( cv.id1.add( 2.1 ) );
 	const cw = float( 0.0002 ).add( bh.x.mul( bh.x ).mul( 0.0013 ) );
 	const crack = clamp( cw.sub( cv.edge.mul( S ) ).div( fp ).add( 0.5 ), 0, 1 ).toVar();
@@ -49,7 +49,7 @@ export function buildEmbers( p, fp, u, t ) {
 	const wB = fadeIn( S, fp, 2.0, 6.0 );
 
 	// L2: fine crazing, ash on the tops.
-	const fv = voronoi( mod( p.div( u.featureM ), 4096 ).add( 9.1 ), 0.9 );
+	const fv = voronoi( wrapCoord( p.div( u.featureM ) ).add( 9.1 ), 0.9 );
 	const wC = fadeIn( u.featureM, fp, 2.0, 6.0 );
 	const craze = clamp( float( 0.00012 ).sub( fv.edge.mul( u.featureM ) ).div( fp ).add( 0.5 ), 0, 1 ).mul( wC );
 	const fdome = smoothstep( 0.0, 0.3, fv.edge );
@@ -61,7 +61,7 @@ export function buildEmbers( p, fp, u, t ) {
 	const fib = lines( y.add( fbm( vec2( x.mul( 0.3 ), y ), u.cellM.mul( 8 ), fp, 3, 5 ).mul( u.cellM ).mul( 3 ) ), u.cellM, u.cellM.mul( 0.2 ), fp, 4.0, 10.0 )
 		.mul( smoothstep( 0.35, 0.55, fbm( vec2( x.mul( 0.04 ), y ), u.cellM.mul( 0.8 ), fp, 2, 7 ) ) );
 	// A third crazing, finer, on the char between the cracks.
-	const gv = voronoi( mod( p.div( u.featureM.mul( 0.25 ) ), 4096 ).add( 5.5 ), 0.9 );
+	const gv = voronoi( wrapCoord( p.div( u.featureM.mul( 0.25 ) ) ).add( 5.5 ), 0.9 );
 	const wG = fadeIn( u.featureM.mul( 0.25 ), fp, 2.0, 6.0 );
 	const craze2 = clamp( float( 0.00003 ).sub( gv.edge.mul( u.featureM ).mul( 0.25 ) ).div( fp ).add( 0.5 ), 0, 1 ).mul( wG );
 	const gdome = smoothstep( 0.0, 0.3, gv.edge );
@@ -94,7 +94,7 @@ export function buildEmbers( p, fp, u, t ) {
 	const grit = fbm( p, float( 0.0006 ), fp, 3, 8 );
 	// The crack floor is char too, crazed into granules (0.3 mm) whose
 	// joints are a little cooler.
-	const kv = voronoi( mod( p.div( 0.0003 ), 4096 ).add( 1.7 ), 0.9 );
+	const kv = voronoi( wrapCoord( p.div( 0.0003 ) ).add( 1.7 ), 0.9 );
 	const joint = clamp( float( 0.000012 ).sub( kv.edge.mul( 0.0003 ) ).div( fp ).add( 0.5 ), 0, 1 ).mul( fadeIn( float( 0.0003 ), fp, 2.0, 6.0 ) );
 	const Tk = mix( u.crustK.add( 120 ), u.meltK, smoothstep( 0.05, 0.6, heat ) ).sub( grit.mul( 140 ) ).sub( float( 1 ).sub( mid ).mul( 60 ) ).sub( joint.mul( 130 ) );
 	const Tz = mix( Ts, Tk, 0.5 );

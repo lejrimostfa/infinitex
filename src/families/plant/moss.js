@@ -17,7 +17,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod, fract, floor, atan, sin, cos, max } from 'three/tsl';
 import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, fbm } from './common.js';
 import { lichen } from './lichen.js';
@@ -25,7 +25,7 @@ import { lichen } from './lichen.js';
 // One layer of shoots. Returns coverage, local leaf frame, slope, tone.
 function shoots( p, fp, sizeM, seed ) {
 
-	const V = voronoi( mod( p.div( sizeM ), 4096 ).add( seed ), 0.75 );
+	const V = voronoi( wrapCoord( p.div( sizeM ) ).add( seed ), 0.75 );
 	const h = hash3( V.id1.add( 7.3 ) );
 	const v = V.toSeed, r = v.length().max( 1e-4 );
 	const dv = v.div( r ), tang = vec2( dv.y.negate(), dv.x );
@@ -88,7 +88,7 @@ export function buildMoss( p, fp, u ) {
 
 		// Shoot colour: tips paler, inner whorl and young shoots yellower.
 		const tone = A.h.z.sub( 0.5 ).mul( u.colorVar ).mul( 2 ).add( 1 );
-		const young = smoothstep( 0.6, 0.95, valueNoise( mod( p.div( 0.012 ), 4096 ).add( 3.3 ) ) );
+		const young = smoothstep( 0.6, 0.95, valueNoise( wrapCoord( p.div( 0.012 ) ).add( 3.3 ) ) );
 		// Bases sit deep in the shoot (darker), tips catch the light.
 		const leafC = mix( u.color, u.color2, A.rr.mul( 0.5 ).add( A.top.mul( 0.2 ) ).add( young.mul( 0.35 ) ).min( 1 ) ).mul( tone )
 			.mul( A.lt.sub( 0.5 ).mul( 0.25 ).add( 1 ) ).mul( smoothstep( 0.0, 0.5, A.rr ).mul( 0.45 ).add( 0.55 ) ).mul( float( 1 ).sub( A.rim.mul( 0.3 ) ) );
@@ -106,8 +106,8 @@ export function buildMoss( p, fp, u ) {
 		// Leaf cells, long along the leaf, on whichever leaf is on top.
 		const tRr = mix( mix( C.rr, B.rr, B.cov ), A.rr, A.cov ), tLat = mix( mix( C.lat, B.lat, B.cov ), A.lat, A.cov );
 		const tH = mix( mix( C.h.xy, B.h.xy, B.cov ), A.h.xy, A.cov );
-		const lc = mod( vec2( tRr.mul( sm ).div( cm.mul( 2 ) ), tLat.mul( sm ).div( cm ) ).add( tH.mul( 50 ) ).add( 100 ), 4096 ).toVar();
-		const cq = mod( p.div( cm.mul( 0.3 ) ), 4096 ).add( 2.2 ).toVar();
+		const lc = wrapCoord( vec2( tRr.mul( sm ).div( cm.mul( 2 ) ), tLat.mul( sm ).div( cm ) ).add( tH.mul( 50 ) ).add( 100 ) ).toVar();
+		const cq = wrapCoord( p.div( cm.mul( 0.3 ) ) ).add( 2.2 ).toVar();
 		// The leaf cells and chloroplasts run only where the cells span
 		// 2.5 px (their widest fade).
 		const LC = gate( fadeOn( cm, fp, 2.5 ), { wall: 0, chl: 0 }, () => {
@@ -140,7 +140,7 @@ export function buildMoss( p, fp, u ) {
 
 	// Spore capsules on setae, above the shoots.
 	const kc = sm.mul( 4 );
-	const q = mod( p.div( kc ), 4096 ).add( s.mul( 1.7 ) );
+	const q = wrapCoord( p.div( kc ) ).add( s.mul( 1.7 ) );
 	const hc = hash3( floor( q ).add( 9.9 ) );
 	const has = step( hc.x, u.capsules.mul( 0.5 ) ).mul( fadeIn( kc.mul( 0.15 ), fp, 2.0, 5.0 ) );
 	const sd = dir2( hc.y.mul( 6.283 ) );

@@ -17,7 +17,7 @@
 
 import { float, clamp, smoothstep, step, mod, mix, vec2 } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 const vn = valueNoise;
@@ -57,7 +57,7 @@ export function oxideCrust( p, fp, u ) {
 	const L = { dome: dome.mul( wL ), tone: lumpT.sub( 0.5 ).mul( 0.5 ).mul( wL ).add( 1 ), gap };
 
 	// Grains, and below them a sub-grain roughness.
-	const gq = mod( p.div( u.rustGrainM ), 4096 ).toVar();
+	const gq = wrapCoord( p.div( u.rustGrainM ) ).toVar();
 	const w = fadeIn( u.rustGrainM, fp, 2.0, 6.0 ).toVar();
 	const G = gate( fadeOn( u.rustGrainM, fp, 2.0 ), { pore: 0, tone: 1, fine: 0, dark: 0, slope: [ 0, 0 ] }, () => {
 
@@ -66,7 +66,7 @@ export function oxideCrust( p, fp, u ) {
 		return {
 			pore: float( 1 ).sub( smoothstep( 0.0, 0.15, gv.edge ) ).mul( w ).mul( smoothstep( 0.3, 0.7, h.y ) ).mul( 0.5 ),
 			tone: h.z.sub( 0.5 ).mul( 0.3 ).mul( w ).add( 1 ),
-			fine: valueNoise( mod( p.div( u.rustGrainM.mul( 0.3 ) ), 4096 ).add( 6.1 ) ).sub( 0.5 ).mul( fadeIn( u.rustGrainM.mul( 0.3 ), fp, 2.0, 6.0 ) ),
+			fine: valueNoise( wrapCoord( p.div( u.rustGrainM.mul( 0.3 ) ) ).add( 6.1 ) ).sub( 0.5 ).mul( fadeIn( u.rustGrainM.mul( 0.3 ), fp, 2.0, 6.0 ) ),
 			dark: smoothstep( 0.9, 0.99, h.x ).mul( 0.6 ).mul( w ),
 			slope: gv.toSeed.mul( - 0.5 ).add( h.xy.sub( 0.5 ).mul( 0.4 ) ).mul( w ),
 		};

@@ -17,7 +17,7 @@
 
 import { vec2, float, floor, fract, sqrt, mix, smoothstep, step, clamp, sin, cos, atan, mod } from 'three/tsl';
 import { fadeIn, pick } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { twistedYarn } from './fibres.js';
 
 // Yarn colour with flecks: a dark fibre lot spun into the yarn. Where it
@@ -42,7 +42,7 @@ export function buildLoop( p, fp, u ) {
 	const xl = x.div( u.lockM ).add( mod( rid, 2 ).mul( 0.5 ) ).add( hash1( vec2( rid, 9.1 ) ) );
 	const lid = floor( xl );
 	const fx = fract( xl ).sub( 0.5 );
-	const id = mod( lid, 4096 ).add( mod( rid, 4096 ).mul( 0.0137 ) ).toVar();
+	const id = wrapCoord( lid ).add( wrapCoord( rid ).mul( 0.0137 ) ).toVar();
 	const h = hash3( vec2( lid, rid ).add( u.seed ) );
 	const ax = h.x.mul( 0.2 ).add( 0.6 ), ay = h.y.mul( 0.1 ).add( 0.5 );
 	const ex = fx.add( h.z.sub( 0.5 ).mul( 0.08 ) ).div( ax ), ey = fy.div( ay );

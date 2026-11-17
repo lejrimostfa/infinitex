@@ -23,13 +23,14 @@ import { voronoi } from '../../core/voronoi.js';
 import { bubbleField } from '../ceramic/bubbles.js';
 import { frame, fbm, flowFbm } from './common.js';
 import { radiance } from './heat.js';
+import { wrapCoord } from '../../core/hash.js';
 
 export function buildSteel( p, fp, u, t ) {
 
 	const F = frame( p, u.angle );
 	const S = u.sizeM;
 	// L0 convection cells: flow from the centre to the border.
-	const V = voronoi( mod( p.div( u.scaleM ), 4096 ).add( u.seed.mul( 2.3 ) ), 0.8 );
+	const V = voronoi( wrapCoord( p.div( u.scaleM ) ).add( u.seed.mul( 2.3 ) ), 0.8 );
 	const out = V.toSeed.div( V.toSeed.length().max( 0.05 ) );
 	const lane = smoothstep( 0.18, 0.0, V.edge );
 	const vel = out.mul( u.flow ).mul( smoothstep( 0.0, 0.2, V.edge ).mul( 0.7 ).add( 0.3 ) );

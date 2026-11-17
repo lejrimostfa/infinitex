@@ -15,7 +15,7 @@
 import { vec2, float, mix, smoothstep, step, mod } from 'three/tsl';
 import { ixTime } from '../../core/clock.js';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { arrival, heroSeed, rough, ageMeters } from '../../core/front.js';
 import { fbm } from '../stone/common.js';
@@ -42,7 +42,7 @@ export function buildMelt( p, fp, u, prog ) {
 	const ahead = smoothstep( W.mul( - 0.6 ), float( 0 ), age ).mul( wet.oneMinus() );
 
 	// Ice body: grains, bubbles, frosty skin.
-	const G = voronoi( mod( p.div( 0.01 ), 4096 ).add( s.mul( 1.3 ) ), 0.9 );
+	const G = voronoi( wrapCoord( p.div( 0.01 ) ).add( s.mul( 1.3 ) ), 0.9 );
 	const gid = hash3( G.id1.add( 2.2 ) );
 	const gb = smoothstep( 0.12, 0.0, G.edge ).mul( fadeIn( 0.01, fp, 2.0, 6.0 ) ); // groove, 1.2 mm wide
 	// Bubbles: round, 0.2 to 1 mm, in milky clouds where the water froze fast.
@@ -91,7 +91,7 @@ export function buildMelt( p, fp, u, prog ) {
 	// Relief: frost bumps, scratches and boundaries round off behind the
 	// front; grooves deepen where grains meet; the film flows.
 	const gSlope = G.dir.mul( gb.mul( gb.oneMinus() ).mul( 2.2 ) ).mul( wet.mul( 0.8 ).add( 0.2 ) );
-	const fq = mod( p.div( 6e-3 ), 4096 ).add( vec2( t.mul( 0.25 ), t.mul( - 0.4 ) ) );
+	const fq = wrapCoord( p.div( 6e-3 ) ).add( vec2( t.mul( 0.25 ), t.mul( - 0.4 ) ) );
 	const flow = vec2( vn( fq ), vn( fq.add( 3.7 ) ) ).sub( 0.5 ).mul( 0.05 ).mul( wet ).mul( fadeIn( 6e-3, fp, 2.0, 6.0 ) );
 	const slope = Fg.grad.mul( keep ).add( Sc.slope ).add( gSlope ).add( flow )
 		.mul( bead.oneMinus() ).add( B1.slope ).add( B2.slope ).mul( u.relief );

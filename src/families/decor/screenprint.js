@@ -17,7 +17,7 @@
 
 import { vec2, float, floor, fract, clamp, smoothstep, mod, mix, abs, cos, sin, max, min } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash1, valueNoise } from '../../core/hash.js';
+import { hash1, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 const MESH = 1.65e-4; // mesh period, meters
@@ -76,7 +76,7 @@ export function buildScreenprint( p, fp, u ) {
 	// L1 cracks in the cured ink.
 	// Cracks wander, and gather where the print was stretched most.
 	const cwarp = vec2( valueNoise( p.div( 9e-4 ) ), valueNoise( p.div( 9e-4 ).add( 7 ) ) ).sub( 0.5 ).mul( 6e-4 );
-	const V = voronoi( mod( p.add( cwarp ).div( 2.2e-3 ), 4096 ).add( s.mul( 3 ) ), 0.85 );
+	const V = voronoi( wrapCoord( p.add( cwarp ).div( 2.2e-3 ) ).add( s.mul( 3 ) ), 0.85 );
 	const zone = smoothstep( 0.45, 0.7, valueNoise( p.div( 0.02 ).add( s ) ) );
 	const cw = valueNoise( p.div( 1e-3 ) ).mul( 3e-5 ).add( 5e-6 ).mul( u.amount ).mul( zone );
 	const crackD = V.edge.mul( 2.2e-3 );

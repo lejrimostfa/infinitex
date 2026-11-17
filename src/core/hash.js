@@ -29,6 +29,15 @@ export function hash1( id ) {
 export const WRAP = 4096;
 export const wrapId = ( i ) => mod( i, WRAP );
 
+// Folds a lattice coordinate into one period of the hashes, centred on 0:
+// [ -2048, 2048 ). The same lattice as mod( q, 4096 ), so the same pattern,
+// but a coordinate just under 0 stays just under 0. mod() sent it to
+// 4095.9, where a float32 keeps only about 5e-4 of a cell: every pattern on
+// negative coordinates (a lake in world space, a crust frame that runs
+// back from a seam) stepped by that much, a sawtooth along the screen rows
+// seen from close.
+export const wrapCoord = ( q ) => mod( q.add( WRAP / 2 ), WRAP ).sub( WRAP / 2 );
+
 // Smooth value noise in [0, 1): bilinear over a lattice, smoothstep weights.
 export function valueNoise( q ) {
 

@@ -17,7 +17,7 @@
 
 import { vec2, float, mix, smoothstep, step, abs, max, cos, sin, clamp, mod, fract } from 'three/tsl';
 import { fadeIn, fadeOn, gate, pick } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { fbm, line } from './grains.js';
 
@@ -25,7 +25,7 @@ import { fbm, line } from './grains.js';
 // (1 top, 0 side), the face slope and the distance to the top face edge.
 function crystal( p, cellM, fp, salt, u ) {
 
-	const v = voronoi( mod( p.div( cellM ), 4096 ).add( salt ), 0.75 );
+	const v = voronoi( wrapCoord( p.div( cellM ) ).add( salt ), 0.75 );
 	const h = hash3( v.id1.add( salt * 1.3 ) );
 	const h2 = hash3( v.id1.add( salt * 1.3 + 17.7 ) );
 	const a = h.x.mul( 1.5708 );
@@ -72,7 +72,7 @@ function fineLevels( p, fp, u, A, B, gap ) {
 	};
 
 	// Crystal dust in the gaps, chips on faces.
-	const D = voronoi( mod( p.div( g.mul( 0.035 ) ), 4096 ).add( 3.7 ), 0.9 );
+	const D = voronoi( wrapCoord( p.div( g.mul( 0.035 ) ) ).add( 3.7 ), 0.9 );
 	const dh = hash3( D.id1 );
 	const wD = fadeIn( g.mul( 0.035 ), fp, 2.0, 6.0 );
 	const dust = step( 0.8, dh.x ).mul( smoothstep( 0.05, 0.15, D.edge ) ).mul( gap ).mul( wD ).toVar();

@@ -17,7 +17,7 @@
 
 import { vec2, float, floor, fract, clamp, smoothstep, mod, mix, abs, cos, sin, atan, sqrt, max, PI } from 'three/tsl';
 import { fadeIn, pick, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 const dir = ( a ) => vec2( cos( a ), sin( a ) );
@@ -26,7 +26,7 @@ export function buildEmbroidery( p, fp, u ) {
 
 	const T = u.sizeM, F = u.featureM, s = u.seed;
 	const tile = floor( p.div( T ).add( vec2( 0.4286, 0.5486 ) ) );
-	const th = hash3( mod( tile, 4096 ).add( s ) );
+	const th = hash3( wrapCoord( tile ).add( s ) );
 	const m = fract( p.div( T ).add( vec2( 0.4286, 0.5486 ) ) ).sub( 0.5 ).toVar(); // motif units
 	const mirror = clamp( floor( th.x.mul( 2 ) ), 0, 1 ).mul( 2 ).sub( 1 );
 	const q = vec2( m.x.mul( mirror ), m.y );
@@ -52,7 +52,7 @@ export function buildEmbroidery( p, fp, u ) {
 
 	// Heart: French knots.
 	const sdHeart = float( 0.038 ).sub( r ).mul( T );
-	const K = voronoi( mod( p.div( 1.6e-3 ), 4096 ).add( 5.5 ), 0.7 );
+	const K = voronoi( wrapCoord( p.div( 1.6e-3 ) ).add( 5.5 ), 0.7 );
 	const kd = K.toSeed.length();
 	const knotH = smoothstep( 0.55, 0.0, kd );
 	const swirl = sin( atan( K.toSeed.y, K.toSeed.x ).mul( 3 ).add( kd.mul( 18 ) ) ).mul( 0.5 ).add( 0.5 ).mul( fadeIn( float( 5e-4 ), fp, 2, 5 ) );

@@ -16,7 +16,7 @@
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, clamp, sin, cos, mod } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { bubbleField, capSlope } from './bubbles.js';
 
@@ -51,8 +51,8 @@ export function buildClay( p, fp, u ) {
 
 	// Grog: angular grains in a matrix, a gap round each.
 	// Crushed grains: bend the cell borders so no edge is straight.
-	const gw = vec2( valueNoise( mod( p.div( u.grogM.mul( 0.4 ) ), 4096 ) ), valueNoise( mod( p.div( u.grogM.mul( 0.4 ) ), 4096 ).add( 3.7 ) ) ).sub( 0.5 ).mul( 0.35 );
-	const G = voronoi( mod( p.div( u.grogM ), 4096 ).add( gw ).add( s.mul( 7 ) ), 0.9 );
+	const gw = vec2( valueNoise( wrapCoord( p.div( u.grogM.mul( 0.4 ) ) ) ), valueNoise( wrapCoord( p.div( u.grogM.mul( 0.4 ) ) ).add( 3.7 ) ) ).sub( 0.5 ).mul( 0.35 );
+	const G = voronoi( wrapCoord( p.div( u.grogM ) ).add( gw ).add( s.mul( 7 ) ), 0.9 );
 	const hg = hash3( G.id1.add( 9.1 ) );
 	const isG = step( hg.z, u.grog.mul( 0.55 ) );
 	const gIn = clamp( G.edge.sub( hg.y.mul( 0.15 ).add( 0.18 ) ).mul( u.grogM ).div( fp ).add( 0.5 ), 0, 1 ).mul( isG ).mul( fadeIn( u.grogM, fp, 1.0, 3.0 ) ).toVar();
@@ -60,7 +60,7 @@ export function buildClay( p, fp, u ) {
 	const gCol = mix( u.grogColor, u.bodyColor.mul( 0.7 ), step( 0.6, hg.x ) ).mul( hg.x.mul( 0.2 ).add( 0.9 ) );
 	const pale = step( 0.96, hg.x ); // limestone or quartz grains
 	// Slip half covers the grains: they show in patches, never as flat tiles.
-	const show = valueNoise( mod( p.div( u.grogM.mul( 0.35 ) ), 4096 ).add( 2.5 ) ).mul( 0.7 ).add( 0.3 ).mul( 0.6 );
+	const show = valueNoise( wrapCoord( p.div( u.grogM.mul( 0.35 ) ) ).add( 2.5 ) ).mul( 0.7 ).add( 0.3 ).mul( 0.6 );
 	color = mix( color, mix( gCol, vec3( 0.62, 0.52, 0.43 ), pale.mul( 0.7 ) ), gIn.mul( show ) ).mul( float( 1 ).sub( gap.mul( 0.35 ) ) );
 	color = color.mul( float( 1 ).sub( fadeIn( u.grogM, fp, 1.0, 3.0 ).oneMinus().mul( u.grog ).mul( 0.03 ) ) );
 	height = height.add( gIn.mul( 3e-5 ) ).sub( gap.mul( 2e-5 ) );
@@ -79,14 +79,14 @@ export function buildClay( p, fp, u ) {
 	color = color.mul( float( 1 ).sub( pore.mul( 0.65 ) ) );
 
 	// Matrix: silt grains, quartz specks, mica glints.
-	const M = voronoi( mod( p.div( 5e-5 ), 4096 ).add( 3.3 ), 0.9 );
+	const M = voronoi( wrapCoord( p.div( 5e-5 ) ).add( 3.3 ), 0.9 );
 	const hm = hash3( M.id1 );
 	const wM = fadeIn( float( 5e-5 ), fp, 2.0, 6.0 );
 	const quartz = step( 0.993, hm.x ).mul( wM );
 	const mica = step( 0.99, hm.y ).mul( wM );
 	color = color.mul( hm.z.sub( 0.5 ).mul( 0.25 ).mul( wM ).add( 1 ) ).mul( float( 1 ).sub( smoothstep( 0.06, 0.0, M.edge ).mul( 0.15 ).mul( wM ) ) );
 	color = mix( color, vec3( 0.55, 0.45, 0.36 ), quartz.mul( 0.5 ) );
-	const grit = vec2( valueNoise( mod( p.div( 1.5e-5 ), 4096 ) ), valueNoise( mod( p.div( 1.5e-5 ), 4096 ).add( 5.2 ) ) ).sub( 0.5 ).mul( fadeIn( float( 1.5e-5 ), fp, 2.0, 5.0 ) );
+	const grit = vec2( valueNoise( wrapCoord( p.div( 1.5e-5 ) ) ), valueNoise( wrapCoord( p.div( 1.5e-5 ) ).add( 5.2 ) ) ).sub( 0.5 ).mul( fadeIn( float( 1.5e-5 ), fp, 2.0, 5.0 ) );
 	const mslope = M.toSeed.mul( 0.25 ).mul( wM ).add( grit.mul( 0.5 ) );
 
 	// Efflorescence: white bloom in patches, denser at their rim and in
@@ -97,7 +97,7 @@ export function buildClay( p, fp, u ) {
 		const e = valueNoise( p.div( 0.04 ).add( s.add( 11 ) ) ).mul( 0.5 ).add( valueNoise( p.div( 0.01 ).add( 4.2 ) ).mul( 0.3 ) ).add( valueNoise( p.div( 0.0025 ).add( 6.6 ) ).mul( 0.2 ) );
 		const th = float( 0.75 ).sub( u.efflor.mul( 0.4 ) );
 		const patch = smoothstep( th, th.add( 0.12 ), e ).add( smoothstep( th.sub( 0.03 ), th, e ).mul( smoothstep( th.add( 0.06 ), th, e ) ).mul( 0.4 ) );
-		const powder = valueNoise( mod( p.div( 4e-5 ), 4096 ) ).mul( fadeIn( float( 4e-5 ), fp, 1.5, 4.0 ) );
+		const powder = valueNoise( wrapCoord( p.div( 4e-5 ) ) ).mul( fadeIn( float( 4e-5 ), fp, 1.5, 4.0 ) );
 		const salt = patch.mul( pore.max( gap ).mul( 0.7 ).add( 0.3 ) ).mul( powder.mul( 0.8 ).add( 0.6 ) ).clamp( 0, 1 ).mul( u.efflor );
 		color = mix( color, u.efflorColor.mul( valueNoise( p.div( 0.003 ) ).mul( 0.15 ).add( 0.88 ) ), salt.mul( 0.85 ) );
 		rough = mix( rough, float( 1 ), salt );

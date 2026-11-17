@@ -18,7 +18,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, abs, max, cos, sin, atan, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { packed, fbm, line } from './grains.js';
 
@@ -61,7 +61,7 @@ function hexPlates( G, ts, fp, u ) {
 function facets( p, id, wF, fp, u ) {
 
 	const g = u.grainM;
-	const F = voronoi( mod( p.div( g.mul( 0.3 ) ), 4096 ).add( 2.6 ), 0.9 );
+	const F = voronoi( wrapCoord( p.div( g.mul( 0.3 ) ) ).add( 2.6 ), 0.9 );
 	const fh = hash3( F.id1.add( id.xy.mul( 13 ) ) );
 	const glint0 = step( 0.5, fh.z );
 	return {

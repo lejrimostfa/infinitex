@@ -26,7 +26,7 @@
 
 import { vec2, float, floor, fract, mix, smoothstep, step, clamp, abs, sin, cos, atan, mod, positionView, normalView, tangentView, bitangentView } from 'three/tsl';
 import { fadeIn, pick, perturbNormal } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { fbm, band, hairs, warp2 } from './common.js';
 import { hexNet } from './hex.js';
@@ -114,7 +114,7 @@ export function buildInsectEye( p, fp, u ) {
 	const s = u.seed;
 	// L0: eye domes packed on the head cuticle.
 	// Each eye a sphere cap in its Voronoi cell, packed close.
-	const D = voronoi( mod( p.div( u.sizeM ), 4096 ).add( s.mul( 0.7 ) ), 0.7 );
+	const D = voronoi( wrapCoord( p.div( u.sizeM ) ).add( s.mul( 0.7 ) ), 0.7 );
 	const kd = hash3( D.id1.add( 2.9 ) );
 	const R = kd.x.mul( 0.08 ).add( 0.44 ).min( D.edge.add( D.toSeed.length() ).mul( 0.98 ) );
 	const v = D.toSeed.div( R ), dv = v.length();

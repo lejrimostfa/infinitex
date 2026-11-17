@@ -11,7 +11,7 @@
 
 import { vec2, float, cos, sin, clamp, smoothstep, mod } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 export { fbm, band, lines, dir2 } from '../stone/common.js';
@@ -31,7 +31,7 @@ export function rot2( p, a ) {
 // (AA line), w (fade weight), s2 (slope variance when faded) }.
 export function cells( p, sizeM, fp, salt, o = {} ) {
 
-	const V = voronoi( mod( p.div( sizeM ), 4096 ).add( salt ), o.jitter ?? 0.8 );
+	const V = voronoi( wrapCoord( p.div( sizeM ) ).add( salt ), o.jitter ?? 0.8 );
 	const id = hash3( V.id1.add( salt * 1.71 + 0.3 ) );
 	const w = fadeIn( sizeM, fp, o.lo ?? 2.0, o.hi ?? 6.0 );
 	const k = float( o.crown ?? 0.35 );
@@ -65,7 +65,7 @@ export function ridged( p, scaleM, fp, oct = 4, salt = 0 ) {
 		for ( let i = 0; i < oct; i ++ ) {
 
 			const per = float( scaleM ).mul( 1 / ( 1 << i ) );
-			const n = valueNoise( mod( q.div( per ), 4096 ).add( salt + i * 7.13 ) );
+			const n = valueNoise( wrapCoord( q.div( per ) ).add( salt + i * 7.13 ) );
 			const r = float( 1 ).sub( n.sub( 0.5 ).abs().mul( 2 ) );
 			sum = sum.add( r.mul( r ).mul( amp ).mul( fadeIn( per, fp, 1.5, 4.0 ) ) );
 			tot += amp;

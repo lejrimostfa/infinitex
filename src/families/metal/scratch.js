@@ -8,7 +8,7 @@
 // flickers.
 
 import { vec2, float, floor, fract, clamp, step, sin, cos, mod } from 'three/tsl';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 
 // Thin straight marks, one per cell. Returns the coverage of the nearest
 // mark, widened to a pixel and dimmed (energy conserving).
@@ -46,11 +46,11 @@ export function marks( p, fp, cellM, widthM, seed ) {
 export function grooves( a, c, fp, P, seed, density, half = 0.12, k = 0.3 ) {
 
 	const r = c.div( P ).add( seed );
-	const row = mod( floor( r ), 4096 );
+	const row = wrapCoord( floor( r ) );
 	const h = hash3( vec2( row, seed ) );
 	const d = fract( r ).sub( h.x.mul( 0.5 ).add( 0.25 ) ).mul( P ); // meters from the groove axis
 	const seg = a.div( P.mul( h.y.mul( 160 ).add( 40 ) ) ).add( h.z.mul( 17 ) );
-	const hs = hash3( vec2( row, mod( floor( seg ), 4096 ) ).add( seed * 1.7 ) );
+	const hs = hash3( vec2( row, wrapCoord( floor( seg ) ) ).add( seed * 1.7 ) );
 	const t = fract( seg );
 	const taper = t.mul( float( 1 ).sub( t ) ).mul( 4 ).sqrt();
 	const on = step( hs.x, density );

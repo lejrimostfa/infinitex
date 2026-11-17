@@ -14,7 +14,7 @@
 
 import { vec2, float, floor, fract, clamp, smoothstep, abs, cos, sin, atan, mix, mod } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 
 // Soft edge of a shape whose signed distance (meters, positive inside) is
 // sd: the pigment bleeds over `bleed` meters, or a pixel when larger.
@@ -35,7 +35,7 @@ export function paintMotif( p, fp, u ) {
 	const wob = vec2( valueNoise( p.div( T.mul( 0.18 ) ).add( s ) ), valueNoise( p.div( T.mul( 0.18 ) ).add( s.add( 4.4 ) ) ) ).sub( 0.5 ).mul( T ).mul( 0.03 );
 	const q = p.add( wob ).div( T ).add( vec2( 0.13, 0.09 ) );
 	const tile = floor( q );
-	const h = hash3( mod( tile, 4096 ).add( s ) );
+	const h = hash3( wrapCoord( tile ).add( s ) );
 	const lp = fract( q ).sub( 0.5 );
 	const rot = h.x.sub( 0.5 ).mul( 0.12 );
 	const l = vec2( lp.x.mul( cos( rot ) ).sub( lp.y.mul( sin( rot ) ) ), lp.x.mul( sin( rot ) ).add( lp.y.mul( cos( rot ) ) ) ).toVar();
@@ -79,8 +79,8 @@ export function paintMotif( p, fp, u ) {
 
 	// Each square painted with a little more or less cobalt; pigment grains.
 	cov = cov.mul( h.z.mul( 0.2 ).add( 0.9 ) );
-	const grain = valueNoise( mod( p.div( 3e-5 ), 4096 ).add( 1.3 ) ).mul( 0.6 ).add( valueNoise( mod( p.div( 1.1e-5 ), 4096 ).add( 7.1 ) ).mul( 0.4 ) );
-	const speck = smoothstep( 0.82, 0.9, hash1( floor( mod( p.div( 1.5e-5 ), 4096 ) ) ) );
+	const grain = valueNoise( wrapCoord( p.div( 3e-5 ) ).add( 1.3 ) ).mul( 0.6 ).add( valueNoise( wrapCoord( p.div( 1.1e-5 ) ).add( 7.1 ) ).mul( 0.4 ) );
+	const speck = smoothstep( 0.82, 0.9, hash1( floor( wrapCoord( p.div( 1.5e-5 ) ) ) ) );
 	const wG = fadeIn( float( 3e-5 ), fp, 1.5, 4.0 );
 	cov = cov.mul( mix( float( 1 ), grain.mul( 0.7 ).add( 0.65 ).add( speck.mul( 0.35 ) ), wG ) );
 	return clamp( cov, 0, 1 );

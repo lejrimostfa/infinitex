@@ -17,7 +17,7 @@
 import { vec2, vec3, float, floor, fract, clamp, smoothstep, mix, mod, abs, max, min, step } from 'three/tsl';
 import { ixTime as time } from '../../core/clock.js';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { fbm } from '../stone/common.js';
 
 // The picture, q in 0..1 over the face (y up), fq: footprint in q units.
@@ -80,8 +80,8 @@ export function buildScreen( p, fp, u ) {
 	const fill = 0.72 * 0.88 - 0.04;
 	const pick3 = vec3( step( k, 0.5 ), step( 0.5, k ).mul( step( k, 1.5 ) ), step( 1.5, k ) );
 	// L3: each subpixel a little off, the crystal mottled inside.
-	const sh = hash3( mod( cell.mul( vec2( 3, 1 ) ).add( vec2( k, 0 ) ), 4096 ) );
-	const mottle = valueNoise( mod( p.div( 1.2e-5 ), 4096 ) ).sub( 0.5 ).mul( 0.12 ).mul( fadeIn( float( 1.2e-5 ), fp, 1.5, 4.0 ) );
+	const sh = hash3( wrapCoord( cell.mul( vec2( 3, 1 ) ).add( vec2( k, 0 ) ) ) );
+	const mottle = valueNoise( wrapCoord( p.div( 1.2e-5 ) ) ).sub( 0.5 ).mul( 0.12 ).mul( fadeIn( float( 1.2e-5 ), fp, 1.5, 4.0 ) );
 	const sub3 = img.mul( pick3 ).mul( open ).mul( 3 / fill ).mul( sh.x.sub( 0.5 ).mul( 0.08 ).add( 1 ).add( mottle ) );
 	const wSub = fadeIn( sub, fp, 2.0, 5.0 );
 	// L1: below the subpixels, the pixel grid alone (black rows).

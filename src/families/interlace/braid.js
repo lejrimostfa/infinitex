@@ -15,7 +15,7 @@
 
 import { vec2, float, floor, fract, clamp, smoothstep, step, sqrt, mix, abs, mod } from 'three/tsl';
 import { fadeIn, pick } from '../../core/lod.js';
-import { hash1, valueNoise } from '../../core/hash.js';
+import { hash1, valueNoise, wrapCoord } from '../../core/hash.js';
 
 const pm = ( x, n ) => x.sub( floor( x.div( n ) ).mul( n ) );
 const K = 0.9; // slant of the segments, along per across (half widths)
@@ -84,7 +84,7 @@ export function buildBraid( p, fp, u ) {
 	// L3 fibres along the ply.
 	const fd2 = alongDir.add( acrossDir.mul( 0.36 ) ).normalize(); // fibres lie at 20 degrees
 	const fn = vec2( fd2.y.negate(), fd2.x );
-	const lane = mod( p.dot( fn ).div( u.fiberM ), 4096 ); // ids kept small for the hash
+	const lane = wrapCoord( p.dot( fn ).div( u.fiberM ) ); // ids kept small for the hash
 	const seg = p.dot( fd2 ).div( u.fiberM.mul( 60 ) ).add( hash1( vec2( floor( lane ), yid ) ) );
 	const fl = fract( lane.add( hash1( vec2( floor( seg ), floor( lane ) ) ).sub( 0.5 ).mul( 0.8 ) ) );
 	const w4 = fadeIn( u.fiberM, fp, 2.0, 6.0 ).mul( w3 ).toVar();

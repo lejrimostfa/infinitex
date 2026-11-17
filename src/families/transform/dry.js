@@ -17,7 +17,7 @@
 import { vec2, float, mix, smoothstep, clamp, mod } from 'three/tsl';
 import { ixTime } from '../../core/clock.js';
 import { fadeIn, gate } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { arrival, heroSeed, rough, ageMeters } from '../../core/front.js';
 import { fbm } from '../stone/common.js';
@@ -31,8 +31,8 @@ function cracks( p, cM, w, fp, salt ) {
 
 	const wq = vec2( vn( p.div( cM.mul( 0.7 ) ).add( salt ) ), vn( p.div( cM.mul( 0.7 ) ).add( salt + 7.3 ) ) ).sub( 0.5 ).mul( 0.5 )
 		.add( vec2( vn( p.div( cM.mul( 0.15 ) ).add( salt + 2.1 ) ), vn( p.div( cM.mul( 0.15 ) ).add( salt + 5.9 ) ) ).sub( 0.5 ).mul( 0.1 ) );
-	const V = voronoi( mod( p.div( cM ), 4096 ).add( wq ).add( salt ), 0.9 );
-	const open = vn( mod( p.div( cM.mul( 1.5 ) ), 4096 ).add( salt + 4.4 ) ).mul( 0.8 ).add( 0.5 );
+	const V = voronoi( wrapCoord( p.div( cM ) ).add( wq ).add( salt ), 0.9 );
+	const open = vn( wrapCoord( p.div( cM.mul( 1.5 ) ) ).add( salt + 4.4 ) ).mul( 0.8 ).add( 0.5 );
 	const ww = w.mul( open );
 	const d = V.edge.max( 0 ).mul( cM );
 	const wE = ww.max( fp.mul( 0.6 ) );
@@ -65,7 +65,7 @@ export function buildDry( p, fp, u, prog ) {
 	// Wet film: brush ridges along x levelling, a slow sag.
 	const bq = vec2( p.x.div( 0.04 ), p.y.div( 1.2e-3 ) );
 	const brush = vec2( 0, vn( bq.add( 3.3 ) ).sub( 0.5 ).mul( 0.12 ).mul( fadeIn( 1.2e-3, fp, 2.0, 6.0 ) ) ).mul( matte.mul( 0.5 ).oneMinus() );
-	const sq = mod( p.div( 0.012 ), 4096 ).add( vec2( 0, t.mul( - 0.08 ) ) );
+	const sq = wrapCoord( p.div( 0.012 ) ).add( vec2( 0, t.mul( - 0.08 ) ) );
 	const sag = vec2( vn( sq ), vn( sq.add( 4.1 ) ) ).sub( 0.5 ).mul( 0.03 ).mul( dry.oneMinus() );
 
 	// Wrinkles: ridged noise stretched one way per region.
@@ -99,7 +99,7 @@ export function buildDry( p, fp, u, prog ) {
 	const crack = Cr.crack.toVar();
 
 	// Colour.
-	const pg = vn( mod( p.div( 2e-5 ), 4096 ).add( 6.2 ) ).sub( 0.5 ).mul( fadeIn( 2e-5, fp, 2.0, 6.0 ) );
+	const pg = vn( wrapCoord( p.div( 2e-5 ) ).add( 6.2 ) ).sub( 0.5 ).mul( fadeIn( 2e-5, fp, 2.0, 6.0 ) );
 	const base = u.color.mul( fbm( p.add( 1.4 ), float( 0.03 ), fp, 3, 4 ).mul( 0.12 ).add( 0.94 ) ).mul( pg.mul( 0.1 ).add( 1 ) );
 	const wetC = base.mul( 0.82 ); // wet: deeper
 	const dryC = mix( base, u.color2, 0.15 );

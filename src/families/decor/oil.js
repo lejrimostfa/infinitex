@@ -19,7 +19,7 @@
 
 import { vec2, vec3, float, floor, fract, clamp, smoothstep, step, mod, mix, abs, cos, sin, sqrt, min } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { crackleNet } from '../ceramic/crackle.js';
 import { landscape, brushFlow } from './landscape.js';
 
@@ -35,7 +35,7 @@ export function buildOil( p, fp, u ) {
 	for ( let oy = - 1; oy <= 1; oy ++ ) for ( let ox = - 1; ox <= 1; ox ++ ) {
 
 		const id = b.add( vec2( ox, oy ) );
-		const h = hash3( mod( id, 4096 ).add( s ) ), h2 = hash3( mod( id, 4096 ).add( 7.1 ) );
+		const h = hash3( wrapCoord( id ).add( s ) ), h2 = hash3( wrapCoord( id ).add( 7.1 ) );
 		const c = id.add( h.xy ).mul( C );
 		const ang = brushFlow( c.div( FACE ) ).add( h.z.sub( 0.5 ).mul( 0.5 ) );
 		const d = vec2( cos( ang ), sin( ang ) );
@@ -94,7 +94,7 @@ export function buildOil( p, fp, u ) {
 	const primer = vec3( 0.8, 0.76, 0.66 ).mul( canvasH.mul( 0.25 ).add( 0.8 ) );
 	let color = mix( primer, mix( under, strokeCol, cov ), show.max( float( 1 ).sub( wC ).mul( 0.85 ) ) );
 	// L3 pigment grains.
-	const gq = mod( p.div( 6e-6 ), 4096 );
+	const gq = wrapCoord( p.div( 6e-6 ) );
 	const gh = hash3( floor( gq ) );
 	const wG = fadeIn( float( 6e-6 ), fp, 1.5, 4.0 );
 	color = color.mul( gh.x.sub( 0.5 ).mul( 0.3 ).mul( wG ).add( 1 ) ).add( step( 0.97, gh.y ).mul( 0.08 ).mul( wG ) );

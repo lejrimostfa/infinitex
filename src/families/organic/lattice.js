@@ -9,14 +9,14 @@
 
 import { vec2, float, clamp, mod } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { valueNoise } from '../../core/hash.js';
+import { valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 // width: half width of a strut in cells; vary: how uneven (0..1); plate:
 // share of borders that widen into plates.
 export function lattice( p, cellM, fp, salt, { width = 0.08, vary = 0.6, plate = 0.2, jitter = 0.95 } = {} ) {
 
-	const x = mod( p.div( cellM ), 4096 ).add( salt );
+	const x = wrapCoord( p.div( cellM ) ).add( salt );
 	const V = voronoi( x, jitter );
 	// Width along the strut: a slow noise; plates on some borders.
 	const mid = V.p1.add( V.p2 ).mul( 0.5 );

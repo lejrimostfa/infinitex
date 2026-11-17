@@ -22,7 +22,7 @@
 
 import { vec2, vec3, float, floor, fract, exp, mod, mix, clamp, smoothstep, step, atan, cos, sin } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { ixTime } from '../../core/clock.js';
 import { fbm } from '../stone/common.js';
 import { capSlope } from '../ceramic/bubbles.js';
@@ -56,14 +56,14 @@ function drops( p, fp, u, t, layer ) {
 	let slope = vec2( 0 ), s2 = float( 0 ), jet = float( 0 ), drop = float( 0 );
 	for ( let oy = - 1; oy <= 1; oy ++ ) for ( let ox = - 1; ox <= 1; ox ++ ) {
 
-		const id = mod( cell.add( vec2( ox, oy ) ), 4096 );
+		const id = wrapCoord( cell.add( vec2( ox, oy ) ) );
 		const hc = hash3( id.add( layer * 13.7 ) );
 		const tc = t.div( PERIOD ).add( hc.x );
 		const n = floor( tc ), tau = fract( tc ).mul( PERIOD ).toVar();
-		const hd = hash3( mod( id.add( vec2( n.mul( 17.31 ), n.mul( 7.17 ) ) ), 4096 ).add( layer * 5.3 + 1.1 ) ).toVar();
+		const hd = hash3( wrapCoord( id.add( vec2( n.mul( 17.31 ), n.mul( 7.17 ) ) ) ).add( layer * 5.3 + 1.1 ) ).toVar();
 		const on = step( hd.z, u.amount ).toVar();
 		const c0 = id.add( 0.5 ).add( hd.xy.sub( 0.5 ).mul( 0.9 ) );
-		const dv = mod( x.sub( c0 ).add( 2048 ), 4096 ).sub( 2048 ).mul( C ).toVar();
+		const dv = wrapCoord( x.sub( c0 ).add( 2048 ) ).sub( 2048 ).mul( C ).toVar();
 		const r = dv.length().toVar();
 		// Rings fade before they leave the 3 x 3 cells around the impact.
 		const keep = smoothstep( C, C.mul( 0.55 ), r ).mul( on ).mul( smoothstep( 0, 0.015, tau ) ).mul( smoothstep( PERIOD, PERIOD * 0.7, tau ) ).toVar();
@@ -112,10 +112,10 @@ function drops( p, fp, u, t, layer ) {
 // twentieth of a second, one per 1.2 cm cell every 0.2 s.
 function dimples( p, fp, t ) {
 
-	const C = 0.012, x = mod( p.div( C ), 4096 ), cell = floor( x );
+	const C = 0.012, x = wrapCoord( p.div( C ) ), cell = floor( x );
 	const tc = t.div( 0.2 ).add( hash3( cell.add( 4.4 ) ).x );
 	const n = floor( tc ), tau = fract( tc ).mul( 0.2 );
-	const h = hash3( mod( cell.add( vec2( n.mul( 5.3 ), n.mul( 2.9 ) ) ), 4096 ).add( 8.8 ) );
+	const h = hash3( wrapCoord( cell.add( vec2( n.mul( 5.3 ), n.mul( 2.9 ) ) ) ).add( 8.8 ) );
 	const dv = x.sub( cell.add( 0.5 ).add( h.xy.sub( 0.5 ).mul( 0.4 ) ) ).mul( C ); // kept 2.4 radii from the cell edge: no cut
 	const rd = float( 1.5e-3 );
 	const pit = exp( dv.dot( dv ).div( rd.mul( rd ) ).negate() ).mul( exp( tau.div( 0.05 ).negate() ) ).mul( step( h.z, 0.7 ) );
@@ -128,13 +128,13 @@ function dimples( p, fp, t ) {
 function bubbles( p, fp, u, t ) {
 
 	const C = 0.009;
-	const x = mod( p.div( C ), 4096 );
+	const x = wrapCoord( p.div( C ) );
 	const cell = floor( x );
 	const hc = hash3( cell.add( 31.3 ) );
 	const life = hc.x.mul( 4 ).add( 2 );
 	const tc = t.div( life ).add( hc.y );
 	const n = floor( tc ), ph = fract( tc );
-	const h = hash3( mod( cell.add( vec2( n.mul( 3.7 ), n.mul( 9.1 ) ) ), 4096 ) );
+	const h = hash3( wrapCoord( cell.add( vec2( n.mul( 3.7 ), n.mul( 9.1 ) ) ) ) );
 	const on = step( h.z, u.amount.mul( 0.5 ) ).mul( step( ph, 0.85 ) );
 	const rn = h.x.mul( h.x ).mul( 0.13 ).add( 0.05 ).mul( smoothstep( 0, 0.04, ph ) );
 	const c0 = cell.add( 0.5 ).add( h.xy.sub( 0.5 ).mul( 0.5 ) );

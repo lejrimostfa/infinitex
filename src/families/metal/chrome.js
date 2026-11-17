@@ -18,7 +18,7 @@
 
 import { vec2, float, floor, clamp, smoothstep, step, mix, mod, atan } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { grooves } from './scratch.js';
 
@@ -67,7 +67,7 @@ export function buildChrome( p, fp, u ) {
 	// L2 plating pits.
 	const PC = 3e-4;
 	const q = p.div( PC ).add( 13.7 );
-	const qc = mod( floor( q ), 4096 );
+	const qc = wrapCoord( floor( q ) );
 	const qh = hash3( qc );
 	const qv = q.sub( floor( q ) ).sub( qh.xy.sub( 0.5 ).mul( 0.6 ).add( 0.5 ) );
 	const R = qh.z.mul( 0.1 ).add( 0.03 ); // cells: 9 to 40 um radius
@@ -84,7 +84,7 @@ export function buildChrome( p, fp, u ) {
 	const crack = gate( fadeOn( CC, fp, 4.0 ), { crack: 0 }, () => {
 
 		const cq = p.div( CC ).add( vec2( vn( p.div( CC * 0.7 ) ), vn( p.div( CC * 0.7 ).add( 3.3 ) ) ).mul( 0.4 ) );
-		const cv = voronoi( mod( cq, 4096 ).add( 1.2 ), 0.9 );
+		const cv = voronoi( wrapCoord( cq ).add( 1.2 ), 0.9 );
 		const cw = float( 8e-7 ).mul( hash1( cv.id1.add( cv.id2 ) ).add( 0.5 ) ), cwE = cw.max( fp );
 		return { crack: aa( cwE.sub( cv.edge.mul( CC ) ), fp ).mul( cw.div( cwE ) ).mul( u.cracks )
 			.mul( smoothstep( 0.3, 0.6, hash1( cv.id1.add( cv.id2.mul( 1.7 ) ) ).add( 0.3 ) ) ).mul( fadeIn( CC, fp, 4.0, 12.0 ) ) };
@@ -94,7 +94,7 @@ export function buildChrome( p, fp, u ) {
 	// L4 nodules.
 	// Skipped past their fade (6 um, from 2 px).
 	const NC = 6e-6;
-	const nq = mod( p.div( NC ), 4096 ).add( 9.4 ).toVar();
+	const nq = wrapCoord( p.div( NC ) ).add( 9.4 ).toVar();
 	const wN = fadeIn( NC, fp, 2.0, 6.0 ).toVar();
 	const N = gate( fadeOn( NC, fp, 2.0 ), { sNod: [ 0, 0 ], nodTone: 1 }, () => {
 

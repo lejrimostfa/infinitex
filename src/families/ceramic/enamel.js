@@ -16,7 +16,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, exp, sin, mod } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { orangePeel, coatBubbles, specks } from './glaze.js';
 
@@ -37,7 +37,7 @@ export function buildEnamel( p, fp, u ) {
 
 		const c = u.chipM;
 		const warp = vec2( valueNoise( p.div( c.mul( 0.5 ) ).add( s ) ), valueNoise( p.div( c.mul( 0.5 ) ).add( s.add( 5.5 ) ) ) ).sub( 0.5 ).mul( c ).mul( 0.6 );
-		const V = voronoi( mod( p.add( warp ).div( c ), 4096 ).add( s.mul( 5 ) ), 0.85 );
+		const V = voronoi( wrapCoord( p.add( warp ).div( c ) ).add( s.mul( 5 ) ), 0.85 );
 		const hc = hash3( V.id1.add( 2.2 ) );
 		// Distance of the chip centre to the nearest panel edge.
 		const P = u.panelM, cpos = V.p1.sub( s.mul( 5 ) ).mul( c );
@@ -56,8 +56,8 @@ export function buildEnamel( p, fp, u ) {
 		const ripple = sin( sd.div( 6e-5 ).mul( 6.28 ) ).mul( 0.5 ).add( 0.5 ).mul( fadeIn( float( 6e-5 ), fp, 2.0, 5.0 ) );
 		const ground = u.groundColor.mul( ripple.mul( 0.25 ).add( 0.85 ) );
 		// Steel: grain, grinding lines, rust from the edge inward.
-		const grind = valueNoise( vec2( p.x.div( 4e-4 ), mod( p.y.div( 1.2e-5 ), 4096 ) ).add( 3.3 ) ).mul( fadeIn( float( 1.2e-5 ), fp, 1.5, 4.0 ) );
-		const grain = hash3( mod( V.id1, 4096 ) ).x; // each chip its own metal tone
+		const grind = valueNoise( vec2( p.x.div( 4e-4 ), wrapCoord( p.y.div( 1.2e-5 ) ) ).add( 3.3 ) ).mul( fadeIn( float( 1.2e-5 ), fp, 1.5, 4.0 ) );
+		const grain = hash3( wrapCoord( V.id1 ) ).x; // each chip its own metal tone
 		const rust = smoothstep( 1.5e-3, 0, sd.sub( wg ) ).mul( valueNoise( p.div( 8e-4 ).add( 6.1 ) ) ).mul( 1.4 ).clamp( 0, 1 ).mul( hc.x.mul( 0.8 ).add( 0.2 ) );
 		const steelCol = u.steelColor.mul( grind.mul( 0.3 ).add( 0.85 ) ).mul( grain.mul( 0.2 ).add( 0.9 ) );
 		const rustCol = vec3( 0.25, 0.1, 0.04 ).mul( valueNoise( p.div( 1e-4 ) ).mul( 0.4 ).add( 0.8 ) );

@@ -13,14 +13,14 @@
 
 import { vec2, vec3, float, floor, mod, step, clamp, smoothstep, mix, cos, sin } from 'three/tsl';
 import { pick, fadeIn } from './lod.js';
-import { hash3, valueNoise } from './hash.js';
+import { hash3, valueNoise, wrapCoord } from './hash.js';
 
 // o: { rMin, rMax, wobble, wick, elong, angle, jitter }. elong stretches
 // each blob along `angle` (radians) or a random angle when absent.
 export function blobs( p, fp, cellM, share, salt, o = {} ) {
 
 	const rMin = o.rMin ?? 0.15, rMax = o.rMax ?? 0.45, elong = o.elong ?? 0;
-	const q = mod( p.div( cellM ).add( salt ), 4096 );
+	const q = wrapCoord( p.div( cellM ).add( salt ) );
 	const c0 = floor( q );
 	// Ragged edge: two octaves of noise in meters, so it does not scale
 	// with the blob; wicking adds thin fingers along the threads.

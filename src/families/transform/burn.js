@@ -18,7 +18,7 @@
 import { vec2, vec3, float, mix, smoothstep, mod, clamp } from 'three/tsl';
 import { ixTime } from '../../core/clock.js';
 import { fadeIn, surfaceGradient, gate } from '../../core/lod.js';
-import { valueNoise } from '../../core/hash.js';
+import { valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { arrival, heroSeed, rough, ageMeters } from '../../core/front.js';
 import { fbm } from '../stone/common.js';
@@ -81,7 +81,7 @@ export function buildBurn( p, fp, u, prog ) {
 
 		// Char: shrinking plates with dark gaps, a faint blue grey glint.
 		const cq = p.div( 1.6e-3 );
-		const CV = voronoi( mod( cq.add( vec2( vn( cq.mul( 0.6 ) ), vn( cq.mul( 0.6 ).add( 3.3 ) ) ).mul( 0.9 ) ), 4096 ).add( 4.4 ), 0.95 );
+		const CV = voronoi( wrapCoord( cq.add( vec2( vn( cq.mul( 0.6 ) ), vn( cq.mul( 0.6 ).add( 3.3 ) ) ).mul( 0.9 ) ) ).add( 4.4 ), 0.95 );
 		const wCr = fadeIn( 1.6e-3, fp, 2.0, 6.0 );
 		const cw = vn( cq.mul( 0.9 ).add( 7.7 ) ).mul( 5e-5 ).add( 5e-6 );
 		const crack = clamp( cw.sub( CV.edge.mul( 1.6e-3 ) ).div( fp ).add( 0.5 ), 0, 1 ).mul( wCr ).mul( smoothstep( E, E.mul( 4 ), age ) );
@@ -102,13 +102,13 @@ export function buildBurn( p, fp, u, prog ) {
 	col = mix( col, ashCol, ashM );
 
 	// Ember line: temperature falls behind the front; flicker crawls.
-	const fl = vn( mod( p.div( 5e-3 ), 4096 ).add( vec2( t.mul( 0.9 ), t.mul( - 0.6 ) ) ) )
-		.add( vn( mod( p.div( 1.2e-3 ), 4096 ).add( vec2( t.mul( - 1.7 ), t.mul( 1.3 ) ) ) ).mul( 0.5 ) ).sub( 0.75 );
+	const fl = vn( wrapCoord( p.div( 5e-3 ) ).add( vec2( t.mul( 0.9 ), t.mul( - 0.6 ) ) ) )
+		.add( vn( wrapCoord( p.div( 1.2e-3 ) ).add( vec2( t.mul( - 1.7 ), t.mul( 1.3 ) ) ) ).mul( 0.5 ) ).sub( 0.75 );
 	const x = clamp( age.div( E ), 0, 1 );
 	const K = float( 1150 ).sub( x.mul( 400 ) ).add( fl.mul( 160 ) ).add( P.fib.mul( 60 ) );
 	const band = reached.sub( F.aa( E ) ).max( 0 );
 	// Sparks on the ash rim: hot specks that come and go.
-	const sp = smoothstep( 0.72, 0.9, vn( mod( p.div( 1.5e-3 ), 4096 ).add( vec2( t.mul( 0.5 ), 2.1 ) ) ) )
+	const sp = smoothstep( 0.72, 0.9, vn( wrapCoord( p.div( 1.5e-3 ) ).add( vec2( t.mul( 0.5 ), 2.1 ) ) ) )
 		.mul( smoothstep( holeW.sub( 3e-3 ), holeW, age ) ).mul( hole.oneMinus() ).mul( fadeIn( 1.5e-3, fp, 1.0, 3.0 ).mul( 0.7 ).add( 0.3 ) );
 	const emissive = glowAt( K, u.glow ).mul( band ).add( glowAt( float( 900 ), u.glow ).mul( sp.mul( 0.5 ) ) );
 

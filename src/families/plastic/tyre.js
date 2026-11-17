@@ -15,7 +15,7 @@
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, clamp, abs, sin, mod } from 'three/tsl';
 import { fadeIn, pick } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 export function buildTyre( p, fp, u ) {
@@ -81,7 +81,7 @@ export function buildTyre( p, fp, u ) {
 	slope = slope.add( vec2( 0, sWave ) );
 
 	// Filler grit and road sand, cells of 25 um (wrapped: hashes stay exact).
-	const gv = voronoi( mod( p.div( 2.5e-5 ), 4096 ).add( s ), 0.9 );
+	const gv = voronoi( wrapCoord( p.div( 2.5e-5 ) ).add( s ), 0.9 );
 	const gh = hash3( gv.id1 );
 	const wG = fadeIn( float( 2.5e-5 ), fp, 2.0, 6.0 );
 	slope = slope.add( gv.toSeed.mul( - 0.5 ).mul( smoothstep( 0.45, 0.1, gv.toSeed.length() ) ).mul( wG ) );

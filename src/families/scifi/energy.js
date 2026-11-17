@@ -15,7 +15,7 @@
 import { vec2, vec3, float, floor, fract, clamp, smoothstep, mix, mod, abs, max } from 'three/tsl';
 import { ixTime as time } from '../../core/clock.js';
 import { fadeIn, pick } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { fbm } from '../stone/common.js';
 
 const pm = ( x, n ) => x.sub( n.mul( floor( x.div( n ) ) ) );
@@ -75,7 +75,7 @@ export function buildEnergy( p, fp, u ) {
 	const pulse = smoothstep( 0.7, 1.0, fract( r.div( 0.06 ).sub( t.mul( 0.5 ) ) ) ).mul( 1.5 ).add( 0.35 );
 	const hexGlow = u.color2.mul( lineCov ).mul( pulse );
 	// Each cell glows a little on its own, brighter near its border.
-	const ch = hash3( mod( floor( Hx.id.mul( 2 ) ), 4096 ).add( s ) );
+	const ch = hash3( wrapCoord( floor( Hx.id.mul( 2 ) ) ).add( s ) );
 	const cellTone = ch.x.mul( 0.5 ).add( 0.75 ).mul( smoothstep( 0.0, 0.5, Hx.d.div( u.sizeM ) ).mul( - 0.3 ).add( 1 ) );
 
 	// L2 emitter grid in the glass.

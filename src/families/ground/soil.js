@@ -16,7 +16,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { packed, grains, fbm, fibres } from './grains.js';
 
@@ -36,7 +36,7 @@ function fineLevels( p, pw, fp, u ) {
 	// L2: silt texture and hyphae.
 	const wS = fadeIn( g.mul( 0.004 ), fp, 2.0, 6.0 );
 	const silt = fbm( p.div( g.mul( 0.004 ) ).add( 2.1 ), 3 );
-	const Sv = voronoi( mod( p.div( g.mul( 0.003 ) ), 4096 ).add( 1.3 ), 0.9 );
+	const Sv = voronoi( wrapCoord( p.div( g.mul( 0.003 ) ) ).add( 1.3 ), 0.9 );
 	const sh = hash3( Sv.id1 );
 	const H = fibres( p, g.mul( 0.03 ), g.mul( 4e-4 ), float( 0.2 ), fp, 3.3 );
 	return {

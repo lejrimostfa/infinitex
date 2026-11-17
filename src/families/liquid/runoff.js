@@ -19,7 +19,7 @@
 
 import { vec2, vec3, float, floor, fract, mix, clamp, smoothstep, step, sin, mod } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { ixTime } from '../../core/clock.js';
 import { capSlope, bubbleField } from '../ceramic/bubbles.js';
 import { buildSlate, buildSandstone } from '../stone/sediment.js';
@@ -36,7 +36,7 @@ function rivulets( p, fp, u, t ) {
 	for ( let j = - 1; j <= 1; j ++ ) {
 
 		const id = col.add( j );
-		const h = hash3( vec2( mod( id, 4096 ), u.seed.add( 3.3 ) ) );
+		const h = hash3( vec2( wrapCoord( id ), u.seed.add( 3.3 ) ) );
 		const on = step( h.z, u.amount );
 		// The path wanders: slow along the wall, slower still in time.
 		const wan = valueNoise( vec2( p.y.div( 0.07 ), id.mul( 7.1 ).add( t.mul( 0.03 ) ) ) ).sub( 0.5 );
@@ -75,11 +75,11 @@ function beads( p, fp, u, t ) {
 
 	const Cb = 0.006;
 	const lane = floor( p.x.div( Cb ) );
-	const hl = hash3( vec2( mod( lane, 4096 ), u.seed.add( 9.9 ) ) );
+	const hl = hash3( vec2( wrapCoord( lane ), u.seed.add( 9.9 ) ) );
 	const v = hl.x.mul( 0.02 ).add( 0.004 );
 	const qy = p.y.add( v.mul( t ) ).div( Cb );
 	const row = floor( qy );
-	const h = hash3( vec2( mod( lane, 4096 ), mod( row, 4096 ) ).add( 0.37 ) );
+	const h = hash3( vec2( wrapCoord( lane ), wrapCoord( row ) ).add( 0.37 ) );
 	const on = step( h.z, u.density.mul( 0.45 ) );
 	const rb = h.x.mul( 0.11 ).add( 0.07 ); // radius, cells
 	const c = vec2( hl.y.sub( 0.5 ).mul( 0.4 ).add( 0.5 ), h.y.mul( 0.5 ).add( 0.25 ) );

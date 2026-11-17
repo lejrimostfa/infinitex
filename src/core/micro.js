@@ -26,7 +26,7 @@
 
 import { vec2, float, mod, smoothstep, cos, sin, tangentView, bitangentView } from 'three/tsl';
 import { fadeIn, fadeOn, gate, perturbNormal, surfaceGradient } from './lod.js';
-import { hash3, valueNoise } from './hash.js';
+import { hash3, valueNoise, wrapCoord } from './hash.js';
 import { voronoi } from './voronoi.js';
 import { scratches } from '../families/stone/common.js';
 
@@ -48,13 +48,13 @@ function octave( kind, p, rot, fp, P, S, salt ) {
 	const w = fadeIn( P, fp, 2.0, 6.0 );
 	if ( kind === 'fibrous' ) {
 
-		const q = mod( vec2( rot.x.div( P * 6 ), rot.y.div( P ) ), 4096 ).add( salt );
+		const q = wrapCoord( vec2( rot.x.div( P * 6 ), rot.y.div( P ) ) ).add( salt );
 		const v = valueNoise( q );
 		return { h: v.sub( 0.5 ).mul( P * S ).mul( w ), slope: vec2( 0 ), tone: v.sub( 0.5 ).mul( 0.07 ).mul( w ) };
 
 	} else if ( kind === 'granular' ) {
 
-		const V = voronoi( mod( p.div( P ), 4096 ).add( salt ), 0.85 );
+		const V = voronoi( wrapCoord( p.div( P ) ).add( salt ), 0.85 );
 		const g = hash3( V.id1.add( salt ) );
 		// Each grain a tilted facet; a groove where grains meet.
 		return {
@@ -66,7 +66,7 @@ function octave( kind, p, rot, fp, P, S, salt ) {
 	} else if ( kind === 'scratched' ) {
 
 		const sc = scratches( p, fp, P * 5, P * 0.12, 0.45, salt );
-		const v = valueNoise( mod( p.div( P ), 4096 ).add( salt ) );
+		const v = valueNoise( wrapCoord( p.div( P ) ).add( salt ) );
 		return {
 			h: float( 0 ).sub( sc.mul( P * S * 0.6 ) ).add( v.sub( 0.5 ).mul( P * S * 0.3 ).mul( w ) ),
 			slope: vec2( 0 ), tone: sc.mul( 0.05 ).add( v.sub( 0.5 ).mul( 0.03 ).mul( w ) ),
@@ -74,7 +74,7 @@ function octave( kind, p, rot, fp, P, S, salt ) {
 
 	} else if ( kind === 'cellular' ) {
 
-		const V = voronoi( mod( p.div( P ), 4096 ).add( salt ), 0.8 );
+		const V = voronoi( wrapCoord( p.div( P ) ).add( salt ), 0.8 );
 		const c = hash3( V.id1.add( salt ) );
 		// Domed cells (the slope falls away from the centre), darker walls.
 		return {
@@ -84,7 +84,7 @@ function octave( kind, p, rot, fp, P, S, salt ) {
 
 	}
 
-	const v = valueNoise( mod( p.div( P ), 4096 ).add( salt ) );
+	const v = valueNoise( wrapCoord( p.div( P ) ).add( salt ) );
 	return { h: v.sub( 0.5 ).mul( P * S ).mul( w ), slope: vec2( 0 ), tone: v.sub( 0.5 ).mul( 0.06 ).mul( w ) };
 
 }

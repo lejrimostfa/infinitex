@@ -9,6 +9,7 @@
 import {
 	float, vec2, vec3, vec4, mat4, int, dFdx, dFdy, smoothstep, step, max, min, sqrt, clamp, mix, normalView, Fn, If,
 } from 'three/tsl';
+import { wrapCoord } from './hash.js';
 
 // Build-time override (core/pixel.js): while a family graph is built on
 // art pixel centres, the footprint is the art pixel, not the screen pixel,
@@ -69,7 +70,7 @@ export function fadeOn( periodMeters, fp, lo = 2.0 ) {
 //           after it: twice the work, and the second copy can round
 //           differently.
 //
-// Cell coordinates of a Voronoi or a grid ( mod( p.div( size ), 4096 ) )
+// Cell coordinates of a Voronoi or a grid ( wrapCoord( p.div( size ) ) )
 // are best taken as a .toVar() just before the gate that reads them, and
 // passed in `shared`: computed inside the branch they can round differently,
 // and some cell borders move by a pixel (seen on the sand facets).

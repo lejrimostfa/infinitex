@@ -16,7 +16,7 @@
 
 import { vec2, vec3, float, floor, fract, mix, smoothstep, step, clamp, mod, max, min } from 'three/tsl';
 import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, grains, fbm } from './common.js';
 
@@ -76,7 +76,7 @@ export function buildBrick( p, fp, u ) {
 
 	}, [ p, fp ] );
 	const grog = GG.grog;
-	const svq = mod( p.div( 1.5e-3 ), 4096 ).add( 6.1 ).toVar();
+	const svq = wrapCoord( p.div( 1.5e-3 ) ).add( 6.1 ).toVar();
 	const speck = gate( fadeOn( 3e-4, fp, 1.5 ), { speck: 0 }, () => {
 
 		const SV = voronoi( svq, 0.9 );
@@ -88,7 +88,7 @@ export function buildBrick( p, fp, u ) {
 	// Clay close up: silt glints and pores. Skipped past the silt noise's
 	// fade (0.2 mm, from 1 px); the glints and pores past theirs (40 um,
 	// from 2 px).
-	const siq = mod( p.div( 4e-5 ), 4096 ).add( 2.7 ).toVar(), pvq = mod( p.div( 1.5e-4 ), 4096 ).add( 8.3 ).toVar();
+	const siq = wrapCoord( p.div( 4e-5 ) ).add( 2.7 ).toVar(), pvq = wrapCoord( p.div( 1.5e-4 ) ).add( 8.3 ).toVar();
 	const CL = gate( fadeOn( 2e-4, fp, 1.0 ), { silt: 0, pore: 0 }, () => {
 
 		const G = gate( fadeOn( 4e-5, fp, 2.0 ), { glint: 0, pore: 0 }, () => {

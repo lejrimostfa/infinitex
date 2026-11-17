@@ -14,6 +14,7 @@
 
 import { vec2, float, mix, smoothstep, step, mod, cos, sin } from 'three/tsl';
 import { fadeIn, hash3, valueNoise, voronoi } from '../../kit.js';
+import { wrapCoord } from '../../core/hash.js';
 
 const PORE_R = 0.2, J1 = 0.6; // void radius and jitter of L1 (cells): a void never crosses its cell
 const PIT_R = 0.3, PIT_P = 0.18; // pit radius (cells), share of cells with a pit
@@ -62,7 +63,7 @@ export function scratches( p, fp, u, stone ) {
 	const a = valueNoise( p.div( 0.02 ).add( u.seed.mul( 5.1 ) ) ).mul( Math.PI * 2 );
 	const ca = cos( a ), sa = sin( a );
 	const r = vec2( p.x.mul( ca ).add( p.y.mul( sa ) ), p.y.mul( ca ).sub( p.x.mul( sa ) ) );
-	const q = mod( vec2( r.x.div( P.mul( 40 ) ), r.y.div( P ) ), 4096 );
+	const q = wrapCoord( vec2( r.x.div( P.mul( 40 ) ), r.y.div( P ) ) );
 	const line = smoothstep( 0.72, 0.92, valueNoise( q ) );
 	const across = valueNoise( q.add( vec2( 0, 0.5 ) ) ).sub( valueNoise( q.sub( vec2( 0, 0.5 ) ) ) );
 	const k = u.scratches.mul( w ).mul( stone.mul( 0.7 ).add( 0.3 ) );

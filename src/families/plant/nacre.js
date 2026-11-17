@@ -20,7 +20,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod, fract, floor, cos } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, fbm, cells } from './common.js';
 
@@ -45,7 +45,7 @@ export function buildNacre( p, fp, u ) {
 	// Nacre: film thickness in flames along the contours.
 	const flame = fbm( vec2( z.div( 0.004 ), ang.mul( 3 ) ).mul( 0.01 ).add( 5 ), float( 0.01 ), fp, 4, 7 );
 	const cq = z.div( 1.8e-4 );
-	const cq2 = cq.add( valueNoise( mod( vec2( cq.mul( 0.3 ), ang.mul( 400 ) ), 4096 ) ).mul( 0.8 ) );
+	const cq2 = cq.add( valueNoise( wrapCoord( vec2( cq.mul( 0.3 ), ang.mul( 400 ) ) ) ).mul( 0.8 ) );
 	const wC = fadeIn( float( 1.8e-4 ), fp, 3.0, 8.0 );
 	const contour = fract( cq2 );
 	const cline = band( float( 0.5 ).sub( contour.sub( 0.5 ).abs() ).mul( 1.8e-4 ), float( 4e-6 ), fp ).mul( wC );
@@ -55,13 +55,13 @@ export function buildNacre( p, fp, u ) {
 	// terraces span 3 px (their widest fades).
 	const T = gate( fadeOn( cm, fp, 3.0 ).or( fadeOn( 2e-5, fp, 3.0 ) ), { wall: 0, tone: 0, sT: [ 0, 0 ], tEdge: 0 }, () => {
 
-		const tk = floor( z.div( 2e-5 ).add( valueNoise( mod( p.div( 6e-5 ), 4096 ) ).mul( 0.8 ) ) );
+		const tk = floor( z.div( 2e-5 ).add( valueNoise( wrapCoord( p.div( 6e-5 ) ) ).mul( 0.8 ) ) );
 		const tkm = mod( tk, 512 );
 		const C = cells( p.add( vec2( hash1( vec2( tkm, 1.1 ) ), hash1( vec2( tkm, 2.3 ) ) ).mul( cm.mul( 7 ) ) ), fp, cm, cm.mul( 0.03 ), s.mul( 3.3 ), 0, 0.02 );
 		const ht = hash3( C.V.id1.add( tkm.mul( 0.37 ) ) );
 		return {
 			wall: C.wall, tone: ht.x.sub( 0.5 ).mul( 0.2 ).mul( C.w ), sT: ht.yz.sub( 0.5 ).mul( 0.012 ).mul( C.w ),
-			tEdge: band( fract( z.div( 2e-5 ).add( valueNoise( mod( p.div( 6e-5 ), 4096 ) ).mul( 0.8 ) ) ).sub( 0.5 ).abs().sub( 0.5 ).mul( 2e-5 ), float( 6e-7 ), fp ).mul( fadeIn( float( 2e-5 ), fp, 3.0, 8.0 ) ),
+			tEdge: band( fract( z.div( 2e-5 ).add( valueNoise( wrapCoord( p.div( 6e-5 ) ) ).mul( 0.8 ) ) ).sub( 0.5 ).abs().sub( 0.5 ).mul( 2e-5 ), float( 6e-7 ), fp ).mul( fadeIn( float( 2e-5 ), fp, 3.0, 8.0 ) ),
 		};
 
 	}, [ p, fp, z ] );
@@ -80,7 +80,7 @@ export function buildNacre( p, fp, u ) {
 
 	// Prismatic band: white calcite prisms seen end on. Only on the band
 	// (prism > 0).
-	const pq = mod( p.div( 3e-5 ), 4096 ).add( 7.7 ).toVar();
+	const pq = wrapCoord( p.div( 3e-5 ) ).add( 7.7 ).toVar();
 	const P = gate( prism.greaterThan( 0 ), { color: [ 0, 0, 0 ], slope: [ 0, 0 ] }, () => {
 
 		const C = cells( p, fp, float( 3e-5 ), 1e-6, 7.7, 0.1, 0.15, pq );

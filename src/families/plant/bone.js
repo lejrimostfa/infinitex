@@ -18,7 +18,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod, floor, fract, max } from 'three/tsl';
 import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, lines, fbm, scratches } from './common.js';
 
@@ -41,8 +41,8 @@ export function buildBone( p, fp, u ) {
 	// Outer surface: stains, growth lines, striation, foramina.
 	const stain = smoothstep( 0.45, 0.85, fbm( p, float( 0.08 ), fp, 4, 3 ) );
 	const growth = lines( tx.add( fbm( p, float( 0.05 ), fp, 2, 6 ).mul( 0.01 ) ), float( 0.004 ), 4e-4, fp, 2.0, 6.0 ).mul( u.bands );
-	const striaN = valueNoise( mod( vec2( tx.add( 1 ).div( 0.004 ), ty.add( 1 ).div( 1.2e-4 ) ), 4096 ) ).sub( 0.5 ).mul( fadeIn( float( 1.2e-4 ), fp, 2.0, 5.0 ) );
-	const F = voronoi( mod( q.div( 0.004 ), 4096 ).add( s ), 0.8 );
+	const striaN = valueNoise( wrapCoord( vec2( tx.add( 1 ).div( 0.004 ), ty.add( 1 ).div( 1.2e-4 ) ) ) ).sub( 0.5 ).mul( fadeIn( float( 1.2e-4 ), fp, 2.0, 5.0 ) );
+	const F = voronoi( wrapCoord( q.div( 0.004 ) ).add( s ), 0.8 );
 	const hf = hash3( F.id1.add( 5.5 ) );
 	const fv = F.toSeed.mul( 0.004 );
 	const fr = hf.x.mul( 1.5e-4 ).add( 4e-5 ); // half width across the axis
@@ -55,8 +55,8 @@ export function buildBone( p, fp, u ) {
 	// lacunae 2 px (their widest fades). The lacunae's Voronoi stays out
 	// of the branch: inside it, the lens edges round differently.
 	const lc = u.cellM;
-	const oq = mod( q.div( ost ), 4096 ).add( s.mul( 2.1 ) ).toVar();
-	const LV = voronoi( mod( q.div( lc ), 4096 ).add( 3.3 ), 0.7 );
+	const oq = wrapCoord( q.div( ost ) ).add( s.mul( 2.1 ) ).toVar();
+	const LV = voronoi( wrapCoord( q.div( lc ) ).add( 3.3 ), 0.7 );
 	const lSeed = LV.toSeed.toVar(), lId = LV.id1;
 	const O = gate( fadeOn( ost, fp, 2.5 ).or( fadeOn( lc.mul( 0.3 ), fp, 2.0 ) ), { tone: 0, cement: 0, lam: 0, canRim: 0, canal: 0, canTone: 0, lac: 0, wO: 0 }, () => {
 
@@ -104,8 +104,8 @@ export function buildBone( p, fp, u ) {
 
 	// Spongy bone: struts around cavities, two scales of holes. It runs
 	// only inside the cut (spongy > 0).
-	const tq = mod( p.div( 1.8e-3 ), 4096 ).add( s.mul( 3.7 ) ).toVar();
-	const t2q = mod( p.div( 6e-4 ), 4096 ).add( 9.2 ).toVar();
+	const tq = wrapCoord( p.div( 1.8e-3 ) ).add( s.mul( 3.7 ) ).toVar();
+	const t2q = wrapCoord( p.div( 6e-4 ) ).add( 9.2 ).toVar();
 	const SP = gate( spongy.greaterThan( 0 ), { spF: [ 0, 0, 0 ], sCav: [ 0, 0 ], bone2: 0, wT: 0 }, () => {
 
 		const T = voronoi( tq.add( vec2( valueNoise( tq.mul( 1.7 ) ), valueNoise( tq.mul( 1.7 ).add( 5.3 ) ) ).sub( 0.5 ).mul( 0.7 ) ), 0.9 );
@@ -117,7 +117,7 @@ export function buildBone( p, fp, u ) {
 		const depth = smoothstep( strutW, strutW.add( 0.35 ), T.edge ); // deeper toward a cavity centre
 		// Struts are round: lit on top, shaded toward their flanks.
 		const strutTop = float( 1 ).sub( T.edge.div( strutW.max( 0.01 ) ).clamp( 0, 1 ).pow( 2 ).mul( 0.35 ) );
-		const marrow = u.color3.mul( float( 1 ).sub( depth.mul( 0.85 ) ) ).mul( float( 1 ).sub( hole2.mul( 0.6 ) ) ).mul( valueNoise( mod( p.div( 2e-4 ), 4096 ) ).mul( 0.4 ).add( 0.8 ) );
+		const marrow = u.color3.mul( float( 1 ).sub( depth.mul( 0.85 ) ) ).mul( float( 1 ).sub( hole2.mul( 0.6 ) ) ).mul( valueNoise( wrapCoord( p.div( 2e-4 ) ) ).mul( 0.4 ).add( 0.8 ) );
 		const wT = fadeIn( float( 1.8e-3 ), fp, 2.0, 5.0 );
 		const sp = mix( marrow, cutCol.mul( strutTop ), bone2 );
 		return {
@@ -134,7 +134,7 @@ export function buildBone( p, fp, u ) {
 	// with deep cavities; saw marks across the cut.
 	const sawn = lines( p.dot( dir2( 1.4 ) ), float( 3e-4 ), 6e-5, fp, 2.0, 6.0 ).mul( cutM ).mul( u.polish.oneMinus() );
 	const h = foramen.mul( - 1e-4 ).sub( foramenRim.mul( 2e-5 ) ).sub( canal.mul( 3e-6 ) ).sub( growth.mul( 1e-5 ) ).add( sawn.mul( 3e-6 ) );
-	const slope = surfaceGradient( h, p ).add( SP.sCav ).add( vec2( 0, striaN.mul( 0.08 ) ) ).add( ax.mul( valueNoise( mod( p.div( 0.02 ), 4096 ) ).sub( 0.5 ).mul( 0.06 ) ) );
+	const slope = surfaceGradient( h, p ).add( SP.sCav ).add( vec2( 0, striaN.mul( 0.08 ) ) ).add( ax.mul( valueNoise( wrapCoord( p.div( 0.02 ) ) ).sub( 0.5 ).mul( 0.06 ) ) );
 	const scr = scratches( p, fp, float( 4e-4 ), 1e-6, u.polish.mul( 0.5 ), 5 );
 	color = color.mul( scr.mul( 0.06 ).add( 1 ) );
 	const rough = mix( float( 0.6 ), float( 0.25 ), u.polish ).add( spongy.mul( float( 1 ).sub( bone2 ) ).mul( 0.3 ) ).add( stain.mul( - 0.08 ) ).mul( u.roughness.div( 0.45 ) ).clamp( 0.08, 1 );

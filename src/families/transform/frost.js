@@ -16,7 +16,7 @@
 
 import { vec2, float, floor, fract, mix, smoothstep, step, abs, cos, sin, clamp, mod } from 'three/tsl';
 import { fadeIn, pick } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { grains, line, fbm } from '../ground/grains.js';
 import { beads } from './drops.js';
@@ -30,7 +30,7 @@ function sideBranches( x, y, sp, salt ) {
 	const ay = abs( y );
 	const q = x.sub( ay.mul( COT ) ).div( sp );
 	const k = floor( q );
-	const h = hash3( vec2( mod( k, 4096 ), step( 0, y ).add( salt ) ) );
+	const h = hash3( vec2( wrapCoord( k ), step( 0, y ).add( salt ) ) );
 	const b = fract( q ).sub( 0.5 ).sub( h.x.sub( 0.5 ).mul( 0.35 ) ).mul( sp ).mul( SIN );
 	return { a: ay.div( SIN ), b, base: k.add( 0.5 ).mul( sp ), h };
 
@@ -43,7 +43,7 @@ const tip = ( a, len, fp ) => clamp( len.sub( a ).div( fp ).add( 0.5 ), 0, 1 );
 function feathers( p, g, fp, u, prog, salt, hero = null ) {
 
 	const V = hero ? { toSeed: p.sub( vec2( ...hero.at ) ).div( g ), id1: vec2( 7, 3 ) }
-		: voronoi( mod( p.div( g ), 4096 ).add( u.seed.mul( 2.3 ) ).add( salt ), 0.85 );
+		: voronoi( wrapCoord( p.div( g ) ).add( u.seed.mul( 2.3 ) ).add( salt ), 0.85 );
 	const id = hash3( V.id1.add( 3.9 + salt ) );
 	const ang = hero ? float( hero.ang ) : id.x.mul( 6.2832 );
 	const d = vec2( cos( ang ), sin( ang ) ), n = vec2( sin( ang ).negate(), cos( ang ) );
@@ -82,7 +82,7 @@ function feathers( p, g, fp, u, prog, salt, hero = null ) {
 	const br3 = line( B3.b, sp3.mul( 0.13 ).mul( B3.a.div( L3.max( 1e-7 ) ).oneMinus().max( 0.15 ) ), fp ).mul( on3 ).mul( f3 );
 
 	// A pixel too coarse for a level sees its mean cover.
-	const fill1 = on1.mul( 0.22 ).mul( valueNoise( mod( p.div( sp1 ), 4096 ).add( 4.4 ) ).mul( 0.8 ).add( 0.6 ) ).mul( f1.oneMinus() );
+	const fill1 = on1.mul( 0.22 ).mul( valueNoise( wrapCoord( p.div( sp1 ) ).add( 4.4 ) ).mul( 0.8 ).add( 0.6 ) ).mul( f1.oneMinus() );
 	const fill2 = on2.mul( 0.45 ).mul( f2.oneMinus() ).mul( f1 );
 	const fill3 = on3.mul( 0.5 ).mul( f3.oneMinus() ).mul( f2 );
 	const ice = stem.max( br1 ).max( br2 ).max( br3 ).max( fill1 ).max( fill2 ).max( fill3 ).toVar();

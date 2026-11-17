@@ -22,7 +22,7 @@
 
 import { vec2, vec3, float, fract, floor, mix, smoothstep, step, sin, atan, mod, clamp } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { crystals } from '../stone/crystals.js';
 import { fbm, band, cells, grains, warp2 } from './common.js';
@@ -66,7 +66,7 @@ export function buildPetrified( p, fp, u ) {
 	const check = band( ck, float( 8e-4 ).mul( valueNoise( vec2( r.div( 0.01 ), th.mul( 5 ) ) ).add( 0.2 ) ).mul( smoothstep( 0.02, 0.06, r ) ), fp );
 	color = mix( color, vec3( 0.86, 0.84, 0.8 ), check );
 	// Quartz pockets: rind, then crystals growing inward.
-	const Q = voronoi( mod( p.div( 0.03 ), 4096 ).add( 4.4 ), 0.8 );
+	const Q = voronoi( wrapCoord( p.div( 0.03 ) ).add( 4.4 ), 0.8 );
 	const qk = hash3( Q.id1 );
 	const qd = Q.toSeed.length().div( qk.x.mul( 0.15 ).add( 0.12 ) ).add( valueNoise( Q.toSeed.mul( 6 ).add( qk.yz.mul( 9 ) ) ).mul( 0.3 ) );
 	const pocket = step( qk.z, u.density.mul( 0.3 ) ).mul( clamp( float( 1 ).sub( qd ).mul( 0.006 ).div( fp ).add( 0.5 ), 0, 1 ) );
@@ -97,7 +97,7 @@ export function buildCoal( p, fp, u ) {
 	const cleat = band( fract( cx ).sub( 0.5 ).mul( 0.04 ), float( 1.2e-4 ).mul( step( 0.3, hash3( vec2( floor( cx ), floor( by.div( 0.02 ) ) ) ).x ) ), fp );
 	// L1: shells. Strongly warped cells: their borders curve.
 	const w = p.add( warp2( p, g.mul( 1.5 ), 3.3 ).mul( g.mul( 0.9 ) ) );
-	const V = voronoi( mod( w.div( g ), 4096 ).add( 3.3 ), 0.9 );
+	const V = voronoi( wrapCoord( w.div( g ) ).add( 3.3 ), 0.9 );
 	const k = hash3( V.id1 );
 	const o = V.toSeed.add( k.xy.sub( 0.5 ).mul( 0.8 ) ); // origin of the shell, off centre
 	const ro = o.length();

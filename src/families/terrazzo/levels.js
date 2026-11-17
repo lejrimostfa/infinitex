@@ -23,10 +23,11 @@
 import { vec2, float, mix, smoothstep, step, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate, pick, hash3, valueNoise, voronoi } from '../../kit.js';
 import { grains, crystals, scratches, pits, PIT_COVER, VOID_COVER, S2F } from './fine.js';
+import { wrapCoord } from '../../core/hash.js';
 
 const FINE = 0.3; // fine chips: size against the large ones
 const S2 = { chips: 0.004, edge: 0.001 }; // slope variance of L0
-const cells = ( p, size, off ) => mod( p.div( size ), 4096 ).add( off ).toVar(); // before a gate
+const cells = ( p, size, off ) => wrapCoord( p.div( size ) ).add( off ).toVar(); // before a gate
 
 // What the whole matter averages to. Exact for the colour: each stone is
 // a third of the chips, every tone has zero mean, the chip, void and pit

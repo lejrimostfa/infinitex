@@ -15,7 +15,7 @@
 
 import { vec2, float, floor, cos, sin, clamp, step, mod } from 'three/tsl';
 import { pick, gate } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 
 // One candidate hair laid over the state st.
 function hair( lp, id, cellM, w, share, fp, salt, ang, spread, lenK, h, st ) {
@@ -42,7 +42,7 @@ function hair( lp, id, cellM, w, share, fp, salt, ang, spread, lenK, h, st ) {
 
 export function hairs( p, cellM, w, share, fp, salt, ang, spread = 0.5, lenK = 1.0 ) {
 
-	const q = mod( p.div( cellM ), 4096 ).toVar();
+	const q = wrapCoord( p.div( cellM ) ).toVar();
 	const c0 = floor( q ).toVar();
 	const A = ang.toVar();
 	const reach = float( lenK * 1.01 + 0.01 ).add( w.mul( 1.3 ).add( fp.mul( 1.01 ) ).div( cellM ) );

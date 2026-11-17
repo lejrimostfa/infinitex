@@ -11,7 +11,7 @@
 
 import { vec2, float, floor, fract, abs, cos, sin, mod, clamp, step, sqrt } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { fbm } from '../stone/common.js';
 import { bubbleField, capSlope } from '../ceramic/bubbles.js';
 import { crystals } from '../stone/crystals.js';
@@ -76,7 +76,7 @@ export function vesicles( q, fp, cellM, density, salt, depth = 0.7 ) {
 // Laths in a glass: share of the cells that hold one, tilt of its face.
 export function microlites( q, fp, sizeM, salt, share = 0.45, tilt = 1.2 ) {
 
-	const C = crystals( mod( q.div( sizeM ), 4096 ).add( salt ), { elong: 3, size: 0.3, square: 0.6 } );
+	const C = crystals( wrapCoord( q.div( sizeM ) ).add( salt ), { elong: 3, size: 0.3, square: 0.6 } );
 	const h = hash3( C.id1.add( salt + 3.3 ) );
 	const w = fadeIn( sizeM, fp, 1.5, 4.0 );
 	const lath = clamp( float( 0.32 ).sub( C.d1 ).mul( sizeM ).div( fp ).add( 0.5 ), 0, 1 ).mul( step( h.z, share ) );

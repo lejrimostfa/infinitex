@@ -7,7 +7,7 @@
 
 import { vec2, float, floor, step } from 'three/tsl';
 import { pick } from './lod.js';
-import { hash3, wrapId } from './hash.js';
+import { hash3, wrapId, wrapCoord } from './hash.js';
 
 export function voronoi( x, jitter = 0.85 ) {
 
@@ -17,7 +17,7 @@ export function voronoi( x, jitter = 0.85 ) {
 	for ( let oy = - 1; oy <= 1; oy ++ ) for ( let ox = - 1; ox <= 1; ox ++ ) {
 
 		const id = cell.add( vec2( ox, oy ) );
-		const wid = wrapId( id ); // periodic ids: a caller's mod( x, 4096 ) is seamless
+		const wid = wrapId( id ); // periodic ids: a caller's wrapCoord( x ) is seamless
 		const p = id.add( 0.5 ).add( hash3( wid ).xy.sub( 0.5 ).mul( jitter ) );
 		const d = x.sub( p ).dot( x.sub( p ) );
 		const first = step( d, d1 ); // 1 when d <= d1: new nearest

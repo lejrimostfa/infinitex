@@ -17,7 +17,7 @@
 
 import { vec2, float, mix, smoothstep, clamp, mod } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { valueNoise } from '../../core/hash.js';
+import { valueNoise, wrapCoord } from '../../core/hash.js';
 import { arrival, heroSeed, rough, ageMeters } from '../../core/front.js';
 import { fbm } from '../stone/common.js';
 import { grains } from '../ground/grains.js';
@@ -46,7 +46,7 @@ export function buildRust( p, fp, u, prog ) {
 	const reached = F.aa( float( 0 ) ).toVar();
 	const bW = W.mul( 0.45 );
 	const lift = smoothstep( bW.negate(), float( 0 ), age ).mul( reached.oneMinus() ).toVar();
-	const isleN = vn( mod( p.div( 2.5e-3 ), 4096 ).add( 7.7 ) ).add( vn( mod( p.div( 7e-4 ), 4096 ).add( 1.2 ) ).sub( 0.5 ).mul( 0.12 ) ).toVar();
+	const isleN = vn( wrapCoord( p.div( 2.5e-3 ) ).add( 7.7 ) ).add( vn( wrapCoord( p.div( 7e-4 ) ).add( 1.2 ) ).sub( 0.5 ).mul( 0.12 ) ).toVar();
 	const isle = smoothstep( 0.6, 0.62, isleN ).mul( smoothstep( W.mul( 0.8 ), float( 0 ), age ) ).mul( reached );
 	const rust = reached.mul( isle.oneMinus() ).max( scratch.mul( reached ) ).toVar();
 	const fresh = smoothstep( W, float( 0 ), age );
@@ -58,7 +58,7 @@ export function buildRust( p, fp, u, prog ) {
 
 	// Paint.
 	const OP = orangePeel( p, fp, float( 1 ) );
-	const pg = vn( mod( p.div( 3e-5 ), 4096 ).add( 1.3 ) ).sub( 0.5 ).mul( fadeIn( 3e-5, fp, 2.0, 6.0 ) );
+	const pg = vn( wrapCoord( p.div( 3e-5 ) ).add( 1.3 ) ).sub( 0.5 ).mul( fadeIn( 3e-5, fp, 2.0, 6.0 ) );
 	let paint = u.color.mul( fbm( p.add( 4.4 ), float( 0.05 ), fp, 3, 2 ).mul( 0.16 ).add( 0.92 ) ).mul( pg.mul( 0.12 ).add( 1 ) );
 	paint = mix( paint, paint.mul( u.color4 ).mul( 1.6 ), lift.mul( 0.2 ).add( blister.mul( Bl.h ).mul( 0.3 ) ) );
 	// Rust: orange to brown, with its crust.
@@ -68,7 +68,7 @@ export function buildRust( p, fp, u, prog ) {
 	const patchy = fbm( p.add( 3.1 ), float( 0.015 ), fp, 4, 3 );
 	const rc = mix( mix( u.color2, u.color4.mul( 0.7 ), smoothstep( 0.4, 0.75, patchy ).mul( 0.7 ) ), u.color4, fresh.mul( 0.6 ) );
 	const rustC = mix( rc, u.color2.mul( 0.45 ), G.dark ).mul( G.tone );
-	const steel = u.color3.mul( vn( mod( p.div( 2e-4 ), 4096 ).add( 1.4 ) ).mul( 0.2 ).add( 0.9 ) );
+	const steel = u.color3.mul( vn( wrapCoord( p.div( 2e-4 ) ).add( 1.4 ) ).mul( 0.2 ).add( 0.9 ) );
 	let col = mix( paint, steel, scratch.mul( reached.oneMinus() ) );
 	col = mix( col, rustC, rust );
 	// Shadow under the curled edge of a paint island.

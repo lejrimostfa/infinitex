@@ -23,6 +23,7 @@ import { fbm, line } from '../families/ground/grains.js';
 import { blobs, dome, lens, over, hero } from './states_shape.js';
 import { stains, threadShare } from './states_stain.js';
 import { lay } from './states.js';
+import { wrapCoord } from './hash.js';
 
 // Liquid caps: lay them and give the clear coat their normal.
 function caps( nodes, ctx, D, { color, rough, slope, coat } ) {
@@ -87,7 +88,7 @@ export function buildBlood( nodes, ctx ) {
 	color = color.mul( lens( D, down, fp, age.oneMinus().mul( 0.5 ) ) );
 	// L1 dried crust cracks into flakes.
 	const wC = fadeIn( float( 4e-4 ), fp, 2.0, 6.0 );
-	const V = voronoi( mod( p.div( 4e-4 ), 4096 ).add( 6.6 ), 0.85 );
+	const V = voronoi( wrapCoord( p.div( 4e-4 ) ).add( 6.6 ), 0.85 );
 	const crack = line( V.edge.mul( 4e-4 ), float( 1.2e-5 ), fp ).mul( wC ).mul( smoothstep( 0.4, 0.9, age ) ).mul( thin.oneMinus() );
 	color = color.mul( float( 1 ).sub( crack.mul( 0.7 ) ) );
 	const slope = dome( D, fp, mix( float( 0.15 ), float( 0.06 ), age ) ).add( V.dir.mul( smoothstep( 0.08, 0.0, V.edge ) ).mul( 0.3 ).mul( crack ).mul( D.cov ) );

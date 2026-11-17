@@ -14,7 +14,7 @@
 
 import { float, floor, clamp, step, mod } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 
 export function bubbleField( q, fp, cellM, density, salt = 0 ) {
 
@@ -26,7 +26,7 @@ export function bubbleField( q, fp, cellM, density, salt = 0 ) {
 // the cell coordinates are taken before it (as a .toVar()), bubbleAt()
 // runs inside. Its fade is zero wherever fadeOn( cellM * 0.77, fp, 1 ) is
 // false (the radius is under 0.38 cells, a margin for rounding).
-export const bubbleCells = ( q, cellM, salt = 0 ) => mod( q.div( cellM ), 4096 ).add( salt ); // mod: hashes stay exact
+export const bubbleCells = ( q, cellM, salt = 0 ) => wrapCoord( q.div( cellM ) ).add( salt ); // mod: hashes stay exact
 
 export function bubbleAt( x, fp, cellM, density, salt = 0 ) {
 

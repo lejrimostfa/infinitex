@@ -15,7 +15,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod, fract, floor } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash1, valueNoise } from '../../core/hash.js';
+import { hash1, valueNoise, wrapCoord } from '../../core/hash.js';
 import { dir2, band, lines, fbm, scratches, cells } from './common.js';
 
 export function buildHorn( p, fp, u ) {
@@ -51,7 +51,7 @@ export function buildHorn( p, fp, u ) {
 	const wR = fadeIn( rs, fp, 3.0, 8.0 );
 	const ridgeH = hash1( vec2( rId, 3.3 ) ).mul( 0.6 ).add( 0.4 );
 	const sRidge = ay.mul( rf.mul( - 2 ).mul( ridgeH ).mul( 0.05 ) ).mul( wR ).mul( u.ridges );
-	const tub = valueNoise( mod( vec2( g.x.div( 2e-3 ), gy.div( 6e-5 ) ), 4096 ) ).sub( 0.5 ).mul( fadeIn( float( 6e-5 ), fp, 2.0, 5.0 ) );
+	const tub = valueNoise( wrapCoord( vec2( g.x.div( 2e-3 ), gy.div( 6e-5 ) ) ) ).sub( 0.5 ).mul( fadeIn( float( 6e-5 ), fp, 2.0, 5.0 ) );
 
 	// Layer edges: wavy steps across the grain.
 	const lq0 = g.x.add( valueNoise( vec2( gy.div( 1.5e-3 ), 5.5 ) ).mul( 6e-4 ) ).div( 1.2e-3 );
@@ -67,7 +67,7 @@ export function buildHorn( p, fp, u ) {
 
 	// Squames and melanin granules.
 	const C = cells( vec2( g.x.mul( 0.6 ), gy ), fp, cm.mul( 0.6 ), cm.mul( 0.02 ), s.mul( 3.9 ), 0.15, 0.06 );
-	const mel = step( 0.8, hash1( floor( mod( p.div( 1.5e-6 ), 4096 ) ) ) ).mul( fadeIn( float( 3e-6 ), fp, 2.0, 5.0 ) ).mul( dark );
+	const mel = step( 0.8, hash1( floor( wrapCoord( p.div( 1.5e-6 ) ) ) ) ).mul( fadeIn( float( 3e-6 ), fp, 2.0, 5.0 ) ).mul( dark );
 
 	// Colour.
 	let color = u.color.mul( fbm( p, float( 0.03 ), fp, 3, 9 ).sub( 0.5 ).mul( u.colorVar ).add( 1 ) );

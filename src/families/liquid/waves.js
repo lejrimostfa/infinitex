@@ -19,7 +19,7 @@
 
 import { vec2, vec3, float, cos, sin, mod, smoothstep } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash1, valueNoise } from '../../core/hash.js';
+import { hash1, valueNoise, wrapCoord } from '../../core/hash.js';
 
 export const G = 9.81, SIGMA = 7.28e-5;
 
@@ -63,17 +63,17 @@ export function waveField( p, fp, o ) {
 	const N = o.count ?? 20;
 	const lmax = float( o.lmax ), lmin = float( o.lmin );
 	// The crests are never straight: a slow warp of a quarter wave.
-	// The noises below read p + 256 m: mod( .., 4096 ) keeps hashes exact
+	// The noises below read p + 256 m: wrapCoord( .. ) keeps hashes exact
 	// but jumps where its argument crosses 0, which cut world-space water
 	// (a pool centred on the origin) into squares.
 	const pp = p.add( 256 );
-	const wq = mod( pp.div( lmax.mul( 3 ) ), 4096 ).add( o.seed );
+	const wq = wrapCoord( pp.div( lmax.mul( 3 ) ) ).add( o.seed );
 	const warp = vec2( valueNoise( wq ), valueNoise( wq.add( 5.2 ) ) ).sub( 0.5 ).mul( lmax ).mul( 0.5 );
 	const pw = p.add( warp );
 	// Wave groups: each wave is strong in some patches and weak in others
 	// (its own mix of two drifting noises), so the sum never reads as a
 	// plaid of long straight crests.
-	const eq = mod( pp.sub( vec2( cos( o.angle ), sin( o.angle ) ).mul( float( o.t ).mul( 0.1 ) ) ).div( lmax.mul( 1.6 ) ), 4096 ).add( o.seed.mul( 1.7 ) );
+	const eq = wrapCoord( pp.sub( vec2( cos( o.angle ), sin( o.angle ) ).mul( float( o.t ).mul( 0.1 ) ) ).div( lmax.mul( 1.6 ) ) ).add( o.seed.mul( 1.7 ) );
 	const E = vec2( valueNoise( eq ), valueNoise( eq.add( 7.7 ) ) ).sub( 0.5 );
 	let slope = vec2( 0 ), lap = float( 0 ), h = float( 0 ), s2 = float( 0 ), hess = vec3( 0 );
 	for ( let i = 0; i < N; i ++ ) {
@@ -115,7 +115,7 @@ export function waveField( p, fp, o ) {
 export function gusts( p, angle, t, sizeM = 0.08, salt = 0 ) {
 
 	const wind = vec2( cos( angle ), sin( angle ) );
-	const q = mod( p.add( 256 ).sub( wind.mul( t.mul( 0.04 ) ) ).div( sizeM ), 4096 ).add( salt ); // + 256 m: see waveField
+	const q = wrapCoord( p.add( 256 ).sub( wind.mul( t.mul( 0.04 ) ) ).div( sizeM ) ).add( salt ); // + 256 m: see waveField
 	const n = valueNoise( q ).mul( 0.65 ).add( valueNoise( q.mul( 2.3 ).add( 3.1 ) ).mul( 0.35 ) );
 	return smoothstep( 0.3, 0.7, n );
 

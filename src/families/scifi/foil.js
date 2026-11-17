@@ -14,7 +14,7 @@
 
 import { vec2, float, clamp, mod, mix } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { scratchMarks } from '../../core/marks.js';
 import { fbm } from '../stone/common.js';
@@ -26,7 +26,7 @@ function facets( p, fp, S, amp, salt ) {
 	// A warp makes the facets uneven polygons, some long, some small.
 	const wq = p.div( S.mul( 1.7 ) ).add( salt );
 	const warp = vec2( valueNoise( wq ), valueNoise( wq.add( 9.1 ) ) ).sub( 0.5 ).mul( 0.9 );
-	const V = voronoi( mod( p.div( S ).add( warp ), 4096 ).add( salt ), 1.0 );
+	const V = voronoi( wrapCoord( p.div( S ).add( warp ) ).add( salt ), 1.0 );
 	const a = hash3( V.id1.add( salt.mul( 0.31 ) ) ), b = hash3( V.id2.add( salt.mul( 0.31 ) ) );
 	const w = fadeIn( S, fp, 1.5, 4.0 );
 	const dM = V.edge.mul( S );

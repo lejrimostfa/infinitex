@@ -19,7 +19,7 @@
 import { vec2, vec3, float, floor, fract, mix, exp, log, clamp, smoothstep, step, mod, pow } from 'three/tsl';
 import { ixTime } from '../../core/clock.js';
 import { fadeIn } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { viewTangent } from '../../core/optics.js';
 import { filmReflectance, opdBlur } from '../../core/thinfilm.js';
 import { fbm } from '../stone/common.js';
@@ -39,10 +39,10 @@ function spots( p, fp, t, seed ) {
 
 	const C = 0.004;
 	const lane = floor( p.x.div( C ) );
-	const hl = hash3( vec2( mod( lane, 4096 ), seed.add( 2.2 ) ) );
+	const hl = hash3( vec2( wrapCoord( lane ), seed.add( 2.2 ) ) );
 	const v = hl.x.mul( 0.03 ).add( 0.01 );
 	const qy = p.y.sub( v.mul( t ) ).div( C );
-	const h = hash3( vec2( mod( lane, 4096 ), mod( floor( qy ), 4096 ) ).add( 0.71 ) );
+	const h = hash3( vec2( wrapCoord( lane ), wrapCoord( floor( qy ) ) ).add( 0.71 ) );
 	const r = h.x.mul( 0.25 ).add( 0.08 );
 	const f = vec2( fract( p.x.div( C ) ), fract( qy ) ).sub( vec2( hl.y.mul( 0.4 ).add( 0.3 ), h.y.mul( 0.4 ).add( 0.3 ) ) );
 	const d = f.mul( vec2( 1, 0.8 ) ).length();

@@ -9,7 +9,7 @@
 
 import { vec2, float, floor, fract, mix, smoothstep, step, clamp, mod } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { grainFrame } from './board.js';
 
@@ -61,7 +61,7 @@ export function buildBark( p, fp, u ) {
 	const cup = smoothstep( 0.35, 0.1, cups.toSeed.length() ).mul( fadeIn( R.mul( 0.02 ), fp, 2.0, 6.0 ) );
 	color = mix( color, u.lichenColor.mul( cup.mul( 0.25 ).add( 0.85 ) ), lich );
 	// Cork cells everywhere, fibres along the fissures.
-	const C = voronoi( mod( p.div( u.cellM ), 4096 ).add( 1.7 ), 0.6 ); // mod: hashes stay exact
+	const C = voronoi( wrapCoord( p.div( u.cellM ) ).add( 1.7 ), 0.6 ); // mod: hashes stay exact
 	const wC = fadeIn( u.cellM, fp, 2.0, 6.0 );
 	const cw = float( 1 ).sub( smoothstep( 0.03, 0.1, C.edge ) ).mul( wC );
 	const fib = hash1( vec2( floor( y.div( u.fiberM.mul( 3 ) ) ), floor( x.div( u.fiberM.mul( 80 ) ) ) ) ).sub( 0.5 ).mul( fadeIn( u.fiberM.mul( 3 ), fp, 2.0, 6.0 ) ).mul( t.oneMinus() ).mul( 0.3 );

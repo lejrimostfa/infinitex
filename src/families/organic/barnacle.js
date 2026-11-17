@@ -15,7 +15,7 @@
 
 import { vec2, vec3, float, fract, floor, mix, smoothstep, step, clamp, atan, abs, mod, cos, sin } from 'three/tsl';
 import { fadeIn, pick } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { fbm, band, grains } from './common.js';
 
@@ -23,7 +23,7 @@ const R0 = 0.36; // radius of the opening rim, share of the base radius
 
 function cone( p, g, fp, salt, u ) {
 
-	const V = voronoi( mod( p.div( g ), 4096 ).add( salt ), 0.8 );
+	const V = voronoi( wrapCoord( p.div( g ) ).add( salt ), 0.8 );
 	const k = hash3( V.id1.add( salt ) ), k2 = hash3( V.id1.add( salt + 9.1 ) );
 	const t = V.toSeed;
 	const tl = t.length().max( 1e-4 );

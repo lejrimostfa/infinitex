@@ -196,7 +196,7 @@ flowchart LR
 
 - **Footprint.** At the top of every material, screen derivatives give the size of one pixel in surface metres (`src/core/lod.js`).
 - **Fade in, never pop.** A level of period *P* appears between 2 and 6 pixels per period (`fadeIn`). Below that it would alias, so it fades out and hands its slope variance to the roughness (Toksvig, LEAN). Far away, a fabric keeps the sheen of the fibres you can no longer see.
-- **No textures.** Everything comes from hashes, value noise, Voronoi cells and analytic shapes. Cell ids are hashed modulo 4096, so patterns are exact and seamless anywhere in space.
+- **No textures.** Everything comes from hashes, value noise, Voronoi cells and analytic shapes. Cell ids are hashed modulo 4096 and coordinates folded around 0 (`wrapCoord`), so patterns are exact and seamless anywhere in space, negative coordinates included.
 - **Light.** Each family reports a cavity signal. It becomes ambient and specular occlusion, and micro-shadowing for the key light (Chan 2018), so a pore or a crack darkens like a real one.
 - **Reproducible time.** Animated matters (lava, water, burning paper) read one clock, `ixTime`. Films render frame by frame and come out the same every time.
 

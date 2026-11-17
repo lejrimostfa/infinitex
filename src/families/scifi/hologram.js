@@ -19,7 +19,7 @@
 
 import { vec2, float, floor, fract, clamp, smoothstep, mod, mix, atan, cos, sin, abs, max } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { spectral, viewTangent, upTangent } from '../../core/optics.js';
 
 const fill = ( sd, fp ) => clamp( sd.div( fp ).add( 0.5 ), 0, 1 );
@@ -71,7 +71,7 @@ export function buildHologram( p, fp, u ) {
 	const guil = smoothstep( 0.2, 0.12, gl ).mul( discIn ).mul( float( 1 ).sub( ringIn ) ).mul( fadeIn( float( 5e-4 ), fp, 2.5, 6.0 ) );
 	// L2: dot matrix, each dot turns its grating a little.
 	const dq = p.div( u.featureM );
-	const dh = hash3( mod( floor( dq ), 4096 ).add( s ) );
+	const dh = hash3( wrapCoord( floor( dq ) ).add( s ) );
 	const w2 = fadeIn( u.featureM, fp, 2.0, 5.0 );
 	const turn = dh.x.sub( 0.5 ).mul( 0.5 ).mul( w2 );
 	g = vec2( g.x.mul( cos( turn ) ).sub( g.y.mul( sin( turn ) ) ), g.x.mul( sin( turn ) ).add( g.y.mul( cos( turn ) ) ) ).normalize();

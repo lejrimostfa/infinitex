@@ -17,7 +17,7 @@
 
 import { vec2, vec3, float, fract, mix, smoothstep, step, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate, pick } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { packed, fbm } from './grains.js';
 
@@ -127,7 +127,7 @@ function grainLevels( p, fp, u, trough, rippleSlope, meanCol, amp ) {
 	let color = mix( meanCol, grainCol.mul( ao ), wG );
 
 	// Facet cells' coordinates, before the facets' branch (see facets()).
-	const fq = mod( p.div( g.mul( 0.22 ) ), 4096 ).add( 9.3 ).toVar();
+	const fq = wrapCoord( p.div( g.mul( 0.22 ) ) ).add( 9.3 ).toVar();
 	// L2: frosted pits and conchoidal facets on each grain, silt in gaps.
 	// Facets skipped under 2 px per 0.25 g, pits and silt under 2 px per 0.04 g.
 	const F = gate( fadeOn( g.mul( 0.25 ), fp, 2.0 ), { facet: [ 0, 0 ], gloss: 0, wF: 0 }, () => facets( fp, u, body, dark, fq ), [ fp, body, dark, fq ] );

@@ -19,7 +19,7 @@
 // Preset keys, read at build time when `pixel` is set: see PIXEL_DEFAULTS.
 
 import { vec2, vec3, vec4, floor, log2, exp2, mod, step, dot, uv, output, dFdx, dFdy, positionView } from 'three/tsl';
-import { hash1, hash3 } from './hash.js';
+import { hash1, hash3, wrapCoord } from './hash.js';
 import { footprint, withFootprint } from './lod.js';
 
 export const PIXEL_DEFAULTS = {
@@ -51,7 +51,7 @@ export function pixelGrid( p, px, blend, octaves = 1 ) {
 	const cid = floor( p.div( coarse ) );
 	const zc = z.add( dot( gz, cid.add( 0.5 ).mul( coarse ).sub( p ) ) ).max( z.mul( 0.25 ) );
 	const tc = t.add( log2( zc.div( z ) ).div( octaves ) );
-	const h = hash1( mod( cid, 4096 ).add( k.mul( 1.7 ) ) );
+	const h = hash1( wrapCoord( cid ).add( k.mul( 1.7 ) ) );
 	const up = step( h, tc.sub( k ).sub( 1 - blend ).div( Math.max( blend, 1e-3 ) ) );
 	const cell = exp2( k.add( up ).mul( octaves ) );
 	const id = floor( p.div( cell ) );
@@ -72,10 +72,10 @@ export function buildPixel( impl, uniforms, buildOpts, preset ) {
 	const o = { ...PIXEL_DEFAULTS, ...preset };
 	const g = pixelGrid( buildOpts.coords ?? uv(), o.pixel_px, o.pixel_blend, o.pixel_octaves );
 	const nodes = withFootprint( g.cell, () => impl.build( uniforms, { ...buildOpts, coords: g.pq } ), { flat: true } );
-	const d = hash1( mod( g.id, 4096 ).add( 31.7 ) ).sub( 0.5 ).mul( o.pixel_dither ).add( 0.5 );
+	const d = hash1( wrapCoord( g.id ).add( 31.7 ) ).sub( 0.5 ).mul( o.pixel_dither ).add( 0.5 );
 	// Mottle: one random tone and hue shift per art pixel. The id is
 	// wrapped so the hash stays exact; the cell size seeds each grid apart.
-	const j = hash3( mod( g.id, 4096 ).add( vec2( log2( g.cell ).mul( 7.3 ) ) ) ).sub( 0.5 ).mul( o.pixel_jitter * 2 );
+	const j = hash3( wrapCoord( g.id ).add( vec2( log2( g.cell ).mul( 7.3 ) ) ) ).sub( 0.5 ).mul( o.pixel_jitter * 2 );
 	const mottled = nodes.colorNode.mul( j.x.add( 1 ) ).mul( vec3( 1 ).add( j.yzy.mul( vec3( 0.25, 0.15, - 0.25 ) ) ) );
 	nodes.colorNode = posterize( mottled, o.pixel_colors, d );
 	if ( nodes.emissiveNode ) nodes.emissiveNode = posterize( nodes.emissiveNode, o.pixel_colors, d );

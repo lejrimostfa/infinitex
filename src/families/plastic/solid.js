@@ -23,11 +23,11 @@
 
 import { vec2, float, floor, fract, mix, smoothstep, step, clamp, exp, abs, sin, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 
 // Cell coordinates of a crater octave, taken before its gate.
-const craterCells = ( p, cellM, off ) => mod( p.div( cellM ), 4096 ).add( off ).toVar(); // mod: hashes stay exact
+const craterCells = ( p, cellM, off ) => wrapCoord( p.div( cellM ) ).add( off ).toVar(); // mod: hashes stay exact
 
 // One octave of craters (cells q from craterCells). rim: raised rim
 // height, as a share of the depth (EDM 0.5, bead blast 0). Slopes are

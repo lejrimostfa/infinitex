@@ -10,7 +10,7 @@
 
 import { vec2, float, fract, mix, smoothstep, step, clamp, mod } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, scratches, fbm, grains } from './common.js';
 
@@ -33,7 +33,7 @@ export function buildPlaster( p, fp, u ) {
 	// Drag lines along the stroke direction.
 	const sd = dir2( h.y.mul( 6.283 ) );
 	const along = p.dot( sd ), across = p.dot( vec2( sd.y.negate(), sd.x ) );
-	const drag = valueNoise( mod( vec2( along.div( 0.01 ), across.div( 1.5e-4 ) ), 4096 ).add( h.xy.mul( 30 ) ) ).sub( 0.5 ).mul( fadeIn( float( 1.5e-4 ), fp, 1.5, 4.0 ) ).mul( tr );
+	const drag = valueNoise( wrapCoord( vec2( along.div( 0.01 ), across.div( 1.5e-4 ) ) ).add( h.xy.mul( 30 ) ) ).sub( 0.5 ).mul( fadeIn( float( 1.5e-4 ), fp, 1.5, 4.0 ) ).mul( tr );
 
 	// Sweep arcs: the blade turns about the wrist, leaving faint chatter
 	// arcs around a centre one stroke length away.
@@ -43,9 +43,9 @@ export function buildPlaster( p, fp, u ) {
 	const chatter = smoothstep( 0.0, 0.5, arcs ).mul( smoothstep( 1.0, 0.5, arcs ) ).sub( 0.5 ).mul( fadeIn( T.mul( 0.07 ), fp, 2.0, 5.0 ) ).mul( tr ).mul( h.z.mul( 0.7 ).add( 0.3 ) );
 
 	// Pinholes, and a finer crop of pits 10 to 40 um.
-	const P = voronoi( mod( p.div( 1.2e-3 ), 4096 ).add( 3.7 ), 0.85 );
+	const P = voronoi( wrapCoord( p.div( 1.2e-3 ) ).add( 3.7 ), 0.85 );
 	const pr = hash1( P.id1 ).pow( 2 ).mul( 1.3e-4 ).add( 2.5e-5 );
-	const P2 = voronoi( mod( p.div( 2.5e-4 ), 4096 ).add( 8.1 ), 0.85 );
+	const P2 = voronoi( wrapCoord( p.div( 2.5e-4 ) ).add( 8.1 ), 0.85 );
 	const pr2 = hash1( P2.id1 ).mul( 1.5e-5 ).add( 5e-6 );
 	const pin = band( P.toSeed.length().mul( 1.2e-3 ), pr, fp ).mul( step( float( 1 ).sub( u.pores.mul( 0.6 ) ), hash1( P.id1.add( 6.6 ) ) ) ).mul( fadeIn( pr.mul( 2 ), fp, 1.0, 3.0 ) )
 		.max( band( P2.toSeed.length().mul( 2.5e-4 ), pr2, fp ).mul( step( float( 1 ).sub( u.pores.mul( 0.4 ) ), hash1( P2.id1.add( 2.6 ) ) ) ).mul( fadeIn( pr2.mul( 2 ), fp, 1.0, 3.0 ) ) ).toVar();
@@ -54,7 +54,7 @@ export function buildPlaster( p, fp, u ) {
 	const needle = scratches( p, fp, float( 5e-5 ), 2.5e-6, 0.8, 5 ).add( scratches( p, fp, float( 3e-5 ), 1.8e-6, 0.7, 6 ) ).min( 1 );
 	// Filler grains (calcite, fine sand) 30 to 80 um, a faint mosaic.
 	const Fg = grains( p, float( 6e-5 ), fp, 0.08, 3, 0.95 );
-	const chalk = valueNoise( mod( p.div( 5e-6 ), 4096 ) ).sub( 0.5 ).mul( fadeIn( float( 5e-6 ), fp, 2.0, 5.0 ) );
+	const chalk = valueNoise( wrapCoord( p.div( 5e-6 ) ) ).sub( 0.5 ).mul( fadeIn( float( 5e-6 ), fp, 2.0, 5.0 ) );
 
 	const mott = fbm( p, float( 0.06 ), fp, 4, 3 ).sub( 0.5 ).mul( u.colorVar ).add( 1 );
 	let color = u.color.mul( mott ).mul( h.z.sub( 0.5 ).mul( u.colorVar ).mul( wS ).add( 1 ) );

@@ -15,17 +15,17 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod, fract, floor, atan, cos, sin } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { band, net, cells } from './common.js';
 
 export function lichen( p, fp, u ) {
 
 	const cell = 0.03;
-	const V = voronoi( mod( p.div( cell ), 4096 ).add( u.seed.mul( 4.1 ) ), 0.7 );
+	const V = voronoi( wrapCoord( p.div( cell ) ).add( u.seed.mul( 4.1 ) ), 0.7 );
 	const h = hash3( V.id1.add( 1.3 ) );
 	// Rosettes gather in patches (wetter, older parts of the cushion).
-	const patch = smoothstep( 0.35, 0.7, valueNoise( mod( p.div( 0.11 ), 4096 ).add( u.seed.mul( 2.3 ) ) ) );
+	const patch = smoothstep( 0.35, 0.7, valueNoise( wrapCoord( p.div( 0.11 ) ).add( u.seed.mul( 2.3 ) ) ) );
 	const on = step( h.x, u.lichen.mul( patch ).mul( 2.2 ) );
 	const v = V.toSeed.mul( cell ), r = v.length();
 	const dv = v.div( r.max( 1e-7 ) );
@@ -56,9 +56,9 @@ export function lichen( p, fp, u ) {
 		// Apothecia near the centre, then the cortex cracks and isidia:
 		// they run only where the cups span 2 px (the widest fade).
 		const cm = 0.0026;
-		const aq = mod( p.div( cm ), 4096 ).add( 7.7 ).toVar();
-		const ccq = mod( p.div( 2.5e-4 ), 4096 ).add( 3.3 ).toVar();
-		const icq = mod( p.div( 6e-5 ), 4096 ).add( 8.8 ).toVar();
+		const aq = wrapCoord( p.div( cm ) ).add( 7.7 ).toVar();
+		const ccq = wrapCoord( p.div( 2.5e-4 ) ).add( 3.3 ).toVar();
+		const icq = wrapCoord( p.div( 6e-5 ) ).add( 8.8 ).toVar();
 		const D = gate( fadeOn( cm, fp, 2.0 ), { disc: 0, rim: 0, tint: 0, sCup: [ 0, 0 ], line: 0, sC: [ 0, 0 ], wall: 0, sI: [ 0, 0 ] }, () => {
 
 			const A = voronoi( aq, 0.6 );

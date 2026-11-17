@@ -17,7 +17,7 @@
 
 import { vec2, vec3, float, floor, clamp, smoothstep, step, mix, mod, max } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { oxideCrust } from './oxide.js';
 
@@ -29,7 +29,7 @@ const vn = valueNoise;
 function pits( p, fp, cellM, presence, seed ) {
 
 	const q = p.div( cellM ).add( seed );
-	const qc = mod( floor( q ), 4096 );
+	const qc = wrapCoord( floor( q ) );
 	const qh = hash3( qc );
 	const qv = q.sub( floor( q ) ).sub( qh.xy.sub( 0.5 ).mul( 0.4 ).add( 0.5 ) );
 	const R = qh.z.mul( 0.18 ).add( 0.1 );
@@ -91,7 +91,7 @@ export function buildRust( p, fp, u ) {
 
 	// L4 grains: oxide crust, and ferrite crystals in the bare iron.
 	const G = oxideCrust( p, fp, u );
-	const iv = voronoi( mod( p.div( u.grainM ), 4096 ).add( 4.4 ) );
+	const iv = voronoi( wrapCoord( p.div( u.grainM ) ).add( 4.4 ) );
 	const wI = fadeIn( u.grainM, fp, 2.0, 6.0 );
 	const ih = hash3( iv.id1 );
 	const ironTone = ih.z.sub( 0.5 ).mul( 0.12 ).mul( wI ).add( 1 ).mul( float( 1 ).sub( smoothstep( 0.0, 0.05, iv.edge ).oneMinus().mul( 0.3 ).mul( wI ) ) );

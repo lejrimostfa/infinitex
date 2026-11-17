@@ -16,7 +16,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, normalWorld, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from './lod.js';
-import { valueNoise } from './hash.js';
+import { valueNoise, wrapCoord } from './hash.js';
 import { voronoi } from './voronoi.js';
 import { grains, fibres, fbm, line } from '../families/ground/grains.js';
 import { blobs, over, hero } from './states_shape.js';
@@ -132,7 +132,7 @@ export function buildMud( nodes, ctx ) {
 		const K = gate( fadeOn( g.mul( 0.08 ), fp, 2.0 ), { crack: 0, plate: 0, slope: [ 0, 0 ] }, () => {
 
 			const wC = fadeIn( g.mul( 0.08 ), fp, 2.0, 6.0 );
-			const V = voronoi( mod( p.div( g.mul( 0.08 ) ), 4096 ).add( 4.4 ), 0.85 );
+			const V = voronoi( wrapCoord( p.div( g.mul( 0.08 ) ) ).add( 4.4 ), 0.85 );
 			// Cracks open wider where the crust is thicker; each plate its own tone.
 			const cw = g.mul( 0.004 ).mul( valueNoise( p.div( g.mul( 0.03 ) ).add( 2.2 ) ).mul( 1.2 ).add( 0.2 ) ).mul( thick );
 			return {

@@ -18,7 +18,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod, floor, fract, atan, min, max } from 'three/tsl';
 import { fadeIn, fadeOn, gate } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, fbm, cells } from './common.js';
 
@@ -78,7 +78,7 @@ export function buildGills( p, fp, u ) {
 	// Hymenium cells and spores.
 	const cm = u.cellM;
 	const H = cells( p, fp, cm, cm.mul( 0.06 ), s.mul( 4.4 ), 0, 0.4 );
-	const sq = mod( p.div( cm.mul( 1.3 ) ), 4096 ).add( s.mul( 1.9 ) );
+	const sq = wrapCoord( p.div( cm.mul( 1.3 ) ) ).add( s.mul( 1.9 ) );
 	const hs = hash3( floor( sq ) );
 	const sd = dir2( hs.y.mul( 6.283 ) );
 	const sv = fract( sq ).sub( hs.yz.mul( 0.4 ).add( 0.3 ) ).mul( cm.mul( 1.3 ) );
@@ -106,7 +106,7 @@ export function buildGills( p, fp, u ) {
 	const collar = smoothstep( r0.mul( 0.9 ), r0.mul( 0.8 ), r ).mul( float( 1 ).sub( ring ) ).mul( float( 1 ).sub( stem ) );
 	// Stem flesh: hyphae cut across, round cells of 30 um. Only on the
 	// stem (stem > 0).
-	const yq = mod( p.div( 3e-5 ), 4096 ).add( 6.1 ).toVar();
+	const yq = wrapCoord( p.div( 3e-5 ) ).add( 6.1 ).toVar();
 	const FL = gate( stem.greaterThan( 0 ), { flesh: [ 0, 0, 0 ], slope: [ 0, 0 ] }, () => {
 
 		const Hy = cells( p, fp, float( 3e-5 ), 1.5e-6, 6.1, 0.3, 0.3, yq );

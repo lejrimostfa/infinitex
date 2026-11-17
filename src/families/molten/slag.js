@@ -18,7 +18,7 @@
 
 import { vec2, float, clamp, smoothstep, mix, mod } from 'three/tsl';
 import { fadeIn, surfaceGradient } from '../../core/lod.js';
-import { hash3 } from '../../core/hash.js';
+import { hash3, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { frame, fbm, flowFbm, vesicles, microlites } from './common.js';
 import { radiance } from './heat.js';
@@ -35,7 +35,7 @@ export function buildSlag( p, fp, u, t ) {
 
 	// L1 contraction cracks, slabs slightly domed.
 	const jag = vec2( fbm( p, S.mul( 0.25 ), fp, 2, 3 ), fbm( p, S.mul( 0.25 ), fp, 2, 4 ) ).sub( 0.5 ).mul( 0.25 );
-	const V = voronoi( mod( p.div( S ), 4096 ).add( jag ).add( 4.4 ), 0.85 );
+	const V = voronoi( wrapCoord( p.div( S ) ).add( jag ).add( 4.4 ), 0.85 );
 	const sh = hash3( V.id1.add( 3.3 ) );
 	// Cracks are wider where the inside is still hot and soft.
 	const cw = float( 0.0002 ).add( sh.x.mul( 0.0005 ) ).add( hot.mul( 0.0012 ) );

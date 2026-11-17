@@ -20,7 +20,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, mod } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { rot2, cells, fbm, grains } from './common.js';
 
@@ -35,7 +35,7 @@ export function buildCitrus( p, fp, u ) {
 	const wave = vec2( fbm( p, float( 0.025 ), fp, 2, 11 ), fbm( p, float( 0.025 ), fp, 2, 13 ) ).sub( 0.5 ).mul( 0.08 );
 
 	// L1: glands. Rounded bulges between, a dimple over each gland.
-	const V = voronoi( mod( p.div( g ), 4096 ).add( 2.1 ), 0.9 );
+	const V = voronoi( wrapCoord( p.div( g ) ).add( 2.1 ), 0.9 );
 	const gid = hash3( V.id1.add( 4.4 ) );
 	const wG = fadeIn( g, fp, 1.0, 4.0 );
 	// A round dome per gland cell (paraboloid), creased where cells meet.
@@ -94,7 +94,7 @@ export function buildApple( p, fp, u ) {
 	color = color.mul( fbm( p, float( 0.02 ), fp, 2, 5 ).sub( 0.5 ).mul( 0.08 ).add( 1 ) );
 
 	// L1: lenticels, pale dots with a halo on the red skin.
-	const L = voronoi( mod( p.div( g ), 4096 ).add( 3.3 ), 0.9 );
+	const L = voronoi( wrapCoord( p.div( g ) ).add( 3.3 ), 0.9 );
 	const lh = hash3( L.id1.add( 1.7 ) );
 	const lr = lh.x.mul( 0.04 ).add( 0.025 ).mul( u.density.add( 0.5 ) ); // radius, cells
 	const dl = L.toSeed.mul( vec2( 1, lh.y.mul( 0.6 ).add( 0.7 ) ) ).length();

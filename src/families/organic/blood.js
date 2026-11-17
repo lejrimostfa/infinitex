@@ -22,7 +22,7 @@
 
 import { vec2, vec3, float, mix, smoothstep, step, clamp, mod } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { hash3, valueNoise } from '../../core/hash.js';
+import { hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { bubbleField, capSlope } from '../ceramic/bubbles.js';
 import { absorb } from '../ceramic/glaze.js';
@@ -102,7 +102,7 @@ export function buildDriedBlood( p, fp, u ) {
 	const crust = smoothstep( 0.12, 0.3, S.h );
 	// L1: flakes. Cracks widen with the crust; flakes curl at their edge.
 	const g = u.sizeM;
-	const V = voronoi( mod( p.div( g ), 4096 ).add( 5.1 ), 0.9 );
+	const V = voronoi( wrapCoord( p.div( g ) ).add( 5.1 ), 0.9 );
 	const k = hash3( V.id1.add( 3.3 ) );
 	const wV = fadeIn( g, fp, 1.5, 4.0 );
 	const gapM = g.mul( 0.03 ).mul( S.h.mul( 1.5 ).add( 0.3 ) );
@@ -110,7 +110,7 @@ export function buildDriedBlood( p, fp, u ) {
 	const lost = step( k.x, u.density.mul( 0.25 ) ).mul( crust ).mul( wV );
 	const curl = smoothstep( 0.1, 0.0, V.edge ).mul( crust );
 	// L2: hairline cracks inside each flake.
-	const W = voronoi( mod( p.div( g.mul( 0.3 ) ), 4096 ).add( 8.8 ), 0.9 );
+	const W = voronoi( wrapCoord( p.div( g.mul( 0.3 ) ) ).add( 8.8 ), 0.9 );
 	const wW = fadeIn( g.mul( 0.3 ), fp, 2.0, 5.0 );
 	const hair = clamp( g.mul( 0.004 ).sub( W.edge.mul( g.mul( 0.3 ) ) ).div( fp ).add( 0.5 ), 0, 1 ).mul( crust ).mul( wW ).mul( step( 0.4, hash3( W.id1 ).y ) );
 

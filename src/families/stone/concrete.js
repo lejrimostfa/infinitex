@@ -16,7 +16,7 @@
 
 import { vec2, float, floor, mix, smoothstep, step, clamp, mod } from 'three/tsl';
 import { fadeIn, fadeOn, gate, surfaceGradient } from '../../core/lod.js';
-import { hash1, hash3, valueNoise } from '../../core/hash.js';
+import { hash1, hash3, valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { dir2, band, grains, fbm } from './common.js';
 
@@ -51,7 +51,7 @@ export function buildConcrete( p, fp, u ) {
 	const joint = smoothstep( float( 1.5e-3 ).mul( hb.z.add( 0.5 ) ), 0, jd ).mul( u.formwork );
 	const grainW = valueNoise( vec2( tx.div( 0.09 ), ty.div( 0.0025 ) ).add( hb.xy.mul( 50 ) ) ).mul( 0.7 )
 		.add( valueNoise( vec2( tx.div( 0.02 ), ty.div( 6e-4 ) ).add( hb.yz.mul( 30 ) ) ).mul( 0.3 ) )
-		.add( valueNoise( mod( vec2( tx.div( 0.006 ), ty.div( 1.5e-4 ) ), 4096 ).add( hb.xz.mul( 20 ) ) ).sub( 0.5 ).mul( 0.25 ).mul( fadeIn( float( 1.5e-4 ), fp, 1.5, 4.0 ) ) );
+		.add( valueNoise( wrapCoord( vec2( tx.div( 0.006 ), ty.div( 1.5e-4 ) ) ).add( hb.xz.mul( 20 ) ) ).sub( 0.5 ).mul( 0.25 ).mul( fadeIn( float( 1.5e-4 ), fp, 1.5, 4.0 ) ) );
 	const formH = hb.x.sub( 0.5 ).mul( 8e-4 ).add( grainW.mul( 3e-4 ) ).add( joint.mul( 1.2e-4 ) ).mul( u.formwork );
 
 	// Worn patches: the skin is gone, aggregate shows.
@@ -62,7 +62,7 @@ export function buildConcrete( p, fp, u ) {
 	const pw = p.add( vec2( valueNoise( p.div( A.mul( 0.7 ) ) ), valueNoise( p.div( A.mul( 0.7 ) ).add( 4.1 ) ) ).sub( 0.5 ).mul( A ).mul( 0.5 ) );
 	const Gr = grains( pw, A, fp, 0.2, 4, 0.95 );
 	const rock = Gr.h.y;
-	const speck = valueNoise( mod( p.div( 3e-4 ), 4096 ).add( Gr.h.xz.mul( 40 ) ) ).mul( fadeIn( float( 3e-4 ), fp, 1.5, 4.0 ) );
+	const speck = valueNoise( wrapCoord( p.div( 3e-4 ) ).add( Gr.h.xz.mul( 40 ) ) ).mul( fadeIn( float( 3e-4 ), fp, 1.5, 4.0 ) );
 	const stoneCol = mix( u.color2, u.color3, step( 0.5, rock ) ).mul( Gr.h.z.mul( 0.5 ).add( 0.75 ) ).mul( speck.sub( 0.5 ).mul( 0.35 ).add( 1 ) );
 	// Sand between stones and under the skin.
 	const Sd = grains( p, A.mul( 0.08 ), fp, 0.15, 6 );
@@ -71,11 +71,11 @@ export function buildConcrete( p, fp, u ) {
 	// Paste: mottle, then cement grains and pores.
 	const mottle = fbm( p, float( 0.05 ), fp, 4, 1 ).sub( 0.5 ).mul( u.colorVar ).mul( 1.6 ).add( fbm( p, float( 1.5e-3 ), fp, 4, 2 ).sub( 0.5 ).mul( 0.25 ) ).add( 1 );
 	// Skipped past the clinker's fade (20 um, from 2 px).
-	const clq = mod( p.div( 4e-5 ), 4096 ).add( 2.2 ).toVar();
+	const clq = wrapCoord( p.div( 4e-5 ) ).add( 2.2 ).toVar();
 	const CP = gate( fadeOn( 2e-5, fp, 2.0 ), { clinker: 0, capP: 0 }, () => {
 
 		const CL = voronoi( clq, 0.9 );
-		const pq = mod( p.div( 8e-6 ), 4096 );
+		const pq = wrapCoord( p.div( 8e-6 ) );
 		return {
 			clinker: smoothstep( 0.15, 0.25, CL.edge ).mul( step( 0.85, hash1( CL.id1 ) ) ).mul( fadeIn( float( 2e-5 ), fp, 2.0, 5.0 ) ),
 			capP: step( 0.93, hash1( floor( pq ) ) ).mul( smoothstep( 0.35, 0.2, pq.sub( floor( pq ) ).sub( 0.5 ).length() ) ).mul( fadeIn( float( 4e-6 ), fp, 1.5, 4.0 ) ),
@@ -88,7 +88,7 @@ export function buildConcrete( p, fp, u ) {
 	// Fines (0.1 to 0.3 mm) in the skin, a grainy mosaic seen close, and
 	// pinholes 30 to 150 um. Skipped past the widest pinhole's fade (150 um,
 	// from 1 px).
-	const phq = mod( p.div( 6e-4 ), 4096 ).add( 4.9 ).toVar();
+	const phq = wrapCoord( p.div( 6e-4 ) ).add( 4.9 ).toVar();
 	const FP = gate( fadeOn( 1.5e-4, fp, 1.0 ), { fines: 1, sFines: [ 0, 0 ], pinh: 0 }, () => {
 
 		const Fn = grains( p, float( 2e-4 ), fp, 0.05, 8 );

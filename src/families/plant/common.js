@@ -11,7 +11,7 @@
 
 import { vec2, float, mod, smoothstep } from 'three/tsl';
 import { fadeIn } from '../../core/lod.js';
-import { valueNoise } from '../../core/hash.js';
+import { valueNoise, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { band } from '../stone/common.js';
 
@@ -22,7 +22,7 @@ export { dir2, band, lines, fbm, scratches } from '../stone/common.js';
 // with its slope (g along dir), the Voronoi and the fade weight.
 export function net( p, fp, cellM, halfW, seed, warp = 0.35, lo = 3.0, hi = 9.0, cq = null ) {
 
-	const q = cq ?? mod( p.div( cellM ), 4096 ).add( seed );
+	const q = cq ?? wrapCoord( p.div( cellM ) ).add( seed );
 	const wq = vec2( valueNoise( q.mul( 1.3 ).add( 3.1 ) ), valueNoise( q.mul( 1.3 ).add( 8.7 ) ) ).sub( 0.5 ).mul( warp );
 	const V = voronoi( q.add( wq ), 0.9 );
 	const d = V.edge.mul( cellM );
@@ -45,7 +45,7 @@ export function net( p, fp, cellM, halfW, seed, warp = 0.35, lo = 3.0, hi = 9.0,
 // fade weight.
 export function cells( p, fp, cellM, wallM, seed, lobes = 0, bulge = 0.3, cq = null ) {
 
-	const q = cq ?? mod( p.div( cellM ), 4096 ).add( seed );
+	const q = cq ?? wrapCoord( p.div( cellM ) ).add( seed );
 	let x = q;
 	if ( lobes > 0 ) {
 
