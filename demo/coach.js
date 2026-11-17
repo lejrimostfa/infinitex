@@ -4,9 +4,9 @@
 //   zoom   scroll in (pinch on a touch screen): the detail goes down to the
 //          page's finest scale (DETAIL below)
 //   fly    press V (tap Fly) to board the page's vehicle
-// It shows once the page is ready (window.__ix.ready). A tip is ticked when
-// the visitor does it, and the card leaves when both are done or on its
-// close button. Done tips are remembered for the page (localStorage), so a
+// It shows once the page is ready (window.__ix.ready). The card leaves as
+// soon as the visitor does either tip (zoom or board), or on its close
+// button. Done tips are remembered for the page (localStorage), so a
 // second visit only shows what is left. After NUDGE seconds with nothing
 // done, the card pulses once. A light runs around its edge all the time
 // (a conic gradient on a registered angle, masked to a 2 px ring, plus a
@@ -99,16 +99,16 @@ export function addCoach( flyer, { label = 'the vehicle', key = 'V', touch = fal
 		row?.classList.add( 'done' );
 		if ( row ) row.querySelector( 'i' ).textContent = '✓';
 		bus.dispatchEvent( new CustomEvent( 'tipDone', { detail: { tip: id } } ) );
-		if ( TIPS.every( ( [ t ] ) => done.has( t ) ) ) setTimeout( close, 1200 );
+		close(); // the visitor has found the way in: the card steps aside at once
 
 	};
 
 	card.querySelector( 'button' ).onclick = close;
 	// The fly tip boards the vehicle on a click (the same as V or the Fly button).
 	card.querySelector( '[data-tip="fly"]' ).onclick = () => { if ( ! flyer.active ) flyer.board(); };
-	// Zoom: a few wheel steps toward the scene, or a two-finger touch.
+	// Zoom: one wheel step toward the scene, or a two-finger touch.
 	let wheel = 0;
-	const onWheel = ( e ) => { if ( e.deltaY < 0 && ( wheel += - e.deltaY ) > 300 ) tick( 'zoom' ); };
+	const onWheel = ( e ) => { if ( e.deltaY < 0 && ( wheel += - e.deltaY ) >= 100 ) tick( 'zoom' ); };
 	const onTouch = ( e ) => { if ( e.touches.length > 1 ) tick( 'zoom' ); };
 	addEventListener( 'wheel', onWheel, { passive: true, capture: true } );
 	addEventListener( 'touchstart', onTouch, { passive: true, capture: true } );
