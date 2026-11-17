@@ -9,8 +9,9 @@
 // The slices move with the focus (lens.js), so the fine one is always
 // on the subject, from a room down to a few centimetres.
 //
-// update( focusDistance ) once per frame; the slices are rebuilt only when
-// the distance moved by more than 12%.
+// update( focusDistance ) once per frame; the slices are rebuilt when the
+// distance moved by more than 4%. The kit eases that distance (kit.js), so
+// a change of subject re-cuts them in small steps, not in one jump.
 //
 // Event bus: none (kit.update drives it each frame).
 
@@ -38,7 +39,7 @@ export function createSunCascades( { light, camera, far = 30, mapSize = 2048, ma
 		update( focusDistance ) {
 
 			const want = Math.max( 0.02, focusDistance );
-			if ( built && Math.abs( Math.log( want / built ) ) < 0.12 ) return;
+			if ( built && Math.abs( Math.log( want / built ) ) < 0.04 ) return;
 			d = built = want;
 			if ( csm.camera ) csm.updateFrustums(); // the node takes the camera on its first frame
 

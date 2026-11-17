@@ -186,7 +186,7 @@ renderer.setAnimationLoop( () => {
 	const under = camera.position.y < LEVEL && Math.abs( camera.position.x ) < TW / 2 && Math.abs( camera.position.z ) < TD / 2;
 	if ( lens ) lens.bokehScale = under ? 0.5 : 1;
 	vehicle?.update( dt, clock ); // while steered, it moves the camera and the walk holds still
-	kit.update( dt, { move: ! vehicle?.active } );
+	kit.update( dt, { move: ! vehicle?.active, dist: vehicle?.active ? () => camera.position.distanceTo( controls.target ) : null } ); // flying: AO follows the vehicle, not the autofocus
 	stats.beginFrame();
 	draw();
 	stats.endFrame( camera.position.distanceTo( controls.target ) );

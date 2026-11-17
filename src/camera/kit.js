@@ -23,7 +23,12 @@
 //               shafts: light added there before the blur (src/core/shafts.js)
 //
 // The subject distance (the eased focus distance, or the orbit distance
-// without a lens) sets the AO radius and the shadow cascades.
+// without a lens) sets the AO radius and the shadow cascades. In update()
+// it is eased again, in log space over 0.6 s: an autofocus that jumps to
+// the background and back (a wall behind a fruit, the room behind a flying
+// bee) changed the AO radius tenfold and re-cut the cascades, so the
+// light and the shadows jumped and came back. prepare( dist ) (a still
+// frame, a film) takes the distance as it is.
 // Event bus: the kit is an EventTarget. It forwards, as CustomEvents with
 // the same detail, every event of its parts:
 //   focusStarted, focusEnded           walk.js (click to glide)
@@ -108,6 +113,7 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 	// move: false holds the walk and the controls (a scripted camera path).
 	// dist: the subject distance, a number or a function read after the
 	// lens update; by default the lens's focus distance.
+	let litLog = null; // the lighting subject, log of metres, eased
 	function update( dt, { move = true, dist = null } = {} ) {
 
 		adaptive.frame();
@@ -121,7 +127,9 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 		}
 
 		lens?.update( dt );
-		prepare( typeof dist === 'function' ? dist() : dist ?? subject() );
+		const want = Math.log( Math.max( 1e-4, typeof dist === 'function' ? dist() : dist ?? subject() ) );
+		litLog = litLog === null ? want : litLog + ( want - litLog ) * ( 1 - Math.exp( - Math.min( dt, 0.1 ) / 0.6 ) );
+		prepare( Math.exp( litLog ) );
 
 	}
 

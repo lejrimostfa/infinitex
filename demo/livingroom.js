@@ -202,7 +202,9 @@ renderer.setAnimationLoop( () => {
 	setTime( clock );
 	figure.mixer.setTime( clock % figure.clip.duration );
 	vehicle?.update( dt, clock ); // while flown, it moves the camera and the walk holds still
-	kit.update( dt, { move: ! vehicle?.active } );
+	// Flying, the AO and the shadow cascades follow the vehicle (the chase
+	// distance), not the autofocus, which hesitates between it and the room.
+	kit.update( dt, { move: ! vehicle?.active, dist: vehicle?.active ? () => camera.position.distanceTo( controls.target ) : null } );
 	sunDisc.lookAt( camera.position );
 	stats.beginFrame();
 	// The frame draws to the screen. The bee's background compile
