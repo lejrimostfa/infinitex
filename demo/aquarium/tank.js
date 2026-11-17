@@ -1,17 +1,19 @@
 // The aquarium's tank (demo/aquarium.js): a sand floor with dunes, one
 // marble wall at the back, three panes of glass (front and sides), a
 // marble base, and a few cubes of Infinitex matter.
-//   buildTank( { scene, tank, params, sky, TW, TD, TH, LEVEL } )
+//   buildTank( { scene, tank, params, sky, TW, TD, TH, LEVEL, probe } )
+//   probe    a CubeRenderTarget the page fills from the tank's centre: what
+//            the panes mirror seen from inside the water (optional)
 //   tank     the ClippingGroup of what stands in the water (the mirrors
 //            draw it); the glass and the marble shell go in the scene
-//   returns  { sand, marble, GLASS, RIM }: the presets, the glass (m,
+//   returns  { sand, marble, GLASS, RIM, paneHazes }: the presets, the glass (m,
 //            index) and how far the sand's rim goes down (m)
 // ?flat (no dunes), ?seg (floor segments, mm).
 //
 // Event bus: none (built once by the page).
 
 import * as THREE from 'three/webgpu';
-import { uv, vec2, vec3, float, positionLocal, positionWorld, normalLocal, cameraPosition, attribute, reflect, mix } from 'three/tsl';
+import { uv, vec2, vec3, float, positionLocal, positionWorld, normalLocal, normalWorld, cameraPosition, attribute, reflect, mix, exp, cubeTexture, getParallaxCorrectNormal } from 'three/tsl';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js';
@@ -78,7 +80,7 @@ function slab( tank, w, h, preset, place, seg = 0.02, skirt = 0 ) {
 
 }
 
-export function buildTank( { scene, tank, params, sky, TW, TD, TH, LEVEL } ) {
+export function buildTank( { scene, tank, params, sky, TW, TD, TH, LEVEL, probe = null } ) {
 
 	const RIM = 0.012; // how far the sand's folded rim goes down (m); the panes' waterline pass starts there too
 	const sand = { family: 'ground', mode: 'sand', grain_mm: 0.35, color: '#d6bd92', color2: '#b8804f', color3: '#2b2622', ripple_mm: 90, ripple: 0.5, specks: 0.4, sparkle: 0.5, roughness: 0.8, seed: 2 };
@@ -99,16 +101,44 @@ export function buildTank( { scene, tank, params, sky, TW, TD, TH, LEVEL } ) {
 	// pane shows the water's own haze, not the room: a plane of that colour
 	// up to the level, facing inwards (so culled from outside, where the
 	// eye looks through the glass). The walk and the focus go through it.
+	// With a probe, the pane is what glass under water is: from water to air
+	// the light cannot leave beyond 48.6 degrees from the normal (total
+	// internal reflection), so there the pane is a perfect mirror of the
+	// tank; nearer face on, the room shows through, with a few per cent of
+	// mirror. Fresnel with the transmitted cosine (Schlick for n1 > n2), so
+	// the mirror rises smoothly to 1 at the critical angle. The mirror is
+	// the probe, box-projected on the water volume (parallax right for the
+	// floor and the walls). The water between the eye and the pane fades it
+	// all to the haze, as for any matter.
+	const paneHazes = [];
 	for ( const [ w, x, z, ry ] of [ [ TW, 0, TD / 2, Math.PI ], [ TD, - TW / 2, 0, Math.PI / 2 ], [ TD, TW / 2, 0, - Math.PI / 2 ] ] ) {
 
 		const hm = new THREE.MeshBasicNodeMaterial();
-		hm.colorNode = hazeColor( positionWorld.sub( cameraPosition ).normalize() ).mul( 0.55 ); // lighter up, deeper down, as the water in front of it
+		const V = positionWorld.sub( cameraPosition ).normalize();
+		const haze = hazeColor( V ).mul( 0.55 ); // lighter up, deeper down, as the water in front of it
+		if ( probe ) {
+
+			const N = normalWorld; // into the water
+			const cosI = V.dot( N ).negate().max( 0 );
+			const sin2T = float( 1 ).sub( cosI.mul( cosI ) ).mul( 1.33 * 1.33 );
+			const cosT = float( 1 ).sub( sin2T ).max( 0 ).sqrt();
+			const fres = float( 0.04 ).add( float( 0.96 ).mul( float( 1 ).sub( cosT ).pow( 5 ) ) );
+			const box = getParallaxCorrectNormal( reflect( V, N ), vec3( TW, LEVEL, TD ), vec3( 0, LEVEL / 2, 0 ) );
+			const mirror = cubeTexture( probe.texture, box ).rgb;
+			const room = sky( vec3( V.x, V.y.abs(), V.z ) ).mul( 0.25 ); // the room behind the glass: dim daylight, no hard horizon
+			const seen = mix( room, mirror, fres );
+			const sigma = waterBody.absorb.add( waterBody.turbidity );
+			const T = exp( sigma.negate().mul( positionWorld.sub( cameraPosition ).length().mul( waterBody.depthScale ) ) );
+			hm.colorNode = seen.mul( T ).add( haze.mul( vec3( 1 ).sub( T ) ) );
+
+		} else hm.colorNode = haze;
 		hm.vertexNode = refractedVertex();
 		const m = new THREE.Mesh( new THREE.PlaneGeometry( w, LEVEL, Math.ceil( w / 0.02 ), Math.ceil( LEVEL / 0.02 ) ), hm );
 		m.position.set( x, LEVEL / 2, z );
 		m.rotation.y = ry;
 		m.userData.noFocus = true;
 		tank.add( m );
+		paneHazes.push( m );
 
 	}
 
@@ -213,6 +243,6 @@ export function buildTank( { scene, tank, params, sky, TW, TD, TH, LEVEL } ) {
 	cube( 0.12, 0.12, { family: 'metal', metal: 'bronze', seed: 7 }, 0.12, 0.15, - 0.3 );
 	cube( 0.14, 0.48, { family: 'wood', intent: 'driftwood', ring_mm: 5, figure: 1, knots: 0.3, weather: 1, weather_color: '#8e8a82', checks: 0.6, roughness: 0.85, seed: 4 }, 0.3, - 0.18, 0.2 );
 
-	return { sand, marble, GLASS, RIM };
+	return { sand, marble, GLASS, RIM, paneHazes };
 
 }

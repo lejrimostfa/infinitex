@@ -278,6 +278,10 @@ Not in Infinitex yet: several places with their own colours in one scene, and th
 - **Marine snow** (`src/core/snow.js`): 500 specks that sink and sway, added light, larger and dimmer near the eye.
 - **Bloom and grade** (`src/camera/grade.js`), after the depth effects; `?nograde`.
 
+Palette, same day: the first pass (deep #1f6fd6, blue grade) read cold; the user wanted it tropical. Now a lagoon: haze #46e8d4 up, #1593a8 level and down, teal shadows and warm highlights in the grade (`LAGOON` in `demo/aquarium.js`).
+
+The panes seen from inside (`demo/aquarium/tank.js`): glass under water mirrors the tank beyond 48.6 degrees from its normal (total internal reflection), and shows the room nearer face on. A cube probe filled once from the tank's centre, box-projected on the water volume (three's `getParallaxCorrectNormal`), with Fresnel on the transmitted cosine. In the probe the surface is a ceiling of lit water and the panes are their haze: hidden, they let the white sky in. What moves (fish, crab, jellyfish, bubbles, specks) is not in the probe: the panes do not mirror it. `?nomirror` gives the flat haze back.
+
 A trap met: the fill is in the emissive, so a tint put on the colour afterwards does not reach it. A red fish in blue fill turned pink. `tintUnderwater( material, tint )` applies the tint to both.
 
 

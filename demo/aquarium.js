@@ -12,6 +12,7 @@
 //   ?nograde  no bloom and no colour grade (src/camera/grade.js)
 //   ?nomood   the plain physical water: one haze colour, no fill, no rim
 //   ?nosnow   no floating specks (src/core/snow.js)
+//   ?nomirror the panes seen from inside are flat haze, no mirror
 //   ?nofly  no toy submarine. Without it, a toy submarine floats in the
 //           tank; V or the button at the bottom right steers it (flyer.js)
 // window.__ix: renderer, scene, camera, ready, view( name ), setTime( s ),
@@ -73,11 +74,11 @@ if ( mood ) {
 	sun.color.set( 0xffe4bc );
 	sun.intensity = 2.8;
 	scene.environmentIntensity = 0.55; // the grey sky light gives way to the water's fill
-	waterBody.inscatter.value.set( '#4fd6e4' );
-	waterBody.deep.value.set( '#1f6fd6' );
+	waterBody.inscatter.value.set( '#46e8d4' ); // lagoon: turquoise green, not the cold royal blue of the first pass
+	waterBody.deep.value.set( '#1593a8' );
 	waterBody.sunGlow.value = 1.3;
 	waterBody.fill.value = 0.22;
-	waterBody.causticTint.value.set( '#ffe0b0' );
+	waterBody.causticTint.value.set( '#fff0c0' );
 	waterBody.rim.value = 0.3;
 	waterBody.absorb.value.set( 0.3, 0.06, 0.02 ); // less red lost: the sand stays warm in the sun
 	waterBody.turbidity.value = 0.2; // clearer: what is near keeps its colours
@@ -92,7 +93,10 @@ const tank = new THREE.ClippingGroup();
 scene.add( tank );
 
 // The tank itself: sand, wall, panes, base, cubes (aquarium/tank.js).
-const { sand, RIM } = buildTank( { scene, tank, params, sky, TW, TD, TH, LEVEL } );
+// The panes' mirror from inside: the tank seen from its centre, once the
+// floor and its life are built (?nomirror: the flat haze of before).
+const probe = params.has( 'nomirror' ) ? null : new THREE.CubeRenderTarget( 256, { type: THREE.HalfFloatType } );
+const { sand, RIM, paneHazes } = buildTank( { scene, tank, params, sky, TW, TD, TH, LEVEL, probe } );
 
 // The water: one plane at the level, inside the walls, and its two
 // mirrors (what is above, seen from above; the pool, seen from below).
@@ -178,7 +182,9 @@ const { life, flora } = createLife( { scene, tank, params, sand, sun, water, hid
 // Light shafts in the tank's water (src/core/shafts.js); ?noshafts.
 const shafts = params.has( 'noshafts' ) ? null : createShafts( renderer, camera, { steps: + params.get( 'shaftsteps' ) || 8, box: { min: [ - TW / 2, 0, - TD / 2 ], max: [ TW / 2, LEVEL, TD / 2 ] } } );
 const fx = ! params.has( 'nofx' );
-const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 0.6, shadows: false, ao: fx, dof: fx, target: fx ? glassLine.rtC : null, shafts, grade: fx && ! params.has( 'nograde' ) ? {} : null } } );
+// The grade of a lagoon (src/camera/grade.js): teal shadows, warm highlights.
+const LAGOON = { shadowTint: [ 0.2, 0.8, 0.85 ], shadows: 0.3, highlights: 0.2, highlightTint: [ 1, 0.9, 0.65 ], vignetteTint: [ 0.6, 0.85, 0.85 ] };
+const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 0.6, shadows: false, ao: fx, dof: fx, target: fx ? glassLine.rtC : null, shafts, grade: fx && ! params.has( 'nograde' ) ? LAGOON : null } } );
 const { walk, adaptive, lens } = kit;
 kit.addEventListener( 'pixelRatioChanged', () => { const s = renderer.getDrawingBufferSize( new THREE.Vector2() ); glassLine.setSize( s.x, s.y ); lensLine.setSize( s.x, s.y ); } );
 const stats = createStats( { renderer, camera, adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
@@ -201,6 +207,46 @@ if ( ! params.has( 'nofly' ) ) {
 	addFlyHud( vehicle, { label: 'the submarine', fly: 'Steer', land: 'Leave' } );
 
 }
+// Fill the probe once, at the first frame: the floor, the walls, the cubes
+// and the plants, seen from the middle of the water. Not what moves (fish,
+// crab, jellyfish, bubbles, specks: they would freeze in the glass), not
+// the water's surface (it reads the screen) nor the panes themselves.
+// Refraction off: the probe's eye is in the water with what it sees.
+// In place of the surface, a ceiling of the lit water under it: seen from
+// below at a slant the surface mirrors the tank, and the bright window
+// above is narrow. Without it the panes mirrored the white sky.
+function fillProbe() {
+
+	const ceiling = new THREE.Mesh( new THREE.PlaneGeometry( TW, TD ), new THREE.MeshBasicNodeMaterial( { side: THREE.DoubleSide } ) );
+	ceiling.material.colorNode = waterBody.inscatter.mul( 0.75 );
+	ceiling.rotation.x = Math.PI / 2;
+	ceiling.position.y = LEVEL;
+	scene.add( ceiling );
+
+	const cam = new THREE.CubeCamera( 0.001, 5, probe );
+	cam.position.set( 0, LEVEL / 2, 0 );
+	const moving = life.map( ( l ) => l.mesh ?? l.group );
+	const hidden = [ water, ...moving, ...scene.children.filter( ( o ) => o.isMesh && o.userData.noFocus && o.frustumCulled === false ) ].filter( Boolean );
+	const was = hidden.map( ( o ) => o.visible );
+	hidden.forEach( ( o ) => { o.visible = false; } );
+	// The panes in the probe: their haze, not the mirror (it would read the
+	// probe while it is drawn), and not hidden (the room would show).
+	const plain = new THREE.MeshBasicNodeMaterial();
+	plain.colorNode = waterBody.inscatter.mul( 0.55 );
+	const own = paneHazes.map( ( m ) => m.material );
+	paneHazes.forEach( ( m ) => { m.material = plain; } );
+	refractOff();
+	cam.update( renderer, scene );
+	paneHazes.forEach( ( m, i ) => { m.material = own[ i ]; } );
+	plain.dispose();
+	hidden.forEach( ( o, i ) => { o.visible = was[ i ]; } );
+	scene.remove( ceiling );
+	ceiling.geometry.dispose();
+	ceiling.material.dispose();
+
+}
+
+let probeFilled = ! probe;
 let clock = 0, last = performance.now();
 renderer.setAnimationLoop( () => {
 
@@ -221,6 +267,7 @@ renderer.setAnimationLoop( () => {
 	if ( kit.post?.grade ) kit.post.grade.uniforms.water.value = under ? 1 : 0;
 	vehicle?.update( dt, clock ); // while steered, it moves the camera and the walk holds still
 	kit.update( dt, { move: ! vehicle?.active, dist: vehicle?.active ? () => camera.position.distanceTo( controls.target ) : null } ); // flying: AO follows the vehicle, not the autofocus
+	if ( ! probeFilled ) { fillProbe(); probeFilled = true; }
 	stats.beginFrame();
 	draw();
 	stats.endFrame( camera.position.distanceTo( controls.target ) );
