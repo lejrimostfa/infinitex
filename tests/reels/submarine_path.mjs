@@ -14,7 +14,7 @@
 
 import { sandFloor } from '../../demo/sealife/seafloor.js';
 
-export const INTRO = 22, TOUR = 80, END = 4, LEVEL = 0.35, TW = 1.2, TD = 0.8;
+export const INTRO = 22, TOUR = 107, END = 4, LEVEL = 0.35, TW = 1.2, TD = 0.8;
 const SAND = { family: 'ground', mode: 'sand', grain_mm: 0.35, color: '#d6bd92', color2: '#b8804f', color3: '#2b2622', ripple_mm: 90, ripple: 0.5, specks: 0.4, sparkle: 0.5, roughness: 0.8, seed: 2, dune: 1 };
 export const sand = sandFloor( SAND, { width: TW, depth: TD } );
 
@@ -25,7 +25,7 @@ const JELLY = [ [ 0.5, 0.2, 0.0 ], [ - 0.5, 0.17, - 0.28 ], [ 0.05, 0.22, - 0.32
 const CYLS = [
 	[ 0.5, - 0.3, 0.08, 0, 0.31 ], [ 0.16, - 0.33, 0.08, 0, 0.29 ], // kelp, with the sway of its leaves
 	[ - 0.46, - 0.18, 0.09, 0, 0.13 ], [ - 0.5, 0.12, 0.08, 0, 0.16 ], [ - 0.07, - 0.31, 0.09, 0, 0.14 ], [ - 0.04, 0.02, 0.05, 0, 0.12 ], [ 0.46, 0.3, 0.08, 0, 0.15 ], // seagrass
-	[ - 0.2, 0.12, 0.04, 0, 0.05 ], [ 0.33, 0.12, 0.03, 0, 0.04 ], [ - 0.52, - 0.02, 0.045, 0, 0.055 ], // anemones
+	[ - 0.2, 0.12, 0.065, 0, 0.075 ], [ 0.33, 0.12, 0.05, 0, 0.065 ], [ - 0.52, - 0.02, 0.07, 0, 0.08 ], // anemones, with their spread tentacles
 	[ 0.5, 0.11, 0.06, 0, 0.1 ], [ - 0.27, - 0.355, 0.08, 0, 0.15 ], [ 0.26, - 0.005, 0.05, 0, 0.05 ], // corals
 	...JELLY.map( ( [ x, y, z ] ) => [ x, z, 0.055, y - 0.1, y + 0.07 ] ), // a bell, its arms and its drift
 ];
@@ -99,35 +99,27 @@ export function buildTour( { live = {} } = {} ) {
 	// The route: [ x, y, z ], or [ x, h, z, 1 ] for h over the ground.
 	const ROUTE = [
 		[ - 0.16, 0.3, 0.22 ], // 0 under the surface, by the front pane
-		[ - 0.1, 0.17, 0.24 ], // 1 diving past the red fish
-		[ - 0.12, 0.018, 0.2, 1 ], // 2 on the sand
-		[ - 0.03, 0.022, 0.19, 1 ], // 3 over the orange starfish
-		[ 0.03, 0.03, 0.09, 1 ], // 4 to the bronze cube
-		[ 0.1, 0.135, 0.15 ], // 5 over its top
-		[ 0.17, 0.135, 0.13 ], // 6
-		[ 0.22, 0.03, 0.07, 1 ], // 7 down its far side
-		[ 0.27, 0.078, 0.0 ], // 8 over the brain coral
-		[ 0.38, 0.03, - 0.01, 1 ], // 9 over the blue starfish
-		[ 0.43, 0.04, 0.04, 1 ], // 10 the branching coral
-		[ 0.44, 0.05, - 0.1, 1 ], // 11 under the jellyfish
-		[ 0.44, 0.12, - 0.22 ], // 12 up between the kelp and the post
-		[ 0.4, 0.2, - 0.33 ], // 13 behind the post
-		[ 0.26, 0.28, - 0.33 ], // 14 the silver fish, under the surface
-		[ 0.12, 0.24, - 0.25 ], // 15 past the kelp
-		[ - 0.02, 0.17, - 0.2 ], // 16 the jellyfish at the back
-		[ - 0.1, 0.03, - 0.19, 1 ], // 17 down to the seagrass
-		[ - 0.2, 0.03, - 0.25, 1 ], // 18 the fan coral
-		[ - 0.33, 0.07, - 0.24 ], // 19
-		[ - 0.3, 0.18, - 0.13 ], // 20 onto the granite cube
-		[ - 0.24, 0.178, - 0.08 ], // 21 across its top
-		[ - 0.4, 0.04, - 0.06, 1 ], // 22 down its far side
-		[ - 0.44, 0.07, 0.04, 1 ], // 23 the orange anemone
-		[ - 0.38, 0.03, 0.15, 1 ], // 24 past the seagrass
-		[ - 0.27, 0.03, 0.16, 1 ], // 25
-		[ - 0.2, 0.075, 0.12, 1 ], // 26 over the pink anemone
-		[ - 0.1, 0.15, 0.08 ], // 27 up into the school
-		[ 0.0, 0.24, 0.05 ], // 28
-		[ 0.12, 0.31, 0.0 ], // 29 under the surface
+		[ - 0.1, 0.13, 0.21 ], // 1 diving
+		[ - 0.04, 0.02, 0.19, 1 ], // 2 over the orange starfish
+		[ 0.04, 0.09, 0.15 ], // 3 up to the bronze cube
+		[ 0.12, 0.135, 0.14 ], // 4 over its top
+		[ 0.21, 0.1, 0.09 ], // 5 down its far side
+		[ 0.27, 0.078, 0.0 ], // 6 over the brain coral
+		[ 0.39, 0.035, - 0.03, 1 ], // 7 over the blue starfish
+		[ 0.44, 0.1, - 0.16 ], // 8 up between the kelp and the post
+		[ 0.41, 0.2, - 0.32 ], // 9 behind the post
+		[ 0.27, 0.27, - 0.3 ], // 10 the silver fish, under the surface
+		[ 0.05, 0.2, - 0.16 ], // 11 past the kelp
+		[ - 0.08, 0.1, - 0.2 ], // 12 the jellyfish at the back
+		[ - 0.18, 0.1, - 0.28 ], // 13 over the seagrass, the fan coral beside
+		[ - 0.24, 0.18, - 0.25 ], // 14 up behind the granite cube (a straight run onto it, no hairpin)
+		[ - 0.25, 0.18, - 0.12 ], // 15 over its top
+		[ - 0.21, 0.178, - 0.04 ], // 16
+		[ - 0.17, 0.05, 0.07, 1 ], // 17 down its front
+		[ - 0.13, 0.06, 0.15, 1 ], // 18 past the pink anemone
+		[ - 0.04, 0.17, 0.12 ], // 19 up into the school
+		[ 0.08, 0.27, 0.04 ], // 20
+		[ 0.14, 0.31, 0.0 ], // 21 under the surface
 	].map( ( [ x, y, z, rel ] ) => [ x, rel ? support( x, z ) + y : y, z ] );
 
 	// Spline, pushed out of the obstacles, smoothed, pushed again.
@@ -140,7 +132,7 @@ export function buildTour( { live = {} } = {} ) {
 	for ( let round = 0; round < 6; round ++ ) {
 
 		pts = pts.map( ( p ) => relax( p, CL, OFF ) );
-		for ( let pass = 0; pass < 8; pass ++ ) pts = pts.map( ( p, i ) => i === 0 || i === pts.length - 1 ? p : p.map( ( v, j ) => ( pts[ i - 1 ][ j ] + 2 * v + pts[ i + 1 ][ j ] ) / 4 ) );
+		for ( let pass = 0; pass < 20; pass ++ ) pts = pts.map( ( p, i ) => i === 0 || i === pts.length - 1 ? p : p.map( ( v, j ) => ( pts[ i - 1 ][ j ] + 2 * v + pts[ i + 1 ][ j ] ) / 4 ) );
 
 	}
 
@@ -157,7 +149,7 @@ export function buildTour( { live = {} } = {} ) {
 
 	};
 
-	// Arc length at tour time u: 2 s to speed up, 2 s to stop.
+	// Arc length at tour time u: 2 s to speed up, 2 s to stop. About 3 cm a second.
 	const sp = total / ( TOUR - 2 );
 	const sOf = ( u ) => u <= 0 ? 0 : u < 2 ? sp * u * u / 4 : u > TOUR - 2 ? total - sp * Math.max( 0, TOUR - u ) ** 2 / 4 : sp * ( u - 1 );
 	const uOf = ( s ) => s < sp ? 2 * Math.sqrt( s / sp ) : s > total - sp ? TOUR - 2 * Math.sqrt( Math.max( 0, total - s ) / sp ) : s / sp + 1;
@@ -165,11 +157,29 @@ export function buildTour( { live = {} } = {} ) {
 
 	const heading = ( s, w ) => { const a = at( s - w ), b = at( s + w ); return Math.atan2( b[ 0 ] - a[ 0 ], b[ 2 ] - a[ 2 ] ); };
 	const wrap = ( a ) => Math.atan2( Math.sin( a ), Math.cos( a ) );
+	// The hull's heading and nose angle, sampled 30 times a second and
+	// smoothed over time (a Gaussian of SIG seconds): where the path bends
+	// round an obstacle or climbs steeply, the hull turns over a few
+	// seconds instead of snapping.
+	const RATE = 30, SIG = 1.2, raw = [], rawPitch = [];
+	for ( let i = 0; i <= TOUR * RATE; i ++ ) {
+
+		const s = clamp( sOf( i / RATE ), 0.04, total - 0.04 ), a = at( s - 0.02 ), b = at( s + 0.02 );
+		let y = heading( s, 0.03 );
+		if ( raw.length ) y = raw[ raw.length - 1 ] + wrap( y - raw[ raw.length - 1 ] ); // unwrapped
+		raw.push( y );
+		rawPitch.push( - Math.atan2( b[ 1 ] - a[ 1 ], Math.hypot( b[ 0 ] - a[ 0 ], b[ 2 ] - a[ 2 ] ) ) );
+
+	}
+
+	const gauss = ( arr ) => { const R = Math.round( SIG * RATE * 2.5 ), out = []; for ( let i = 0; i < arr.length; i ++ ) { let sw = 0, sv = 0; for ( let j = - R; j <= R; j ++ ) { const k = clamp( i + j, 0, arr.length - 1 ), w = Math.exp( - 0.5 * ( j / ( SIG * RATE ) ) ** 2 ); sw += w; sv += w * arr[ k ]; } out.push( sv / sw ); } return out; };
+	const yaws = gauss( raw ), pitches = gauss( rawPitch ).map( ( p ) => clamp( p, - 0.5, 0.5 ) );
+	const table = ( arr, u ) => { const x = clamp( u * RATE, 0, arr.length - 1 ), i = Math.floor( x ), k = x - i; return lerp( arr[ i ], arr[ Math.min( i + 1, arr.length - 1 ) ], k ); };
 	function sub( u ) {
 
-		const s = clamp( sOf( u ), 0.015, total - 0.015 ), a = at( s - 0.012 ), b = at( s + 0.012 ), yaw = heading( s, 0.012 );
-		const turn = wrap( heading( s + 0.02, 0.012 ) - heading( s - 0.02, 0.012 ) ) / 0.04 * sp;
-		return { p: at( sOf( u ) ), yaw, slow: heading( clamp( s, 0.1, total - 0.1 ), 0.1 ), pitch: - Math.atan2( b[ 1 ] - a[ 1 ], Math.hypot( b[ 0 ] - a[ 0 ], b[ 2 ] - a[ 2 ] ) ), roll: clamp( - turn * 0.6, - 0.4, 0.4 ) };
+		const s = clamp( sOf( u ), 0.04, total - 0.04 ), yaw = table( yaws, u );
+		const turn = ( table( yaws, u + 0.25 ) - table( yaws, u - 0.25 ) ) / 0.5; // radians a second
+		return { p: at( sOf( u ) ), yaw, slow: heading( clamp( s, 0.1, total - 0.1 ), 0.1 ), pitch: table( pitches, u ), roll: clamp( - turn * 0.4, - 0.25, 0.25 ) };
 
 	}
 
@@ -192,12 +202,20 @@ export function buildTour( { live = {} } = {} ) {
 
 	};
 
+	// Around the submarine, by its heading: rel 0 is right behind, pi / 2 on its right side.
+	const turnAround = ( t, rel, d, { dy = 0 } ) => {
+
+		const s = subAt( t ), a = s.slow + Math.PI + rel;
+		return { p: [ s.p[ 0 ] + Math.sin( a ) * d, s.p[ 1 ] + dy, s.p[ 2 ] + Math.cos( a ) * d ], l: s.p };
+
+	};
+
 	const watch = ( P, L ) => ( { p: P, l: L } );
 	const push = ( T, dir, d0, d1, k ) => { const m = len( dir ), d = Math.exp( lerp( Math.log( d0 ), Math.log( d1 ), k ) ); return { p: T.map( ( v, i ) => v + dir[ i ] / m * d ), l: T }; };
 	const near = ( a, b, w ) => mix( a, b, w ); // look between a creature and the submarine
 
 	const T = ( i, dt = 0 ) => INTRO + W[ i ] + dt; // film time at stop i of the route
-	const SANDPT = [ - 0.33, sand( - 0.33, 0.22 ), 0.22 ];
+	const SANDPT = [ - 0.1, sand( - 0.1, 0.19 ), 0.19 ]; // beside stop 18: the submarine crosses the hold
 	// The shots, in film time. blend: seconds to ease in from the shot before; cut: no blend, the spring restarts; out: outside the water (no clamp).
 	const SHOTS = [
 		// Outside. A wide turn that ends over the water: the sand seen through the surface.
@@ -206,36 +224,32 @@ export function buildTour( { live = {} } = {} ) {
 		{ at: 8.5, blend: 3, out: true, rig: ( t, k ) => watch( [ lerp( 0.22, - 0.05, ease( k ) ), lerp( LEVEL + 0.07, LEVEL + 0.006, ease( k ) ), lerp( FRONT + 0.32, FRONT + 0.22, k ) ], [ 0.3, LEVEL - 0.01, - 0.18 ] ) },
 		// Up to the pane at the waterline: the meniscus.
 		{ at: 15.5, blend: 2.5, out: true, rig: ( t, k ) => { const d = Math.exp( lerp( Math.log( 0.22 ), Math.log( 0.06 ), ease( k ) ) ), x = lerp( - 0.05, - 0.08, k ); return watch( [ x, lerp( LEVEL + 0.006, LEVEL + 0.003, k ), FRONT + d ], mix( [ 0.3, LEVEL - 0.01, - 0.18 ], [ x - 0.08, LEVEL - 0.006, FRONT - 0.25 ], ease( k ) ) ); } },
-		// Inside. A turn around the submarine as it dives to the sand.
-		{ at: INTRO, cut: true, rig: ( t, k ) => orbit( t, lerp( 2.4, 0.9, ease( k ) ), lerp( 0.11, 0.08, k ), { dy: lerp( 0.03, - 0.01, k ) } ) },
+		// Inside. A slow turn from its side to behind it as it dives (never ahead: it would pass the camera).
+		{ at: INTRO, cut: true, rig: ( t, k ) => turnAround( t, lerp( - 1.6, - 0.5, ease( k ) ), lerp( 0.12, 0.1, k ), { dy: lerp( 0.03, 0.01, k ) } ) },
 		// The low skim: just over the sand, behind it, the starfish below.
-		{ at: T( 2, - 1 ), blend: 2.5, rig: ( t ) => follow( t, { back: 0.075, side: 0.025, h: 0.009 } ) },
-		// Low by the front pane: the crab's lane between the camera and the submarine.
-		{ at: T( 3, 1 ), blend: 2.5, rig: ( t ) => { const s = subAt( t ).p, c = crab(); return watch( [ - 0.02, sand( - 0.02, 0.37 ) + 0.012, 0.37 ], len( sub3( c, s ) ) < 0.25 ? near( c, s, 0.6 ) : s ); } },
-		// Grazing the bronze cube's top as the submarine crosses it.
-		{ at: T( 4, 0.3 ), blend: 2.5, rig: ( t ) => watch( [ 0.09, 0.1265, 0.19 ], subAt( t ).p ) }, // behind it on the top: it moves away, the view turns little
-		// The low skim from the side: brain coral, anemone, starfish, coral.
-		{ at: T( 6, 0.5 ), blend: 2.5, rig: ( t ) => follow( t, { back: 0.04, side: 0.07, h: 0.01 } ) },
-		// Under the jellyfish.
-		{ at: T( 10, 0.5 ), blend: 2.5, rig: ( t ) => watch( [ 0.36, 0.05, 0.12 ], near( jelly( 0 ), subAt( t ).p, 0.5 ) ) },
+		{ at: T( 2, - 2 ), blend: 4, rig: ( t ) => follow( t, { back: 0.1, side: 0.035, h: 0.01 } ) },
+		// On the bronze cube's top, low: its surface fills the frame, the submarine crosses it.
+		{ at: T( 3 ), blend: 4, rig: ( t, k ) => watch( mix( [ 0.08, 0.1265, 0.19 ], [ 0.1, 0.1265, 0.2 ], ease( k ) ), near( [ 0.14, 0.12, 0.15 ], subAt( t ).p, 0.55 ) ) },
+		// Low by the brain coral as the submarine passes over it.
+		{ at: T( 5, 0.5 ), blend: 4, rig: ( t ) => watch( [ 0.19, sand( 0.19, - 0.06 ) + 0.02, - 0.06 ], near( [ 0.26, 0.035, - 0.005 ], subAt( t ).p, 0.5 ) ) },
 		// Below and behind as it climbs between the kelp and the post.
-		{ at: T( 11, 0.5 ), blend: 2.5, rig: ( t ) => follow( t, { back: 0.08, side: - 0.03, dy: - 0.03 } ) },
-		// The driftwood post, down to its grain.
-		{ at: T( 12, 1 ), blend: 2, rig: ( t, k ) => push( [ 0.3646, lerp( 0.17, 0.21, k ), - 0.17 ], [ 0.98, 0.15, - 0.2 ], 0.08, 0.03, ease( k * 1.2 ) ) },
+		{ at: T( 7 ), blend: 4, rig: ( t ) => follow( t, { back: 0.11, side: - 0.04, dy: - 0.02 } ) },
+		// The driftwood post: a slow approach, then a hold on the grain.
+		{ at: T( 8, 1.5 ), blend: 4, rig: ( t, k ) => push( [ 0.3646, lerp( 0.16, 0.2, k ), - 0.17 ], [ 0.98, 0.15, - 0.2 ], 0.1, 0.04, ease( k * 1.4 ) ) },
 		// Behind it, just under the surface, among the silver fish.
-		{ at: T( 14, - 1 ), blend: 2.5, rig: ( t ) => follow( t, { back: 0.085, side: 0.02, dy: - 0.012 } ) },
-		// Low under the jellyfish at the back.
-		{ at: T( 15, 1 ), blend: 2.5, rig: ( t ) => watch( [ 0.03, 0.09, - 0.1 ], near( jelly( 2 ), subAt( t ).p, 0.75 ) ) },
-		// The low skim past the seagrass and the fan coral.
-		{ at: T( 17, - 0.5 ), blend: 2.5, rig: ( t ) => follow( t, { back: 0.07, side: 0.03, h: 0.009 } ) },
-		// Grazing the granite cube's top.
-		{ at: T( 19, 0.3 ), blend: 2.5, rig: ( t ) => watch( [ - 0.19, 0.176, - 0.13 ], subAt( t ).p ) },
-		// The low skim among the anemones (an orbit here crossed the submarine's path).
-		{ at: T( 21, 0.5 ), blend: 2.5, rig: ( t ) => follow( t, { back: 0.08, side: - 0.035, h: 0.012 } ) },
-		// The sand, down to the grains.
-		{ at: T( 25 ), blend: 2, rig: ( t, k ) => push( SANDPT, [ 0.15, 0.8, 0.55 ], 0.06, 0.005, ease( k * 1.2 ) ) },
+		{ at: T( 9, 1 ), blend: 4, rig: ( t ) => follow( t, { back: 0.11, side: 0.03, dy: - 0.015 } ) },
+		// The jellyfish at the back.
+		{ at: T( 11 ), blend: 4, rig: ( t ) => watch( [ 0.03, 0.09, - 0.1 ], near( jelly( 2 ), subAt( t ).p, 0.7 ) ) },
+		// Low by the seagrass, the fan coral behind.
+		{ at: T( 12, 0.5 ), blend: 4, rig: ( t ) => watch( [ - 0.12, sand( - 0.12, - 0.19 ) + 0.02, - 0.19 ], near( [ - 0.27, 0.07, - 0.355 ], subAt( t ).p, 0.5 ) ) },
+		// On the granite cube's top, low, a slow slide along it.
+		{ at: T( 14 ), blend: 4, rig: ( t, k ) => watch( mix( [ - 0.17, 0.2, - 0.17 ], [ - 0.16, 0.195, - 0.18 ], ease( k ) ), near( [ - 0.25, 0.16, - 0.12 ], subAt( t ).p, 0.5 ) ) }, // 4 cm over it: the top fills the lower frame
+		// The low skim among the anemones.
+		{ at: T( 16, 1 ), blend: 4, rig: ( t ) => follow( t, { back: 0.1, side: 0.04, h: 0.012 } ) },
+		// The sand: a slow approach, then a hold on the grains.
+		{ at: T( 18 ), blend: 3, rig: ( t, k ) => push( SANDPT, [ 0.15, 0.8, 0.55 ], 0.07, 0.006, ease( k * 1.5 ) ) },
 		// The way up into the school, the camera pulls back.
-		{ at: T( 26, 2 ), blend: 2.5, rig: ( t, k ) => orbit( t, lerp( 0.9, - 0.4, ease( k ) ), lerp( 0.09, 0.2, ease( k ) ), { dy: lerp( 0, - 0.03, k ) } ) },
+		{ at: T( 19, 1 ), blend: 4, rig: ( t, k ) => turnAround( t, lerp( 0.9, 0.3, ease( k ) ), lerp( 0.1, 0.22, ease( k ) ), { dy: lerp( 0, - 0.03, k ) } ) },
 	];
 	const shotAt = ( i, t ) => { const a = SHOTS[ i ].at, b = SHOTS[ i + 1 ]?.at ?? INTRO + TOUR + END; return SHOTS[ i ].rig( t, Math.min( 1.3, ( t - a ) / ( b - a ) ) ); };
 	const indexAt = ( t ) => { let i = 0; while ( i < SHOTS.length - 1 && SHOTS[ i + 1 ].at <= t ) i ++; return i; };
@@ -255,7 +269,7 @@ export function buildTour( { live = {} } = {} ) {
 	// The spring: the eye and the target follow the rig with a lag (TAU,
 	// TAUL). Then two limits: the eye moves at most VMAX, the view turns at
 	// most WMAX, at a rate that grows with the gap (a submarine passing near a still camera no longer whips it).
-	const TAU = 0.5, TAUL = 0.7, WMAX = 35 * Math.PI / 180, WGAIN = 2.5, VMAX = 0.1, VOUT = 0.4;
+	const TAU = 1, TAUL = 1.2, WMAX = 15 * Math.PI / 180, WGAIN = 1.2, VMAX = 0.04, VOUT = 0.4; // slow: the surfaces have time to be seen
 	let state = null;
 	const unit = ( v ) => { const n = len( v ) || 1; return v.map( ( x ) => x / n ); };
 	function camera( t, dt ) {
@@ -283,13 +297,14 @@ export function buildTour( { live = {} } = {} ) {
 		[ 10, 15, 'The post breaks at the waterline' ],
 		[ 16.5, 21.5, 'The meniscus climbs 2.9 mm up the glass' ],
 		[ INTRO + 1, INTRO + 4, 'A 3.5 cm toy submarine' ],
-		[ T( 2 ), T( 2, 3.5 ), 'Skimming the sand' ],
-		[ T( 4, 1 ), T( 5, 1 ), 'Bronze, computed in the shader' ],
-		[ T( 7 ), T( 7, 3.5 ), 'Corals, anemones, starfish: all code' ],
-		[ T( 12, 1.5 ), T( 13, 1 ), 'Driftwood, down to the grain' ],
-		[ T( 15, 1.5 ), T( 15, 5 ), 'Jellyfish and kelp' ],
-		[ T( 21, 1.2 ), T( 21, 4.5 ), 'Polished granite' ],
-		[ T( 25, 2.4 ), T( 26, 2 ), 'Sand grains, 0.35 mm' ],
+		[ T( 2, 0.5 ), T( 2, 4.5 ), 'Skimming the sand' ],
+		[ T( 3, 2 ), T( 4, 3 ), 'Bronze, computed in the shader' ],
+		[ T( 5, 2.5 ), T( 6, 3 ), 'Brain coral, anemones, starfish: all code' ],
+		[ T( 8, 4 ), T( 9, 0.5 ), 'Driftwood, down to the grain' ],
+		[ T( 11, 1.5 ), T( 11, 5.5 ), 'Jellyfish and kelp' ],
+		[ T( 12, 3 ), T( 13, 2 ), 'Fan coral and seagrass' ],
+		[ T( 14, 2.5 ), T( 15, 3 ), 'Polished granite' ],
+		[ T( 18, 2.5 ), T( 19, 1.5 ), 'Sand grains, 0.35 mm' ],
 	];
 
 	return { sub, camera, sdf, captions, W, total, INTRO, TOUR, END, u: 0 };
