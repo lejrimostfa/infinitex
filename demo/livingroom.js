@@ -8,6 +8,7 @@
 //   ?view=room | window | tv | fruit | rug | chair   start from a preset camera
 //   arrows or ZQSD walk, Space and C up and down, a click focuses, F the
 //   lens (the camera kit, src/camera, through camerakit.js)
+//   ?nogi   no SSGI bounce light; ?notaa  no TRAA (src/camera/post.js)
 //   ?nofly  no bee. Without it, a honeybee hovers over the fruit bowl; V or
 //           the button at the bottom right flies it (flyer.js, flyhud.js)
 // window.__ix: renderer, scene, camera, controls, kit, view( name ), setTime( s ), ready.
@@ -204,7 +205,9 @@ view( params.get( 'view' ) ?? 'room' );
 // lens, adaptive resolution, one pipeline with AO in the lighting then the
 // blur, and sun shadows in three slices that follow the focus on the key
 // light (src/camera). ?nolit, ?nocsm, ?nodof.
-const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 1.5, sun: key } } );
+// SSGI bounce light over the GTAO, and TRAA (src/camera/post.js); ?nogi
+// no bounce, ?notaa no temporal anti-aliasing.
+const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 1.5, sun: key, gi: ! params.has( 'nogi' ), taa: ! params.has( 'notaa' ) } } );
 const { walk, adaptive, lens, post } = kit;
 
 // The bee, hovering over the fruit bowl, facing it from the room's side.

@@ -5,6 +5,11 @@
 //              contacts, the sleeves on the torso, a fruit in its bowl.
 //              The knit itself already has its own analytic AO.
 //   hair       3D strands, drawn apart and laid over (see below)
+//   gi         (option) SSGI: the light bounced from what is on screen,
+//              taken by the diffuse colour (MRT), added to the frame
+//   taa        (option) TRAA: the camera jitters by a sub-pixel each frame
+//              and the history is reprojected by the velocities (MRT).
+//              Edges are smooth, and the SSGI noise is averaged in time
 //   blur       depth of field (dof.js), when a lens (lens.js) is given
 //
 // Two ways to apply AO:
@@ -34,8 +39,10 @@
 
 import * as THREE from 'three/webgpu';
 import { HAIR_LAYER } from '../core/hair3d.js';
-import { nodeObject, pass, mrt, output, normalView, directionToColor, colorToDirection, sample, screenUV, uniform, vec4, mix, texture, builtinAOContext } from 'three/tsl';
+import { nodeObject, pass, mrt, output, normalView, directionToColor, colorToDirection, sample, screenUV, uniform, vec4, mix, texture, builtinAOContext, diffuseColor, velocity } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
+import { ssgi } from 'three/addons/tsl/display/SSGINode.js';
+import { traa } from 'three/addons/tsl/display/TRAANode.js';
 import { followLens } from './dof.js';
 
 // The hair pass: no background and a transparent clear, so thin strands
@@ -65,7 +72,10 @@ const DIRECT = 0.55; // share of the AO that also dims direct light (lit)
 // lit: AO inside the lighting (see the header).
 // With no option (game.html, the test page) the frame is AO over the
 // colour, then the hair.
-export function createPost( renderer, scene, camera, { lens = null, lit = false } = {} ) {
+// gi: SSGI bounce light added to the GTAO-shaded frame (bounce: its
+// gain). taa: TRAA before the blur. Both read more targets of the scene
+// pass (diffuse colour, velocity).
+export function createPost( renderer, scene, camera, { lens = null, lit = false, gi = false, taa = false } = {} ) {
 
 	const pipeline = new THREE.RenderPipeline( renderer );
 	const sceneLayers = new THREE.Layers();
@@ -73,13 +83,15 @@ export function createPost( renderer, scene, camera, { lens = null, lit = false 
 	sceneLayers.disable( HAIR_LAYER );
 	const hairLayers = new THREE.Layers();
 	hairLayers.set( HAIR_LAYER );
-	const scenePass = pass( scene, camera );
+	// TRAA copies the depth of the pass: it cannot be multisampled. It
+	// smooths the edges itself, so the pass then needs no MSAA.
+	const scenePass = taa ? pass( scene, camera, { samples: 0 } ) : pass( scene, camera );
 	scenePass.setLayers( sceneLayers );
 	const hairPass = nodeObject( new HairPassNode( THREE.PassNode.COLOR, scene, camera ) );
 	hairPass.setLayers( hairLayers );
 	// Strand meshes move to their own layer as they appear.
 	const sortHair = () => scene.traverse( ( o ) => { if ( o.userData.hairStrands && ! o.layers.isEnabled( HAIR_LAYER ) ) o.layers.set( HAIR_LAYER ); } );
-	scenePass.setMRT( mrt( { output, normal: directionToColor( normalView ) } ) );
+	scenePass.setMRT( mrt( { output, normal: directionToColor( normalView ), ...( gi ? { diffuse: diffuseColor } : {} ), ...( taa ? { velocity } : {} ) } ) );
 	const color = scenePass.getTextureNode( 'output' );
 	const normalTex = scenePass.getTextureNode( 'normal' );
 	const normal = sample( ( uv ) => colorToDirection( normalTex.sample( uv ) ) );
@@ -102,11 +114,36 @@ export function createPost( renderer, scene, camera, { lens = null, lit = false 
 		shaded = color.rgb.mul( mix( 1, aoTex.sample( screenUV ).r, strength.mul( DIRECT ) ) );
 
 	} else shaded = color.rgb.mul( mix( 1, aoTex.sample( screenUV ).r, strength ) );
+	// Bounce light (gi): SSGI gathers the light of what is on screen around
+	// each pixel; the diffuse colour of the surface takes it. Its own AO is
+	// left out: GTAO above gives the contacts and the fine cavities this
+	// scene is tuned with (SSGI's AO alone washed the room out and lost the
+	// pores of the fruit). With TRAA: the low preset (1 slice of 12 steps)
+	// at half size, 15 ms at 1080p at full size and 2 slices of 8. Bounce
+	// light is soft by nature. Without TRAA: 2 slices of 8, still half size.
+	// bounce 0.2: SSGI reads the HDR frame, where the sunset sky and the
+	// lava are many times brighter than a wall; at 1 the room washed out.
+	const bounce = uniform( 0.2 );
+	let giPass = null;
+	if ( gi ) {
+
+		giPass = ssgi( color, depth, normal, camera );
+		giPass.resolutionScale = 0.5;
+		giPass.sliceCount.value = taa ? 1 : 2;
+		giPass.stepCount.value = taa ? 12 : 8;
+		giPass.aoIntensity.value = 0;
+		giPass.giIntensity.value = 1;
+		giPass.useTemporalFiltering = taa;
+		shaded = shaded.add( scenePass.getTextureNode( 'diffuse' ).rgb.mul( giPass.rgb ).mul( bounce ).mul( strength ) );
+
+	}
+
 	// Hair over the scene by its coverage (premultiplied alpha). The strands
 	// grow on the face the camera looks at, so they are always in front of
 	// their host; no depth test is needed.
 	const hair = hairPass.getTextureNode( 'output' );
-	const sharp = vec4( shaded.mul( hair.a.oneMinus() ).add( hair.rgb ), color.a );
+	let sharp = vec4( shaded.mul( hair.a.oneMinus() ).add( hair.rgb ), color.a );
+	if ( taa ) sharp = traa( sharp, depth, scenePass.getTextureNode( 'velocity' ), camera );
 	// Depth of field last, on the finished image. The strands are not in the
 	// scene depth: they blur as the skin they grow on. With the lens off the
 	// blur passes are not drawn at all.
@@ -114,7 +151,7 @@ export function createPost( renderer, scene, camera, { lens = null, lit = false 
 
 	let enabled = true;
 	return {
-		pipeline, aoPass, strength, hairPass, scenePass,
+		pipeline, aoPass, giPass, bounce, strength, hairPass, scenePass,
 		get enabled() { return enabled; },
 		set enabled( on ) { enabled = on; strength.value = on ? 1 : 0; },
 		// dist: camera to surface, meters.
