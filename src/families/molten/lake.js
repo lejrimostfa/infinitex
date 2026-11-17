@@ -25,6 +25,8 @@
 //   L3 vesicles   cell_um: gas bubbles frozen in the skin.
 //   L4 glass      micro_um: plagioclase laths in black glass, tiny mirrors
 //                 that glint.
+//   ripples       rings from lava falling back, set by the page
+//                 (ripples.js): slope, and a glow on the crests.
 // Slope: never from screen derivatives (surfaceGradient). Seen from low
 // over a big lake, the screen difference across a stretched pixel flickered
 // along the screen rows (dark lines flat on, rings at a slant). Instead the
@@ -42,6 +44,7 @@ import { hash3, wrapCoord } from '../../core/hash.js';
 import { voronoi } from '../../core/voronoi.js';
 import { frame, fbm, vesicles, microlites } from './common.js';
 import { radiance } from './heat.js';
+import { rippleField } from './ripples.js';
 
 // Coverage of a line of half width w at distance d, anti-aliased by fp.
 const line = ( d, w, fp ) => clamp( w.sub( d ).div( fp ).add( 0.5 ), 0, 1 );
@@ -128,7 +131,10 @@ export function buildLake( p, fp, u, t ) {
 		.add( Pm.sub( centre ).div( r.max( 1e-6 ) ).mul( r.sub( R ).mul( - 2 ).div( S.mul( 0.02 ) ).mul( rim ).mul( 0.05 ) ) );
 	const g = gPm.add( Ve.slope ).add( Mi.slope.mul( 0.6 ) );
 	// Crust frame x runs against the frame x on the + side (Pm.x = flow t - ad).
-	const slope = F.toP( vec2( dAd.mul( side ).sub( g.x.mul( side ) ), g.y ) ).mul( plate );
+	// Rings from blobs falling back and bubbles bursting (ripples.js): they
+	// move the melt and the skin alike.
+	const rip = rippleField( p, t, fp );
+	const slope = F.toP( vec2( dAd.mul( side ).sub( g.x.mul( side ) ), g.y ) ).mul( plate ).add( rip.slope );
 
 	// Colour: black glassy crust, silver grey sheen on young crust; melt
 	// seen in the cracks is dark (it glows, it does not reflect much).
@@ -149,7 +155,7 @@ export function buildLake( p, fp, u, t ) {
 	const streak = fbm( Pm.add( vec2( 0, t.mul( S ).mul( 0.05 ) ) ), S.mul( 0.12 ), fp, 2, 9 );
 	const Tm = u.meltK.mul( mix( float( 0.9 ), float( 1.0 ), mid.max( ridge ).max( open ) ) ).sub( streak.sub( 0.5 ).mul( 90 ) )
 		.sub( fbm( Pm.add( vec2( t.mul( S ).mul( 0.0375 ), 0 ) ), S.mul( 0.016 ), fp, 3, 12 ).sub( 0.5 ).mul( 120 ) );
-	const hot = max( melt, sink.mul( 0.6 ) ).max( hair.mul( 0.35 ) ).max( ccrack.mul( float( 1 ).sub( cool ).mul( 0.5 ).add( 0.08 ) ) )
+	const hot = max( melt, sink.mul( 0.6 ) ).max( rip.glow.mul( 0.55 ) ).max( hair.mul( 0.35 ) ).max( ccrack.mul( float( 1 ).sub( cool ).mul( 0.5 ).add( 0.08 ) ) )
 		.max( Ve.pit.mul( float( 1 ).sub( cool ) ).mul( 0.3 ) );
 	const emissive = mix( radiance( Tc, u ), radiance( Tm.sub( film.mul( 160 ) ), u ), hot );
 

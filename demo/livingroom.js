@@ -26,6 +26,7 @@ import { buildCharacter } from './charbuild.js';
 import riveraine from './characters/riveraine.js';
 import { MATTERS } from './roomMatters.js';
 import { planeCoords } from '../src/core/planecoords.js';
+import { createLavaFx } from './lavafx.js';
 import { createBee } from './vehicles/bee.js';
 import { streamMaterials } from './warmup.js';
 import { createFlyer } from './flyer.js';
@@ -121,6 +122,7 @@ function rugCoords( g ) {
 // cracks): its coordinates come from each pixel's ray instead
 // (core/planecoords.js), at the height of its top, with the same offset
 // as its uv (read on a top vertex).
+let lake = null; // { height, offset } of the lava's top, for its effects below
 function lakeCoords( mesh ) {
 
 	room.updateMatrixWorld( true );
@@ -128,7 +130,8 @@ function lakeCoords( mesh ) {
 	let i = 0;
 	while ( i < P.count - 1 && N.getY( i ) < 0.9 ) i ++;
 	const w = new THREE.Vector3().fromBufferAttribute( P, i ).applyMatrix4( mesh.matrixWorld );
-	return planeCoords( { height: w.y, offset: [ U.getX( i ) - w.x, U.getY( i ) - w.z ] } );
+	lake = { height: w.y, offset: [ U.getX( i ) - w.x, U.getY( i ) - w.z ] };
+	return planeCoords( lake );
 
 }
 
@@ -151,6 +154,14 @@ room.traverse( ( o ) => {
 
 } );
 scene.add( room );
+
+// The lake lives: slow glowing bubbles, some bursting into heavy blobs
+// that fall back in rings (lavafx.js, src/families/molten/ripples.js).
+// ?nolavafx turns it off.
+const lavaFx = lake && ! params.has( 'nolavafx' ) ? createLavaFx( {
+	scene, height: lake.height, bounds: { minX: - 290, maxX: 290, minZ: - 490, maxZ: - 12 },
+	toSurface: ( x, z ) => [ x + lake.offset[ 0 ], z + lake.offset[ 1 ] ],
+} ) : null;
 
 // The sun: Blender placed a sphere; the photosphere wants a disc facing
 // the eye, same centre and radius (molten/photosphere.js), out of the haze.
@@ -218,6 +229,7 @@ renderer.setAnimationLoop( () => {
 	clock += dt;
 	last = now;
 	setTime( clock );
+	lavaFx?.update( dt, clock, camera );
 	figure.mixer.setTime( clock % figure.clip.duration );
 	vehicle?.update( dt, clock ); // while flown, it moves the camera and the walk holds still
 	// Flying, the AO and the shadow cascades follow the vehicle (the chase
@@ -247,4 +259,4 @@ if ( vehicle ) {
 
 }
 
-window.__ix = { renderer, scene, camera, controls, kit, walk, vehicle, adaptive, lens, focus: lens, post, view, setTime, matters, ready: true };
+window.__ix = { lavaFx, renderer, scene, camera, controls, kit, walk, vehicle, adaptive, lens, focus: lens, post, view, setTime, matters, ready: true };
