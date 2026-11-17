@@ -48,6 +48,7 @@ applyCameraSettings( { renderer, camera, controls } );   // near 1e-6, far 100, 
 | AO | `ao`, `aoLit` | GTAO at half resolution, its radius 12 % of the subject distance. With `aoLit` the materials read the AO while they are lit: it dims the ambient light in full, then 55 % of it also dims the finished colour, which grounds objects in full sun. That ambient AO is the one of the frame before: a still frame must be drawn twice (`renderAsync( 2 )`). 3D hair strands draw in a pass of their own over it. | `post.js` |
 | Sun shadows | `shadows` | The sun's shadow map in three cascades (three's `CSMShadowNode`, 2048 texels each): up to 2.5 times the subject distance, up to 10 times, then the rest to `shadowFar`. They move with the focus, so the fine one is always on the subject: at 40 cm from a fruit a texel is about half a millimetre. Rebuilt when the distance moves by 12 %. | `shadows.js` |
 | Target mode | `target` | For a page that draws its own frame into a target with a depth texture (the aquarium's waterline mixes two scene passes). `render( rt )` applies GTAO from that depth (strength 0.8), the `shafts` light, then the depth of field. | `targetpost.js` |
+| Bloom and grade | `grade` | Target mode only. After the depth of field: bloom of what exceeds a threshold, contrast, blue shadows and warm highlights, vibrance, vignette. `{}` is the default look, `null` none. Uniforms in `kit.post.grade.uniforms`; `water` (0 or 1) switches between the look in the air and under water. About 0.33 ms at 1080p. | `grade.js` |
 
 ### The focus distance and the macro distance
 
@@ -56,7 +57,7 @@ Every frame the lens casts five rays through the collision BVH: the screen centr
 - **Focus distance**: the nearest of the five hits. A figure a little off centre wins over the landscape behind it. It drives the depth of field, and the kit uses it as the subject distance for the AO radius and the shadow cascades.
 - **Macro distance**: the centre ray only. The field of view adapts to the observed surface, not to something at the edge of the area.
 
-When the rays hit nothing, the orbit target stands in, with a deeper and weaker blur. Both distances ease in log space (time constant 0.18 s), like a focus pull. The field of view eases again (0.35 s). So a switch from a near object to a far one, or back, never jumps: at 60 fps the field of view moves under 1 degree per frame. `focusArea: false` casts the centre ray only.
+When the rays hit nothing, the orbit target stands in, with a deeper and weaker blur. Both distances follow their target in log space with a critically damped spring (`focusTime` 0.4 s, `macroTime` 0.45 s), like a focus puller: the move starts slowly, travels, and lands slowly. The field of view is followed again (0.3 s). So a switch from a near object to a far one, or back, neither jumps nor kicks: at 60 fps the field of view moves under 0.5 degree per frame, and a full change takes about 2 s. Before 17 November 2026 these were one-pole eases, which leave at full speed the frame the target changes. `focusArea: false` casts the centre ray only.
 
 ### Collisions on skinned meshes
 

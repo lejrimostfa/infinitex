@@ -21,6 +21,9 @@
 //               depth texture (the aquarium's waterline): AO and depth of
 //               field on that target (targetpost.js), render( rt ).
 //               shafts: light added there before the blur (src/core/shafts.js)
+//               grade: bloom, colour grade and vignette after the blur
+//               (grade.js). {} for the default look, null for none (no
+//               extra pass). Its uniforms: kit.post.grade.uniforms
 //
 // The subject distance (the eased focus distance, or the orbit distance
 // without a lens) sets the AO radius and the shadow cascades. In update()
@@ -52,9 +55,10 @@ export const KIT_DEFAULTS = Object.freeze( {
 	walk: true, collide: true, speedScale: true, minSpeed: 0.02, maxSpeed: 3,
 	macro: true, macroFov: 22, macroFrom: 0.12, macroFull: 0.03,
 	dof: true, lensKey: 'KeyF', maxFocus: 30, focusArea: true,
+	focusTime: 0.4, macroTime: 0.45, // how long a focus pull and a change of field of view last, s (lens.js)
 	adaptive: true, ao: true, aoLit: true,
 	shadows: true, sun: null, shadowFar: 40,
-	target: null, shafts: null,
+	target: null, shafts: null, grade: null,
 } );
 
 // Whether the lens (macro and depth of field) starts on. Automated browsers
@@ -77,7 +81,7 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 	const lens = wantLens ? createLens( {
 		camera, controls, renderer, surfaceAhead: collider, dof: o.dof, macro: o.macro, enabled: o.lensOn,
 		macroFov: o.macroFov, macroFrom: o.macroFrom, macroFull: o.macroFull, key: o.lensKey,
-		maxFocus: o.maxFocus, focusArea: o.focusArea,
+		maxFocus: o.maxFocus, focusArea: o.focusArea, focusTime: o.focusTime, macroTime: o.macroTime,
 	} ) : null;
 	// Wheel zoom relative to the surface under the cursor, and the guard that
 	// stops every kit move before a surface (approach.js).
@@ -85,7 +89,7 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 	// Always built, so a page can read max or hold it; it only acts when enabled.
 	const adaptive = createAdaptiveResolution( renderer, { enabled: !! o.adaptive } );
 	const dofLens = o.dof ? lens : null;
-	const post = o.target ? createTargetPost( renderer, camera, o.target, { lens: dofLens, shafts: o.shafts } )
+	const post = o.target ? createTargetPost( renderer, camera, o.target, { lens: dofLens, shafts: o.shafts, grade: o.grade } )
 		: o.ao ? createPost( renderer, scene, camera, { lens: dofLens, lit: o.aoLit } ) : null;
 	const dofOnly = ! post && o.dof ? createDofPipeline( renderer, scene, camera, lens ) : null;
 	// The sun: the given light, or the scene's first shadow-casting directional light.

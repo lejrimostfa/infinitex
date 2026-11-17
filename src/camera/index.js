@@ -12,4 +12,5 @@ export { createAdaptiveResolution } from './adaptive.js';
 export { createPost } from './post.js';
 export { createDofPipeline, withDof, followLens } from './dof.js';
 export { createTargetPost } from './targetpost.js';
+export { createGrade, GRADE_DEFAULTS } from './grade.js';
 export { createSunCascades } from './shadows.js';
