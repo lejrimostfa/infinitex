@@ -13,7 +13,7 @@
 // pixelRatioChanged to resize its waterline targets.
 
 import * as THREE from 'three/webgpu';
-import { positionWorldDirection, vec2, uv } from 'three/tsl';
+import { positionWorldDirection, vec2, vec3, uv, fog, rangeFogFactor } from 'three/tsl';
 import './nav.js';
 import { setTime } from '../src/core/clock.js';
 import { reliefLight } from '../src/core/relief.js';
@@ -33,6 +33,7 @@ import { createViews } from './beach/views.js';
 import { tropicalSky } from './beach/sky.js';
 import { loadProps, place } from './beach/props.js';
 import { placements } from './beach/layout.js';
+import { createShip } from './beach/ship.js';
 
 const params = new URLSearchParams( location.search );
 const ctx = await createStage( { forceWebGL: params.has( 'webgl' ) } );
@@ -89,6 +90,26 @@ world.add( deepFloor( applyUnderwater ) );
 const props = params.has( 'noprops' ) ? {} : await loadProps();
 const placed = [];
 for ( const e of placements() ) if ( props[ e.name ] ) placed.push( place( props[ e.name ], world, e ) );
+
+// The capital ship (beach/ship.js), out at sea until the timeline brings
+// it in; ?ship=0..1 puts it on its path. As its shadow covers the bay the
+// sun dims, the caustics and the shafts fade (cover, 0 to 1).
+const ship = props.ship ? createShip( props.ship, scene, sun.position ) : null;
+const SUN = sun.intensity, ENV = scene.environmentIntensity;
+function setShip( t ) {
+
+	if ( ! ship ) return;
+	ship.update( t );
+	const c = ship.cover;
+	sun.intensity = SUN * ( 1 - 0.8 * c );
+	scene.environmentIntensity = ENV * ( 1 - 0.35 * c );
+	W.caustics.value = 1 - 0.85 * c;
+
+}
+setShip( + params.get( 'ship' ) || 0 );
+// Aerial haze: kilometres away, things take the sky's colour. It is what
+// tells the ship's size; the lagoon and the beach are too near to change.
+scene.fogNode = fog( vec3( 0.62, 0.79, 0.92 ), rangeFogFactor( 1500, 18000 ) );
 
 // The sea, and its two mirrors (what is above, seen from above; the
 // lagoon, seen from below).
@@ -150,7 +171,7 @@ renderer.setAnimationLoop( () => {
 	setTime( clock );
 	const under = camera.position.y < W.level.value;
 	if ( kit.lens ) kit.lens.bokehScale = under ? 0.5 : 1;
-	W.shafts.value = under ? 1.0 : 0.3;
+	W.shafts.value = ( under ? 1.0 : 0.3 ) * ( 1 - ( ship?.cover ?? 0 ) );
 	if ( kit.post?.grade ) kit.post.grade.uniforms.water.value = under ? 1 : 0;
 	kit.update( dt );
 	stats.beginFrame();
@@ -159,4 +180,4 @@ renderer.setAnimationLoop( () => {
 
 } );
 
-window.__ix = { props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };
+window.__ix = { ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };
