@@ -17,7 +17,7 @@ import { positionWorldDirection, vec2, uv } from 'three/tsl';
 import './nav.js';
 import { setTime } from '../src/core/clock.js';
 import { reliefLight } from '../src/core/relief.js';
-import { waterBody } from '../src/core/underwater.js';
+import { waterBody, applyUnderwater } from '../src/core/underwater.js';
 import { createWaterline } from '../src/core/waterline.js';
 import { createMirror } from '../src/core/mirror.js';
 import { refractSurface, refractOff } from '../src/core/refraction.js';
@@ -27,10 +27,12 @@ import { createMaterial } from '../src/index.js';
 import { createStage } from './scene.js';
 import { createStats } from './stats.js';
 import { createDemoKit } from './camerakit.js';
-import { groundGeometry, sandHeight } from './beach/terrain.js';
+import { groundGeometry, sandHeight, deepFloor } from './beach/terrain.js';
 import { createOcean } from './beach/ocean.js';
 import { createViews } from './beach/views.js';
 import { tropicalSky } from './beach/sky.js';
+import { loadProps, place } from './beach/props.js';
+import { placements } from './beach/layout.js';
 
 const params = new URLSearchParams( location.search );
 const ctx = await createStage( { forceWebGL: params.has( 'webgl' ) } );
@@ -78,9 +80,15 @@ scene.add( world );
 // The ground: Infinitex sand, under water where it dips (caustics, colour
 // loss). UVs are metres.
 const sandPreset = { family: 'ground', mode: 'sand', grain_mm: 0.35, color: '#e8d4a8', color2: '#c99b62', color3: '#2b2622', ripple_mm: 90, ripple: 0.5, specks: 0.3, sparkle: 0.6, roughness: 0.85, seed: 2, underwater: 1 };
-const ground = new THREE.Mesh( groundGeometry( + params.get( 'step' ) || 1 ), createMaterial( sandPreset, { coords: uv() } ).material );
+const ground = new THREE.Mesh( groundGeometry( + params.get( 'step' ) || 1.5 ), createMaterial( sandPreset, { coords: uv() } ).material );
 ground.receiveShadow = true;
 world.add( ground );
+world.add( deepFloor( applyUnderwater ) );
+
+// The folded paper props (beach/props.js, beach/layout.js); ?noprops.
+const props = params.has( 'noprops' ) ? {} : await loadProps();
+const placed = [];
+for ( const e of placements() ) if ( props[ e.name ] ) placed.push( place( props[ e.name ], world, e ) );
 
 // The sea, and its two mirrors (what is above, seen from above; the
 // lagoon, seen from below).
@@ -151,4 +159,4 @@ renderer.setAnimationLoop( () => {
 
 } );
 
-window.__ix = { renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };
+window.__ix = { props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };

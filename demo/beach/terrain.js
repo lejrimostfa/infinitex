@@ -13,10 +13,11 @@
 // Event bus: none (built once by the page).
 
 import * as THREE from 'three/webgpu';
-import { float, sin, exp, mix, step, smoothstep as sstep, min as tmin, max as tmax } from 'three/tsl';
+import { grid } from './ocean.js';
+import { vec3, float, sin, exp, mix, step, smoothstep as sstep, min as tmin, max as tmax } from 'three/tsl';
 
 export const REEF = 80; // m from the shore line to the reef crest
-export const BOX = { x: [ - 160, 160 ], z: [ - 70, 190 ] }; // the ground mesh
+export const BOX = { x: [ - 320, 320 ], z: [ - 70, 190 ] }; // the ground mesh (wide: the bay must not end in view)
 
 const ss = ( a, b, x ) => { const t = Math.min( 1, Math.max( 0, ( x - a ) / ( b - a ) ) ); return t * t * ( 3 - 2 * t ); };
 
@@ -73,5 +74,27 @@ export function groundGeometry( step = 1 ) {
 	g.computeVertexNormals();
 	g.computeTangents();
 	return g;
+
+}
+
+// The deep floor out to the horizon, 0.5 m under the ground mesh's deepest
+// edge: without it the far sea had nothing under it and showed the sky's
+// ground colour, a lighter band past the fine water patch. A plain lit
+// matter under water (core/underwater.js): it is only seen through 25 m of
+// water, an Infinitex sand would cost for nothing.
+export function deepFloor( applyUnderwater ) {
+
+	// 40 m quads, the ground mesh cut out: refraction moves the vertices
+	// (core/refraction.js), and two huge triangles bent at their corners
+	// rose in front of the lagoon.
+	const g = grid( - 3000, 3000, - 3000, 3000, 40, { x: [ BOX.x[ 0 ] + 40, BOX.x[ 1 ] - 40 ], z: [ BOX.z[ 0 ] + 40, BOX.z[ 1 ] - 40 ] } );
+	const m = new THREE.MeshStandardNodeMaterial( { roughness: 1 } );
+	const nodes = applyUnderwater( { colorNode: vec3( 0.75, 0.66, 0.5 ) } );
+	m.colorNode = nodes.colorNode;
+	m.emissiveNode = nodes.emissiveNode;
+	m.vertexNode = nodes.vertexNode;
+	const mesh = new THREE.Mesh( g, m );
+	mesh.position.y = - 25.5;
+	return mesh;
 
 }

@@ -1,7 +1,7 @@
 // The beach's sea (demo/beach.js): the aquarium's water surface
 // (core/watersurface.js) on an open sea, plus foam where the sand comes
 // near the surface (beach/terrain.js).
-//   near     a fine patch over the lagoon and the reef (0.5 m segments):
+//   near     a fine patch over the lagoon and the reef (1 m segments):
 //            the swell moves its vertices
 //   far      a ring of coarse quads out to the horizon, the near patch cut
 //            out of it, so the two never overlap
@@ -20,7 +20,7 @@ import { valueNoise, wrapCoord } from '../../src/core/hash.js';
 import { ixTime } from '../../src/core/clock.js';
 import { sandHeightNode, REEF } from './terrain.js';
 
-const NEAR = { x: [ - 160, 160 ], z: [ - 30, 190 ] }; // the fine patch (m)
+const NEAR = { x: [ - 320, 320 ], z: [ - 40, 200 ] }; // the fine patch (m), on the far ring's 20 m lattice: a quad is wholly in or out, no gap at the seam
 
 function foamed( m, W ) {
 
@@ -45,7 +45,7 @@ function foamed( m, W ) {
 
 // A grid over [ x0, x1 ] x [ z0, z1 ] at y = 0, triangles inside `hole`
 // dropped.
-function grid( x0, x1, z0, z1, step, hole = null ) {
+export function grid( x0, x1, z0, z1, step, hole = null ) {
 
 	const g = new THREE.PlaneGeometry( x1 - x0, z1 - z0, Math.round( ( x1 - x0 ) / step ), Math.round( ( z1 - z0 ) / step ) );
 	g.rotateX( - Math.PI / 2 );
@@ -72,7 +72,7 @@ function grid( x0, x1, z0, z1, step, hole = null ) {
 
 export function createOcean( { sky, mirrors, W } ) {
 
-	const near = new THREE.Mesh( grid( NEAR.x[ 0 ], NEAR.x[ 1 ], NEAR.z[ 0 ], NEAR.z[ 1 ], 0.5 ), foamed( createWaterSurface( sky, mirrors, W, { spacing: 0.5 } ), W ) );
+	const near = new THREE.Mesh( grid( NEAR.x[ 0 ], NEAR.x[ 1 ], NEAR.z[ 0 ], NEAR.z[ 1 ], 1 ), foamed( createWaterSurface( sky, mirrors, W, { spacing: 1 } ), W ) );
 	// The far ring: 20 m quads out to 3 km; the near patch is cut out.
 	const R = 3000, S = 20;
 	const far = new THREE.Mesh( grid( - R, R, - R, R, S, NEAR ), createWaterSurface( sky, mirrors, W, { spacing: S } ) );
