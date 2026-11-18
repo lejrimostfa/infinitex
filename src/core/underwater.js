@@ -52,7 +52,7 @@ export const waterBody = {
 	shaftCut: uniform( 1 ), // caustic light a shaft starts at: 1 the mean (a veil), higher for separate beams
 	caustics: uniform( 1 ),
 	shafts: uniform( 1 ), // strength of the light shafts (core/shafts.js), 0 for none
-	lens: uniform( 1 ), // the eye's own share under water (core/underlens.js): sway, softness, specks, vignette; 0 for a still, crisp picture
+	lens: uniform( 1 ), // the eye's own share under water (core/underlens.js): sway, softness, vignette; 0 for a still, crisp picture
 	eyeUnder: uniform( - 1 ), // -1: from the camera height; 0 or 1: forced (split shots at the waterline)
 	depthScale: uniform( 10 ), // the demo's cubes stand for a scene 10 times larger
 };

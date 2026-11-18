@@ -106,7 +106,7 @@ export function createWaterline( renderer, scene, camera, { lens = false, glassZ
 	const under = men.under.add( float( 1 ).sub( hit ).mul( step( camPos.y, W.level ) ) );
 	const A = texture( rtA.texture, s ).rgb;
 	// A camera port: the water side is seen by an eye in the water
-	// (core/underlens.js: sway, softness, suspended specks, vignette).
+	// (core/underlens.js: sway, softness, vignette).
 	// Through an aquarium pane the eye is in the air: the plain pass.
 	const B = lens ? underwaterLens( rtB.texture, s, ixTime, { amount: W.lens, tint: W.inscatter, aspect } ) : sampleB( s );
 	let col = men.shade( mix( A, B, under ) );
