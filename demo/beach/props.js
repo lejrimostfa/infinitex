@@ -22,8 +22,8 @@ import { createMaterial } from '../../src/index.js';
 // Every file of demo/assets/beach, resolved by Vite (dev and build): a
 // directory URL built with new URL( ..., import.meta.url ) is rewritten by
 // Vite and broke.
-const FILES = import.meta.glob( '../assets/beach/*.{glb,json}', { query: '?url', import: 'default', eager: true } );
-const fileURL = ( f ) => FILES[ '../assets/beach/' + f ];
+const FILES = import.meta.glob( '../assets/beach/*.{glb,json,png}', { query: '?url', import: 'default', eager: true } );
+export const fileURL = ( f ) => FILES[ '../assets/beach/' + f ];
 
 // Paper: straight flat fibres, low contrast, a cloudy formation.
 const PAPER = { family: 'fibermat', intent: 'paper', color: '#ffffff', color2: '#f4f1ea', color_variation: 0.04, fiber_um: 25, fiber_mm: 2, curl: 0.1, flatten: 0.1, contrast: 0.35, density: 1, formation: 0.35, formation_mm: 6, lumps: 0.05, roughness: 0.85, sheen: 0.15, underwater: 1 };

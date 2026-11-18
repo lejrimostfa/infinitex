@@ -1,0 +1,68 @@
+{
+ "canoe": {
+  "file": "canoe.glb",
+  "metersPerUV": 4.7356,
+  "opaque": true,
+  "dry": false
+ },
+ "crab": {
+  "file": "crab.glb",
+  "metersPerUV": 0.9915,
+  "opaque": true,
+  "dry": false
+ },
+ "hut": {
+  "file": "hut.glb",
+  "metersPerUV": 10.4521,
+  "opaque": true,
+  "dry": false
+ },
+ "palm": {
+  "file": "palm.glb",
+  "metersPerUV": 2.0718,
+  "opaque": true,
+  "dry": false
+ },
+ "parasol": {
+  "file": "parasol.glb",
+  "metersPerUV": 3.8775,
+  "opaque": true,
+  "dry": false
+ },
+ "pier": {
+  "file": "pier.glb",
+  "metersPerUV": 3.3626,
+  "opaque": true,
+  "dry": false
+ },
+ "rocks": {
+  "file": "rocks.glb",
+  "metersPerUV": 4.6635,
+  "opaque": true,
+  "dry": false
+ },
+ "shells": {
+  "file": "shells.glb",
+  "metersPerUV": 0.7382,
+  "opaque": true,
+  "dry": false
+ },
+ "ship": {
+  "file": "ship.glb",
+  "metersPerUV": 46.3427,
+  "opaque": true,
+  "dry": false
+ },
+ "surfboard": {
+  "file": "surfboard.glb",
+  "metersPerUV": 2.1418,
+  "opaque": true,
+  "dry": false
+ },
+ "torch": {
+  "file": "torch.glb",
+  "metersPerUV": 0.959,
+  "opaque": true,
+  "dry": false
+ }
+}

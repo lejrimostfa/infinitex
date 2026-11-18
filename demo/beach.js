@@ -31,7 +31,8 @@ import { groundGeometry, sandHeight, deepFloor } from './beach/terrain.js';
 import { createOcean } from './beach/ocean.js';
 import { createViews } from './beach/views.js';
 import { tropicalSky } from './beach/sky.js';
-import { loadProps, place } from './beach/props.js';
+import { loadProps, place, fileURL } from './beach/props.js';
+import { createClouds } from './beach/clouds.js';
 import { placements } from './beach/layout.js';
 import { createShip } from './beach/ship.js';
 
@@ -44,9 +45,12 @@ camera.updateProjectionMatrix();
 controls.maxDistance = 2000;
 document.getElementById( 'panel' ).style.display = 'none';
 
-// A tropical afternoon: one warm sun, high in the south west.
+// A tropical afternoon: one warm sun, high behind the beach. Looking out
+// to sea the lagoon, the clouds and the props are lit from the front, as on
+// a postcard; with the sun over the sea the cut paper clouds showed their
+// shaded side and read grey.
 const sun = scene.children.find( ( o ) => o.isDirectionalLight && o.castShadow );
-sun.position.set( - 40, 70, 55 );
+sun.position.set( - 40, 70, - 45 );
 sun.color.set( 0xffe8c8 );
 sun.intensity = 3.0;
 reliefLight.value.copy( sun.position ).normalize();
@@ -107,6 +111,16 @@ function setShip( t ) {
 
 }
 setShip( + params.get( 'ship' ) || 0 );
+// Cut paper clouds (beach/clouds.js), parted by the ship; ?noclouds.
+let clouds = null;
+if ( ! params.has( 'noclouds' ) && fileURL( 'clouds.png' ) ) {
+
+	const tex = await new THREE.TextureLoader().loadAsync( fileURL( 'clouds.png' ) );
+	const { rects } = await ( await fetch( fileURL( 'clouds.json' ) ) ).json();
+	clouds = createClouds( { tex, rects, scene } );
+
+}
+
 // Aerial haze: kilometres away, things take the sky's colour. It is what
 // tells the ship's size; the lagoon and the beach are too near to change.
 scene.fogNode = fog( vec3( 0.62, 0.79, 0.92 ), rangeFogFactor( 1500, 18000 ) );
@@ -173,6 +187,7 @@ renderer.setAnimationLoop( () => {
 	if ( kit.lens ) kit.lens.bokehScale = under ? 0.5 : 1;
 	W.shafts.value = ( under ? 1.0 : 0.3 ) * ( 1 - ( ship?.cover ?? 0 ) );
 	if ( kit.post?.grade ) kit.post.grade.uniforms.water.value = under ? 1 : 0;
+	clouds?.update( clock, ship && ship.t > 0 ? ship.group.position : null );
 	kit.update( dt );
 	stats.beginFrame();
 	draw();
@@ -180,4 +195,4 @@ renderer.setAnimationLoop( () => {
 
 } );
 
-window.__ix = { ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };
+window.__ix = { clouds, ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };
