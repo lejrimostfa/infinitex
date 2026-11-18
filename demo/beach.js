@@ -52,12 +52,22 @@ document.getElementById( 'panel' ).style.display = 'none';
 const sun = scene.children.find( ( o ) => o.isDirectionalLight && o.castShadow );
 sun.position.set( - 40, 70, - 45 );
 sun.color.set( 0xffe8c8 );
-sun.intensity = 3.0;
+sun.intensity = + params.get( 'sun' ) || 3.6;
 reliefLight.value.copy( sun.position ).normalize();
 const sky = tropicalSky( reliefLight );
 scene.background = null;
 scene.backgroundNode = sky( positionWorldDirection );
-scene.environmentIntensity = 0.6;
+// The ambient light from this sky (blue fill in the shadows), not the
+// stage's overcast HDRI, which filled every shadow with grey and flattened
+// the beach. Low, as in the living room (0.35): the sun gives the shapes.
+{
+
+	const skyScene = new THREE.Scene();
+	skyScene.backgroundNode = sky( positionWorldDirection );
+	scene.environment = new THREE.PMREMGenerator( renderer ).fromScene( skyScene ).texture;
+
+}
+scene.environmentIntensity = + params.get( 'env' ) || 0.45;
 
 // The lagoon's water, at true scale (the aquarium scales a tank up).
 const W = waterBody;
@@ -149,8 +159,11 @@ const shafts = params.has( 'noshafts' ) ? null : createShafts( renderer, camera,
 
 const fx = ! params.has( 'nofx' );
 const GRADE = { shadowTint: [ 0.2, 0.75, 0.85 ], shadows: 0.25, highlights: 0.2, highlightTint: [ 1, 0.9, 0.7 ], vignetteTint: [ 0.6, 0.8, 0.85 ] };
-const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 12, shadows: true, shadowFar: 120, ao: fx, dof: fx, maxFocus: 3000, target: fx ? port.rtC : null, shafts, grade: fx && ! params.has( 'nograde' ) ? GRADE : null } } );
+const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 12, shadows: true, shadowFar: 120, ao: fx, gi: fx && ! params.has( 'nogi' ), aoMax: 2, dof: fx, maxFocus: 3000, target: fx ? port.rtC : null, shafts, grade: fx && ! params.has( 'nograde' ) ? GRADE : null } } );
 kit.addEventListener( 'pixelRatioChanged', resize );
+// Tuning from the URL: ?bounce= (SSGI gain), ?ao= (AO strength).
+if ( kit.post?.bounce ) kit.post.bounce.value = params.has( 'bounce' ) ? + params.get( 'bounce' ) : 0.3; // sand and sunlit paper light the undersides
+if ( kit.post?.strength && params.has( 'ao' ) ) kit.post.strength.value = + params.get( 'ao' );
 const stats = createStats( { renderer, camera, adaptive: kit.adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
 
 const { view } = createViews( { camera, controls, sandHeight } );

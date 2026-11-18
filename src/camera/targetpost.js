@@ -6,6 +6,10 @@
 //   AO      GTAO from that depth (normals rebuilt from it), over the
 //           colour: contacts of the cubes on the sand, the corners of the
 //           tank
+//   gi      (option) SSGI bounce light, as in post.js but with normals
+//           rebuilt from the depth (no MRT here) and the frame's own
+//           colour standing in for the albedo: a small gain (bounce 0.15).
+//           No TRAA in this mode (no velocity target), so 2 slices
 //   shafts  light added before the blur, such as the sun's shafts in the
 //           water (src/core/shafts.js)
 //   blur    depth of field (dof.js), the same lens as the other pages
@@ -29,6 +33,7 @@
 import * as THREE from 'three/webgpu';
 import { texture, screenUV, uniform, vec4, mix, reference, perspectiveDepthToViewZ } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
+import { ssgi } from 'three/addons/tsl/display/SSGINode.js';
 import { followLens } from './dof.js';
 import { createGrade } from './grade.js';
 
@@ -39,7 +44,9 @@ import { createGrade } from './grade.js';
 // added before the blur.
 // grade: null for none (no extra pass), or createGrade() settings ({} for
 // the default look, grade.js).
-export function createTargetPost( renderer, camera, first, { lens = null, shafts = null, grade = null } = {} ) {
+// gi: SSGI bounce light. aoMax: the largest AO radius (m); 0.25 suits a
+// tank, a beach with palms wants metres.
+export function createTargetPost( renderer, camera, first, { lens = null, shafts = null, grade = null, gi = false, aoMax = 0.25 } = {} ) {
 
 	const pipeline = new THREE.RenderPipeline( renderer );
 	const colour = texture( first.texture ), depth = texture( first.depthTexture );
@@ -47,6 +54,21 @@ export function createTargetPost( renderer, camera, first, { lens = null, shafts
 	aoPass.resolutionScale = 0.5;
 	const strength = uniform( 0.8 );
 	let lit = colour.sample( screenUV ).rgb.mul( mix( 1, aoPass.getTextureNode().sample( screenUV ).r, strength ) );
+	const bounce = uniform( 0.15 );
+	let giPass = null;
+	if ( gi ) {
+
+		giPass = ssgi( colour, depth, null, camera );
+		giPass.resolutionScale = 0.5;
+		giPass.sliceCount.value = 2;
+		giPass.stepCount.value = 8;
+		giPass.aoIntensity.value = 0;
+		giPass.giIntensity.value = 1;
+		giPass.useTemporalFiltering = false;
+		lit = lit.add( colour.sample( screenUV ).rgb.mul( giPass.rgb ).mul( bounce ) );
+
+	}
+
 	if ( shafts ) lit = lit.add( shafts.sample( screenUV ) );
 	const shaded = vec4( lit, 1 );
 	const viewZ = perspectiveDepthToViewZ( depth.sample( screenUV ).r, reference( 'near', 'float', camera ), reference( 'far', 'float', camera ) );
@@ -59,7 +81,7 @@ export function createTargetPost( renderer, camera, first, { lens = null, shafts
 	stage.outputNode = followLens( stage, shaded, viewZ, lens );
 
 	return {
-		pipeline, aoPass, strength, grade: graded,
+		pipeline, aoPass, giPass, bounce, strength, grade: graded,
 		// The grade on or off, for an A/B from the console (it must exist).
 		useGrade( on ) { gradeOn = !! on && !! graded; output(); },
 		// line: a createWaterline(). dist: camera to subject, meters.
@@ -69,7 +91,7 @@ export function createTargetPost( renderer, camera, first, { lens = null, shafts
 
 			colour.value = rt.texture;
 			depth.value = rt.depthTexture;
-			aoPass.radius.value = THREE.MathUtils.clamp( dist * 0.12, 1e-5, 0.25 );
+			aoPass.radius.value = THREE.MathUtils.clamp( dist * 0.12, 1e-5, aoMax );
 			aoPass.thickness.value = aoPass.radius.value * 2;
 			shafts?.render( rt.depthTexture );
 			pipeline.render();

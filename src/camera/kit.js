@@ -59,7 +59,8 @@ export const KIT_DEFAULTS = Object.freeze( {
 	adaptive: true, ao: true, aoLit: true,
 	shadows: true, sun: null, shadowFar: 40,
 	target: null, shafts: null, grade: null,
-	gi: false, taa: false, // SSGI in place of GTAO, TRAA before the blur (post.js)
+	gi: false, taa: false, // SSGI in place of GTAO, TRAA before the blur (post.js); gi also in target mode (targetpost.js), taa not
+	aoMax: 0.25, // target mode: the AO radius follows the subject distance up to this (m)
 } );
 
 // Whether the lens (macro and depth of field) starts on. Automated browsers
@@ -90,7 +91,7 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 	// Always built, so a page can read max or hold it; it only acts when enabled.
 	const adaptive = createAdaptiveResolution( renderer, { enabled: !! o.adaptive } );
 	const dofLens = o.dof ? lens : null;
-	const post = o.target ? createTargetPost( renderer, camera, o.target, { lens: dofLens, shafts: o.shafts, grade: o.grade } )
+	const post = o.target ? createTargetPost( renderer, camera, o.target, { lens: dofLens, shafts: o.shafts, grade: o.grade, gi: o.gi, aoMax: o.aoMax } )
 		: o.ao ? createPost( renderer, scene, camera, { lens: dofLens, lit: o.aoLit, gi: o.gi, taa: o.taa } ) : null;
 	const dofOnly = ! post && o.dof ? createDofPipeline( renderer, scene, camera, lens ) : null;
 	// The sun: the given light, or the scene's first shadow-casting directional light.
