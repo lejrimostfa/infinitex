@@ -13,7 +13,7 @@
 // pixelRatioChanged to resize its waterline targets.
 
 import * as THREE from 'three/webgpu';
-import { positionWorldDirection, positionWorld, vec2, vec3, uv, sin, mix, smoothstep, fog, rangeFogFactor } from 'three/tsl';
+import { positionWorldDirection, positionWorld, cameraPosition, vec2, vec3, float, exp, uv, sin, mix, smoothstep, fog } from 'three/tsl';
 import './nav.js';
 import { setTime } from '../src/core/clock.js';
 import { reliefLight } from '../src/core/relief.js';
@@ -148,8 +148,22 @@ if ( ! params.has( 'noclouds' ) && fileURL( 'clouds.png' ) ) {
 }
 
 // Aerial haze: kilometres away, things take the sky's colour. It is what
-// tells the ship's size; the lagoon and the beach are too near to change.
-scene.fogNode = fog( vec3( 0.5, 0.78, 0.94 ), rangeFogFactor( 1500, 18000 ) );
+// tells the ship's size and the sea's breadth.
+{
+
+	// Density of air: exponential with distance, thinner with height (scale
+	// height 800 m, taken at the middle of the ray: the hull overhead stays
+	// crisp). At sea level 2 km
+	// veils about a third, 10 km nine tenths; the ship at 6 km and 1 km up
+	// about half. The colour is the sky at the horizon, so the far sea melts
+	// into it.
+	const P = positionWorld;
+	const dist = P.sub( cameraPosition ).length();
+	const midH = P.y.add( cameraPosition.y ).mul( 0.5 ).max( 0 );
+	const density = exp( midH.div( - 800 ) ).div( 4500 );
+	scene.fogNode = fog( vec3( 0.55, 0.82, 0.98 ), float( 1 ).sub( exp( dist.mul( density ).negate() ) ).mul( 0.88 ) );
+
+}
 
 // The sea, and its two mirrors (what is above, seen from above; the
 // lagoon, seen from below).
@@ -177,8 +191,12 @@ const fx = ! params.has( 'nofx' );
 // The tropical grade (src/camera/grade.js): saturated but soft (vibrance
 // lifts the weak colours: the lagoon, the sky), a gentle S, turquoise in
 // the shadows, gold in the highlights, a light teal vignette.
-const GRADE = { vibrance: 0.6, contrast: 1.18, pivot: 0.16, airShadows: 0.22, shadows: 0.3, shadowTint: [ 0.05, 0.62, 0.72 ], highlights: 0.2, highlightTint: [ 1, 0.88, 0.62 ], bloom: 0.3, airThreshold: 1.0, vignette: 0.25, vignetteTint: [ 0.45, 0.8, 0.85 ] };
-const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 12, shadows: true, shadowFar: 120, ao: fx, gi: fx && ! params.has( 'nogi' ), aoMax: 2, dof: fx, maxFocus: 3000, target: fx ? port.rtC : null, shafts, grade: fx && ! params.has( 'nograde' ) ? GRADE : null } } );
+const GRADE = { vibrance: 0.6, contrast: 1.18, pivot: 0.16, airShadows: 0.12, shadows: 0.3, shadowTint: [ 0.05, 0.62, 0.72 ], highlights: 0.2, highlightTint: [ 1, 0.88, 0.62 ], bloom: 0.3, airThreshold: 1.0, vignette: 0.25, vignetteTint: [ 0.45, 0.8, 0.85 ] };
+// ?snap (films): focus and field of view follow at once, and the AO takes
+// the true subject distance each frame. Eased, they lagged a fast macro
+// zoom: a blur, then a dark AO blot the size of the old distance.
+const snap = params.has( 'snap' );
+const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { ...( snap ? { focusTime: 0.03, macroTime: 0.03 } : {} ), maxSpeed: 12, shadows: true, shadowFar: 120, ao: fx, gi: fx && ! params.has( 'nogi' ), aoMax: 2, dof: fx, maxFocus: 3000, target: fx ? port.rtC : null, shafts, grade: fx && ! params.has( 'nograde' ) ? GRADE : null } } );
 kit.addEventListener( 'pixelRatioChanged', resize );
 // Tuning from the URL: ?bounce= (SSGI gain), ?ao= (AO strength).
 if ( kit.post?.bounce ) kit.post.bounce.value = params.has( 'bounce' ) ? + params.get( 'bounce' ) : 0.3; // sand and sunlit paper light the undersides
@@ -222,6 +240,7 @@ renderer.setAnimationLoop( () => {
 	clouds?.update( clock, ship && ship.t > 0 ? ship.group.position : null );
 	life.update( clock );
 	kit.update( dt );
+	if ( snap ) kit.prepare( camera.position.distanceTo( controls.target ) );
 	stats.beginFrame();
 	draw();
 	stats.endFrame( camera.position.distanceTo( controls.target ) );
