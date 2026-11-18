@@ -78,12 +78,15 @@ export async function loadProps( names = null ) {
 
 // A copy of a prop standing on the ground at x, z (height from ground( x, z )),
 // turned by yaw (radians), scaled by s. Shares geometry and materials.
-export function place( prop, parent, { x, z, yaw = 0, s = 1, y = null, ground } ) {
+export function place( prop, parent, entry ) {
+
+	const { x, z, yaw = 0, s = 1, y = null, ground } = entry;
 
 	const o = prop.scene.clone( true );
 	o.position.set( x, y ?? ground( x, z ), z );
 	o.rotation.y = yaw;
 	o.scale.setScalar( s );
+	o.userData.entry = entry; // the layout entry (beach/life.js reads its name)
 	parent.add( o );
 	return o;
 

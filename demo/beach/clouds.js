@@ -34,8 +34,10 @@ export function createClouds( { tex, rects, scene, count = 48, seed = 7 } ) {
 		const coords = uv().mul( 40 ); // paper fibres at the card's scale do not show from a kilometre; cheap coords
 		const m = createMaterial( { ...PAPER, micro: 0 }, { coords } ).material;
 		const t = texture( tex, vec2( uv().x.mul( u1 - u0 ).add( u0 ), uv().y.mul( v1 - v0 ).add( v0 ) ) );
-		m.colorNode = m.colorNode.mul( t.rgb );
-		m.emissiveNode = t.rgb.mul( 0.25 ); // thin paper in daylight: some light comes through
+		// Mostly their own light: a cloud is bright from every side. Lit like
+		// the props, the water mirrored their dim side as brown cut-outs.
+		m.colorNode = m.colorNode.mul( t.rgb ).mul( 0.35 );
+		m.emissiveNode = t.rgb.mul( 0.85 );
 		m.opacityNode = t.a;
 		m.alphaTest = 0.5;
 		m.side = THREE.DoubleSide;

@@ -2,7 +2,7 @@
 // ship (paper_beach_01/assets/ship, 30 m) scaled to 3 km, flying in from
 // the sea over the beach at about a kilometre up.
 //   path     t in [ 0, 1 ]: from far out at sea, hidden in the haze and the
-//            clouds, to its stop right over the lagoon. Eased: it slows
+//            clouds, over the bay, to its stop behind the beach. Eased: it slows
 //            down as it arrives
 //   shadow   the sun's cascades cover 120 m around the eye, a kilometre
 //            down is out of their reach. So a proxy casts it: the same
@@ -19,7 +19,9 @@
 import * as THREE from 'three/webgpu';
 
 const SCALE = 100, ALT = 1050, PROXY_Y = 15;
-const FROM = new THREE.Vector3( 600, ALT + 250, 6500 ), TO = new THREE.Vector3( - 150, ALT, 300 );
+// It stops behind the beach: the sun is behind it too, so only there does
+// the hull's shadow fall on the sand (it sweeps in from the lagoon).
+const FROM = new THREE.Vector3( 600, ALT + 250, 6500 ), TO = new THREE.Vector3( - 600, ALT, - 650 ); // its shadow centre then lands near x 0, z 25
 
 // Projection along the light L onto the plane y = h: P' = P - L ( P.y - h ) / L.y
 function shearOnto( L, h ) {

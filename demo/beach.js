@@ -13,7 +13,7 @@
 // pixelRatioChanged to resize its waterline targets.
 
 import * as THREE from 'three/webgpu';
-import { positionWorldDirection, vec2, vec3, uv, fog, rangeFogFactor } from 'three/tsl';
+import { positionWorldDirection, positionWorld, vec2, vec3, uv, sin, mix, smoothstep, fog, rangeFogFactor } from 'three/tsl';
 import './nav.js';
 import { setTime } from '../src/core/clock.js';
 import { reliefLight } from '../src/core/relief.js';
@@ -33,6 +33,7 @@ import { createViews } from './beach/views.js';
 import { tropicalSky } from './beach/sky.js';
 import { loadProps, place, fileURL } from './beach/props.js';
 import { createClouds } from './beach/clouds.js';
+import { createLife } from './beach/life.js';
 import { placements } from './beach/layout.js';
 import { createShip } from './beach/ship.js';
 
@@ -76,8 +77,8 @@ W.depthScale.value = 1;
 W.sizeM.value = 9; // a long, low swell
 W.featureM.value = 0.3;
 W.amount.value = 0.35;
-W.inscatter.value.set( '#46e8d4' );
-W.deep.value.set( '#0f6f95' );
+W.inscatter.value.set( '#2ff2d6' ); // turquoise
+W.deep.value.set( '#0a62a8' ); // ultramarine past the reef
 W.sunGlow.value = 1.2;
 W.fill.value = 0.22;
 W.causticTint.value.set( '#fff0c0' );
@@ -94,8 +95,19 @@ scene.add( world );
 
 // The ground: Infinitex sand, under water where it dips (caustics, colour
 // loss). UVs are metres.
-const sandPreset = { family: 'ground', mode: 'sand', grain_mm: 0.35, color: '#e8d4a8', color2: '#c99b62', color3: '#2b2622', ripple_mm: 90, ripple: 0.5, specks: 0.3, sparkle: 0.6, roughness: 0.85, seed: 2, underwater: 1 };
-const ground = new THREE.Mesh( groundGeometry( + params.get( 'step' ) || 1.5 ), createMaterial( sandPreset, { coords: uv() } ).material );
+const sandPreset = { family: 'ground', mode: 'sand', grain_mm: 0.35, color: '#f2dcaa', color2: '#d9a868', color3: '#2b2622', ripple_mm: 90, ripple: 0.5, specks: 0.3, sparkle: 0.6, roughness: 0.85, seed: 2, underwater: 1 };
+const groundMat = createMaterial( sandPreset, { coords: uv() } ).material;
+// Inland, under the grove, the sand turns to a jungle floor: duller,
+// greener, littered (a tint over the sand matter, 25 to 45 m from the line).
+{
+
+	const P = positionWorld;
+	const d = P.z.sub( sin( P.x.div( 40 ) ).mul( 6 ).add( sin( P.x.div( 13 ).add( 1 ) ).mul( 3 ) ) ); // beach/terrain.js shoreZ
+	const jungle = smoothstep( - 22, - 42, d );
+	groundMat.colorNode = groundMat.colorNode.mul( mix( vec3( 1 ), vec3( 0.42, 0.55, 0.3 ), jungle ) );
+
+}
+const ground = new THREE.Mesh( groundGeometry( + params.get( 'step' ) || 1.5 ), groundMat );
 ground.receiveShadow = true;
 world.add( ground );
 world.add( deepFloor( applyUnderwater ) );
@@ -103,7 +115,11 @@ world.add( deepFloor( applyUnderwater ) );
 // The folded paper props (beach/props.js, beach/layout.js); ?noprops.
 const props = params.has( 'noprops' ) ? {} : await loadProps();
 const placed = [];
-for ( const e of placements() ) if ( props[ e.name ] ) placed.push( place( props[ e.name ], world, e ) );
+for ( const e of placements( { dense: ! params.has( 'sparse' ) } ) ) if ( props[ e.name ] ) placed.push( place( props[ e.name ], world, e ) );
+// Life (beach/life.js): palms sway, the crab walks sideways, and the
+// pop-up: each prop stands up from the sand like a pop-up book, in a wave
+// from the pier (setPop( seconds ), null: all standing).
+const life = createLife( placed );
 
 // The capital ship (beach/ship.js), out at sea until the timeline brings
 // it in; ?ship=0..1 puts it on its path. As its shadow covers the bay the
@@ -133,7 +149,7 @@ if ( ! params.has( 'noclouds' ) && fileURL( 'clouds.png' ) ) {
 
 // Aerial haze: kilometres away, things take the sky's colour. It is what
 // tells the ship's size; the lagoon and the beach are too near to change.
-scene.fogNode = fog( vec3( 0.62, 0.79, 0.92 ), rangeFogFactor( 1500, 18000 ) );
+scene.fogNode = fog( vec3( 0.5, 0.78, 0.94 ), rangeFogFactor( 1500, 18000 ) );
 
 // The sea, and its two mirrors (what is above, seen from above; the
 // lagoon, seen from below).
@@ -158,7 +174,10 @@ if ( ! params.has( 'nosnow' ) ) scene.add( createSnow( { box: { min: [ - 40, - 3
 const shafts = params.has( 'noshafts' ) ? null : createShafts( renderer, camera, { steps: 8, box: LAGOON } );
 
 const fx = ! params.has( 'nofx' );
-const GRADE = { shadowTint: [ 0.2, 0.75, 0.85 ], shadows: 0.25, highlights: 0.2, highlightTint: [ 1, 0.9, 0.7 ], vignetteTint: [ 0.6, 0.8, 0.85 ] };
+// The tropical grade (src/camera/grade.js): saturated but soft (vibrance
+// lifts the weak colours: the lagoon, the sky), a gentle S, turquoise in
+// the shadows, gold in the highlights, a light teal vignette.
+const GRADE = { vibrance: 0.6, contrast: 1.18, pivot: 0.16, airShadows: 0.22, shadows: 0.3, shadowTint: [ 0.05, 0.62, 0.72 ], highlights: 0.2, highlightTint: [ 1, 0.88, 0.62 ], bloom: 0.3, airThreshold: 1.0, vignette: 0.25, vignetteTint: [ 0.45, 0.8, 0.85 ] };
 const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxSpeed: 12, shadows: true, shadowFar: 120, ao: fx, gi: fx && ! params.has( 'nogi' ), aoMax: 2, dof: fx, maxFocus: 3000, target: fx ? port.rtC : null, shafts, grade: fx && ! params.has( 'nograde' ) ? GRADE : null } } );
 kit.addEventListener( 'pixelRatioChanged', resize );
 // Tuning from the URL: ?bounce= (SSGI gain), ?ao= (AO strength).
@@ -201,6 +220,7 @@ renderer.setAnimationLoop( () => {
 	W.shafts.value = ( under ? 1.0 : 0.3 ) * ( 1 - ( ship?.cover ?? 0 ) );
 	if ( kit.post?.grade ) kit.post.grade.uniforms.water.value = under ? 1 : 0;
 	clouds?.update( clock, ship && ship.t > 0 ? ship.group.position : null );
+	life.update( clock );
 	kit.update( dt );
 	stats.beginFrame();
 	draw();
@@ -208,4 +228,4 @@ renderer.setAnimationLoop( () => {
 
 } );
 
-window.__ix = { clouds, ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };
+window.__ix = { life, setPop: life.setPop, clouds, ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };

@@ -38,9 +38,37 @@ export const LAYOUT = [
 	{ name: 'crab', x: 2, d: - 3, yaw: 1.4 },
 ];
 
-// Each entry with its world x, z and ground height.
-export function placements() {
+// The grove behind the beach: tall palms in a band 18 to 70 m from the
+// shore, small ones (a third the size, fan palms in the undergrowth)
+// between them and right to the edge of the sand. Seeded: the same grove
+// every load. Kept off the hut, the parasol and the camera paths near x 0.
+function grove( seed = 11 ) {
 
-	return LAYOUT.map( ( e ) => { const [ x, z ] = at( e.x, e.d ); return { ...e, x, z, ground: ( a, b ) => Math.max( sandHeight( a, b ), e.y ?? - 99 ) }; } );
+	let k = seed * 9301 + 49297;
+	const rnd = () => ( k = ( k * 233280 + 49297 ) % 2147483647 ) / 2147483647;
+	const out = [];
+	const clear = ( x, d ) => ! ( Math.abs( x + 16 ) < 6 && d > - 20 ) && ! ( x > - 9 && x < 12 && d > - 16 );
+	for ( let i = 0; i < 110; i ++ ) {
+
+		const x = - 260 + rnd() * 520, d = - 18 - Math.pow( rnd(), 0.7 ) * 52;
+		if ( clear( x, d ) ) out.push( { name: 'palm', x, d, yaw: rnd() * 6.28, s: 0.8 + rnd() * 0.55 } );
+
+	}
+
+	for ( let i = 0; i < 160; i ++ ) {
+
+		const x = - 260 + rnd() * 520, d = - 13 - rnd() * 55;
+		if ( clear( x, d ) ) out.push( { name: 'palm', x, d, yaw: rnd() * 6.28, s: 0.22 + rnd() * 0.18 } );
+
+	}
+
+	return out;
+
+}
+
+// Each entry with its world x, z and ground height.
+export function placements( { dense = true } = {} ) {
+
+	return ( dense ? [ ...LAYOUT, ...grove() ] : LAYOUT ).map( ( e ) => { const [ x, z ] = at( e.x, e.d ); return { ...e, x, z, ground: ( a, b ) => Math.max( sandHeight( a, b ), e.y ?? - 99 ) }; } );
 
 }

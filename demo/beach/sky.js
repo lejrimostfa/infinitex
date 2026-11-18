@@ -16,11 +16,11 @@ export function tropicalSky( sunDir, { gain = 1.0 } = {} ) {
 
 		const d = dir.normalize();
 		const up = d.y.max( 0 );
-		let c = mix( vec3( 0.52, 0.76, 0.93 ), vec3( 0.06, 0.27, 0.78 ), up.pow( 0.45 ) ).mul( gain );
+		let c = mix( vec3( 0.42, 0.78, 0.95 ), vec3( 0.03, 0.24, 0.8 ), up.pow( 0.4 ) ).mul( gain );
 		const s = d.dot( sunDir.normalize() ).max( 0 );
 		c = c.add( vec3( 1.0, 0.95, 0.82 ).mul( s.pow( 1200 ).mul( 40 ).add( s.pow( 10 ).mul( 0.35 ) ) ) );
 		// A thin bright band right at the horizon, the haze over the sea.
-		c = c.add( vec3( 0.25, 0.3, 0.32 ).mul( smoothstep( 0.12, 0.0, up ) ) );
+		c = c.add( vec3( 0.12, 0.17, 0.18 ).mul( smoothstep( 0.06, 0.0, up ) ) );
 		const ground = vec3( 0.12, 0.2, 0.22 );
 		return mix( ground, c, smoothstep( - 0.02, 0.01, d.y ) );
 
