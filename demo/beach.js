@@ -228,4 +228,19 @@ renderer.setAnimationLoop( () => {
 
 } );
 
-window.__ix = { life, setPop: life.setPop, clouds, ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };
+// The first surface along a ray (films aim their macro shots with it):
+// { point, normal } in world space, or null.
+const caster = new THREE.Raycaster();
+function surfaceAt( origin, target, root = world ) {
+
+	const o = new THREE.Vector3( ...origin ), d = new THREE.Vector3( ...target ).sub( o ).normalize();
+	caster.set( o, d );
+	const hit = caster.intersectObject( root, true ).find( ( h ) => h.object.visible && ! h.object.userData.noFocus );
+	if ( ! hit ) return null;
+	const n = hit.face.normal.clone().transformDirection( hit.object.matrixWorld );
+	if ( n.dot( d ) > 0 ) n.negate(); // the side facing the ray
+	return { point: hit.point.toArray(), normal: n.toArray() };
+
+}
+
+window.__ix = { surfaceAt, life, setPop: life.setPop, clouds, ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };
