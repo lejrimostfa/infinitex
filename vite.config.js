@@ -6,7 +6,7 @@ export default {
 	base: './',
 	build: {
 		target: 'esnext',
-		rollupOptions: { input: { index: 'index.html', character: 'character.html', cubes: 'cubes.html', aquarium: 'aquarium.html', livingroom: 'livingroom.html' } },
+		rollupOptions: { input: { index: 'index.html', character: 'character.html', cubes: 'cubes.html', aquarium: 'aquarium.html', livingroom: 'livingroom.html', beach: 'beach.html' } },
 	},
 	optimizeDeps: { esbuildOptions: { target: 'esnext' } },
 };

@@ -5,9 +5,9 @@
 **Procedural materials for three.js that never run out of detail.**
 Zoom from a whole object down to microns: every matter shows a new level of structure at each step.
 
-<img src="docs/media/hero_wood.webp" width="720" alt="A continuous zoom on a cube of rough-sawn wood, from the whole cube to its fibres">
+<img src="docs/media/hero_beach.webp" width="720" alt="A continuous zoom from a paper beach parasol down to the fibres of its paper">
 
-*One cube of rough-sawn wood, from 45 cm away down to 1 mm: growth rings, then vessels, then fibres. No texture, nothing tiles, nothing blurs.*
+*A folded paper parasol on a tropical beach, from 3 metres away down to 2.5 mm: the painted stripes stay soft, the paper's fibres come out. No texture, nothing tiles, nothing blurs.*
 
 **[Live demo](https://lejrimostfa.github.io/infinitex/)** (desktop browser with WebGPU; phones are too slow for now)
 
@@ -25,6 +25,8 @@ A texture is a photo glued on a surface. Get close and you see its pixels; get f
 
 | | |
 |:---:|:---:|
+| <img src="docs/media/beach_sand.webp" width="400" alt="Zoom on beach sand down to single grains"><br>**Paper beach**: beach sand, grain by grain (0.35 mm) | <img src="docs/media/beach_ship.webp" width="400" alt="A 3 km folded paper ship comes over the clouds of a tropical beach"><br>**Paper beach**: a 3 km paper flagship, its shadow over the bay |
+| <img src="docs/media/beach_popup.webp" width="400" alt="Folded paper props stand up on a tropical beach"><br>**Paper beach**: papercraft props, painted and folded, in Infinitex paper | <img src="docs/media/hero_wood.webp" width="400" alt="Zoom on a cube of rough-sawn wood down to its fibres"><br>**Wood**: growth rings, vessels, fibres (45 cm to 1 mm) |
 | <img src="docs/media/knit.webp" width="400" alt="Zoom on a jersey knit down to its fibres"><br>**Knit**: garment, stitches, plies, fibres with scales | <img src="docs/media/leather_micro.webp" width="400" alt="Zoom on full-grain leather down to 50 microns"><br>**Leather**: creases, pores, the cells of the finish |
 | <img src="docs/media/lava.webp" width="400" alt="Pahoehoe lava with glowing cracks"><br>**Molten matter**: ropy pahoehoe crust over a 1400 K melt | <img src="docs/media/rain.webp" width="400" alt="Rain rings on a puddle over asphalt"><br>**Liquids**: rain rings with capillary ripples |
 | <img src="docs/media/burn.webp" width="400" alt="A sheet of paper burning"><br>**Processes**: a sheet of paper burning | <img src="docs/media/crt.webp" width="400" alt="Zoom on a CRT screen down to its phosphors"><br>**CRT screen**: picture, beam lines, slot mask, phosphors |
@@ -45,7 +47,7 @@ npm install
 npm run dev
 ```
 
-Or try it without installing anything: [knit](https://lejrimostfa.github.io/infinitex/character.html), [all matters](https://lejrimostfa.github.io/infinitex/cubes.html), [water](https://lejrimostfa.github.io/infinitex/aquarium.html), [living room](https://lejrimostfa.github.io/infinitex/livingroom.html). Locally, open http://localhost:5211/cubes.html: one rounded cube per matter, one row per family. Orbit with the mouse, scroll to zoom, and get as close as you like.
+Or try it without installing anything: [knit](https://lejrimostfa.github.io/infinitex/character.html), [all matters](https://lejrimostfa.github.io/infinitex/cubes.html), [water](https://lejrimostfa.github.io/infinitex/aquarium.html), [living room](https://lejrimostfa.github.io/infinitex/livingroom.html), [paper beach](https://lejrimostfa.github.io/infinitex/beach.html). Locally, open http://localhost:5211/cubes.html: one rounded cube per matter, one row per family. Orbit with the mouse, scroll to zoom, and get as close as you like.
 
 | Demo | What it shows |
 |---|---|
@@ -256,13 +258,13 @@ src/
   core/               level of detail, hashes, noise, Voronoi, surface states, micro detail,
                       occlusion, pixel art, relief, caustics, water, mirrors, waterline, clock
   families/<name>/    params.js (preset -> uniforms) and the TSL graph, split by level or mode
-demo/                 cube wall, aquarium, living room, mannequin, flyover, post-processing
+demo/                 cube wall, aquarium, living room, paper beach, mannequin, flyover, post-processing
 blender/              Blender scripts that build demo geometry (livingroom.py)
 docs/                 catalogue, references, performance, benchmark data
 tests/                headless quality gate, benchmarks, film recorder (Playwright)
 ```
 
-Record a film of any demo frame by frame: `node tests/film.mjs out.mp4 auto` with the dev server running (`IX_URL` picks the page).
+Record a film of any demo frame by frame: `node tests/film.mjs out.mp4 auto` with the dev server running (`IX_URL` picks the page), or a scripted showcase with `node tests/reel.mjs tests/reels/beach.mjs beach.mp4`.
 
 ## References
 
@@ -270,6 +272,7 @@ Infinitex stands on published work: filtering of normals and specular anti-alias
 
 ## Credits
 
+- Paper beach: the props are papercraft, folded in Blender from dielines painted with OpenAI image models ([Origami-3Dfolder-ai](https://github.com/lejrimostfa/Origami-3Dfolder-ai)), then dressed in Infinitex paper.
 - Sky: [Kloppenheim 06](https://polyhaven.com/a/kloppenheim_06) by Greg Zaal, [Poly Haven](https://polyhaven.com), CC0.
 - Built on [three.js](https://threejs.org) (MIT) and its TSL node system, served by [Vite](https://vitejs.dev), tested with [Playwright](https://playwright.dev).
 - Written with the help of Claude (Anthropic).
