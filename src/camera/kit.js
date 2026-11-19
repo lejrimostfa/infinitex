@@ -56,7 +56,8 @@ export const KIT_DEFAULTS = Object.freeze( {
 	macro: true, macroFov: 22, macroFrom: 0.12, macroFull: 0.03,
 	dof: true, lensKey: 'KeyF', maxFocus: 30, focusArea: true,
 	focusTime: 0.4, macroTime: 0.45, // how long a focus pull and a change of field of view last, s (lens.js)
-	adaptive: true, ao: true, aoLit: true,
+	adaptive: true, maxPixelRatio: 2, ao: true, aoLit: true, // maxPixelRatio: the cap of the pixel ratio (adaptive.js), on or off
+	fxaa: false, // target mode: FXAA on the final frame, for a page drawn under Retina density (targetpost.js)
 	shadows: true, sun: null, shadowFar: 40,
 	target: null, shafts: null, grade: null,
 	gi: false, taa: false, // SSGI in place of GTAO, TRAA before the blur (post.js); gi also in target mode (targetpost.js), taa not
@@ -89,9 +90,9 @@ export function createCameraKit( { renderer, scene, camera, controls = null, dom
 	// stops every kit move before a surface (approach.js).
 	const approach = o.collide && collider && controls ? createApproach( { camera, controls, dom, collider, lens } ) : null;
 	// Always built, so a page can read max or hold it; it only acts when enabled.
-	const adaptive = createAdaptiveResolution( renderer, { enabled: !! o.adaptive } );
+	const adaptive = createAdaptiveResolution( renderer, { enabled: !! o.adaptive, cap: o.maxPixelRatio } );
 	const dofLens = o.dof ? lens : null;
-	const post = o.target ? createTargetPost( renderer, camera, o.target, { lens: dofLens, shafts: o.shafts, grade: o.grade, gi: o.gi, aoMax: o.aoMax } )
+	const post = o.target ? createTargetPost( renderer, camera, o.target, { lens: dofLens, shafts: o.shafts, grade: o.grade, gi: o.gi, aoMax: o.aoMax, fxaa: o.fxaa } )
 		: o.ao ? createPost( renderer, scene, camera, { lens: dofLens, lit: o.aoLit, gi: o.gi, taa: o.taa } ) : null;
 	const dofOnly = ! post && o.dof ? createDofPipeline( renderer, scene, camera, lens ) : null;
 	// The sun: the given light, or the scene's first shadow-casting directional light.

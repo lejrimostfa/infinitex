@@ -5,7 +5,8 @@
 // (papercraft GLBs, beach/props.js, later), the matter Infinitex paper.
 //   ?view=beach | sea | under | high   start from a preset camera
 //   ?nofx  no AO and no depth of field   ?nograde  no bloom and grade
-//   ?noshafts  ?nosnow
+//   ?pr=   pixel ratio cap (1.25)   ?nofxaa   ?nogi  no lift   ?bake=  sand bounce baked in the probe
+//   ?shafts  (off: they drew nothing, see below)  ?nosnow
 // window.__ix: renderer, scene, camera, controls, kit, waterBody, view,
 // setTime, ready.
 //
@@ -31,7 +32,7 @@ import { groundGeometry, sandHeight, deepFloor } from './beach/terrain.js';
 import { createOcean } from './beach/ocean.js';
 import { createViews } from './beach/views.js';
 import { tropicalSky } from './beach/sky.js';
-import { loadProps, place, instanced, fileURL } from './beach/props.js';
+import { loadProps, place, instanced, skinParts, fileURL } from './beach/props.js';
 import { createClouds } from './beach/clouds.js';
 import { createLife } from './beach/life.js';
 import { placements } from './beach/layout.js';
@@ -61,10 +62,20 @@ scene.backgroundNode = sky( positionWorldDirection );
 // The ambient light from this sky (blue fill in the shadows), not the
 // stage's overcast HDRI, which filled every shadow with grey and flattened
 // the beach. Low, as in the living room (0.35): the sun gives the shapes.
+// ?bake=k: its lower half becomes the sunlit sand (k times), a bounce
+// baked in the probe. Off by default: the look was tuned with the kit's
+// flat lift (gi, targetpost.js), which brightens the whole frame instead.
+const BAKE = params.has( 'bake' ) ? + params.get( 'bake' ) : 0;
+const LIFT = ! params.has( 'nogi' );
 {
 
 	const skyScene = new THREE.Scene();
-	skyScene.backgroundNode = sky( positionWorldDirection );
+	// Sand radiance: albedo (the sand matter's base colour, linear) times
+	// the sun's irradiance over pi. The sky's own share is small beside it.
+	const L = sun.position.clone().normalize();
+	const sand = new THREE.Color( '#f2dcaa' ).multiplyScalar( sun.intensity * Math.max( L.y, 0 ) / Math.PI * BAKE );
+	const d = positionWorldDirection.normalize();
+	skyScene.backgroundNode = BAKE ? mix( vec3( sand.r, sand.g, sand.b ), sky( positionWorldDirection ), smoothstep( - 0.05, 0.0, d.y ) ) : sky( positionWorldDirection );
 	scene.environment = new THREE.PMREMGenerator( renderer ).fromScene( skyScene ).texture;
 
 }
@@ -115,12 +126,20 @@ world.add( deep );
 
 // The folded paper props (beach/props.js, beach/layout.js); ?noprops.
 const props = params.has( 'noprops' ) ? {} : await loadProps();
-// The palms are instanced (one draw per part for the whole grove): each
-// gets an empty stand-in that beach/life.js moves as before.
+// A prop placed more than once is instanced (one draw per part for all its
+// copies: the grove's palms, the torches, rocks and shells). Each copy
+// gets an empty stand-in that beach/life.js moves as before. A prop with
+// moving parts of its own (the crab's legs) stays a copy, skinned.
 const placed = [];
-const palms = props.palm ? instanced( props.palm, world ) : null;
-for ( const e of placements( { dense: ! params.has( 'sparse' ) } ) ) if ( props[ e.name ] ) placed.push( e.name === 'palm' && palms ? palms.add( e ) : place( props[ e.name ], world, e ) );
-palms?.build();
+const entries = placements( { dense: ! params.has( 'sparse' ) } ).filter( ( e ) => props[ e.name ] );
+const copies = {};
+for ( const e of entries ) copies[ e.name ] = ( copies[ e.name ] ?? 0 ) + 1;
+const groups = {};
+for ( const n in copies ) if ( copies[ n ] > 1 && n !== 'crab' ) groups[ n ] = instanced( props[ n ], world );
+for ( const e of entries ) placed.push( groups[ e.name ] ? groups[ e.name ].add( e ) : place( props[ e.name ], world, e ) );
+for ( const o of placed ) if ( o.userData.entry.name === 'crab' ) skinParts( o ); // its 13 parts, one skinned draw
+for ( const g of Object.values( groups ) ) g.build();
+const palms = groups.palm ?? null;
 // Life (beach/life.js): palms sway, the crab walks sideways, and the
 // pop-up: each prop stands up from the sand like a pop-up book, in a wave
 // from the pier (setPop( seconds ), null: all standing).
@@ -191,7 +210,11 @@ addEventListener( 'resize', resize );
 // Light shafts and floating specks in the lagoon.
 const LAGOON = { min: [ - 160, - 26, - 30 ], max: [ 160, 0, 190 ] };
 if ( ! params.has( 'nosnow' ) ) scene.add( createSnow( { box: { min: [ - 40, - 3, 0 ], max: [ 40, 0, 60 ] }, count: 3000, radius: [ 0.002, 0.008 ], near: 0.6 } ) );
-const shafts = params.has( 'noshafts' ) ? null : createShafts( renderer, camera, { steps: 8, box: LAGOON } );
+// The shafts are off unless asked (?shafts): with this long low swell and
+// shaftCut 1.5 no caustic passes the cut, the pass drew zero everywhere
+// (read back, 2026-11-19) for 1 to 2 ms a frame. To bring them in, lower
+// shaftCut with ?shafts and check the look.
+const shafts = params.has( 'shafts' ) ? createShafts( renderer, camera, { steps: 8, box: LAGOON } ) : null;
 
 const fx = ! params.has( 'nofx' );
 // The tropical grade (src/camera/grade.js): saturated but soft (vibrance
@@ -202,9 +225,14 @@ const GRADE = { vibrance: 0.6, contrast: 1.18, pivot: 0.16, airShadows: 0.12, sh
 // the true subject distance each frame. Eased, they lagged a fast macro
 // zoom: a blur, then a dark AO blot the size of the old distance.
 const snap = params.has( 'snap' );
-const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { ...( snap ? { focusTime: 0.03, macroTime: 0.03 } : {} ), maxSpeed: 12, shadows: true, shadowFar: 120, ao: fx, gi: fx && ! params.has( 'nogi' ), aoMax: 2, dof: fx, maxFocus: 3000, target: fx ? port.rtC : null, shafts, grade: fx && ! params.has( 'nograde' ) ? GRADE : null } } );
+// Pixel ratio capped (?pr=, default PR): Retina density cost twice the
+// pixels for an image the eye does not tell apart once FXAA smooths the
+// edges (?nofxaa).
+const PR = 1.25;
+const kit = createDemoKit( { renderer, scene, camera, controls, params, options: { maxPixelRatio: + params.get( 'pr' ) || PR, fxaa: fx && ! params.has( 'nofxaa' ), ...( snap ? { focusTime: 0.03, macroTime: 0.03 } : {} ), maxSpeed: 12, shadows: true, shadowFar: 120, ao: fx, gi: fx && LIFT, aoMax: 2, dof: fx, maxFocus: 3000, target: fx ? port.rtC : null, shafts, grade: fx && ! params.has( 'nograde' ) ? GRADE : null } } );
 kit.addEventListener( 'pixelRatioChanged', resize );
-// Tuning from the URL: ?bounce= (SSGI gain), ?ao= (AO strength).
+resize(); // the port was sized before the kit capped the ratio
+// Tuning from the URL: ?bounce= (the lift), ?ao= (AO strength).
 if ( kit.post?.bounce ) kit.post.bounce.value = params.has( 'bounce' ) ? + params.get( 'bounce' ) : 0.3; // sand and sunlit paper light the undersides
 if ( kit.post?.strength && params.has( 'ao' ) ) kit.post.strength.value = + params.get( 'ao' );
 const stats = createStats( { renderer, camera, adaptive: kit.adaptive, backend: params.has( 'webgl' ) ? 'WebGL2' : 'WebGPU' } );
@@ -228,7 +256,7 @@ function shadowsOnce() {
 function draw() {
 
 	shadowsOnce();
-	palms?.sync();
+	for ( const g of Object.values( groups ) ) g.sync();
 	const y = camera.position.y - W.level.value;
 	if ( y < 0.6 ) { if ( fx ) kit.render( port.compose() ); else port.render(); return; }
 	refractSurface( camera.position, W.level.value );
@@ -283,4 +311,4 @@ function surfaceAt( origin, target, root = world ) {
 
 }
 
-window.__ix = { surfaceAt, life, palms, setPop: life.setPop, clouds, ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };
+window.__ix = { surfaceAt, life, palms, groups, setPop: life.setPop, clouds, ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };

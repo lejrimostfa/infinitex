@@ -4,7 +4,9 @@
 // pixel ratio 1. This lowers the pixel ratio by steps while frames are
 // slow, and raises it back when the next step up is predicted to stay fast.
 //
-//   max    min( devicePixelRatio, 2 ), the starting ratio
+//   max    min( devicePixelRatio, cap ), the starting ratio. cap 2 by
+//          default; a page that does not need Retina density lowers it
+//          (the beach: 1.25, with FXAA for the edges)
 //   min    0.75
 //   down   mean frame over 0.5 s above 40 ms: one step of 0.25
 //   up     mean frame times (next / current)^2 under 25 ms for 1.5 s
@@ -18,9 +20,10 @@
 // object; the kit forwards it. The aquarium listens to resize its
 // waterline targets; the stats panel reads the ratio from the renderer.
 
-export function createAdaptiveResolution( renderer, { enabled = true } = {} ) {
+export function createAdaptiveResolution( renderer, { enabled = true, cap = 2 } = {} ) {
 
-	const max = Math.min( devicePixelRatio, 2 ), min = Math.min( 0.75, max ), STEP = 0.25;
+	const max = Math.min( devicePixelRatio, cap ), min = Math.min( 0.75, max ), STEP = 0.25;
+	if ( renderer.getPixelRatio() > max ) renderer.setPixelRatio( max ); // the stage starts at min( devicePixelRatio, 2 )
 	const DOWN_MS = 40, UP_MS = 25, WINDOW_MS = 500, UP_HOLD_MS = 1500, SKIP = 3;
 	const bus = new EventTarget();
 	let ratio = max, last = 0, sum = 0, n = 0, windowStart = 0, fastSince = 0, skip = SKIP;

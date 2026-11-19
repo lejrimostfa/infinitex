@@ -17,6 +17,7 @@
 import * as THREE from 'three/webgpu';
 import { uv, texture, float, vec3 } from 'three/tsl';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createMaterial } from '../../src/index.js';
 
 // Every file of demo/assets/beach, resolved by Vite (dev and build): a
@@ -143,5 +144,49 @@ export function instanced( prop, parent ) {
 	}
 
 	return { add: ( entry ) => { const o = place( empty, parent, entry ); stands.push( o ); return o; }, build, sync, meshes };
+
+}
+
+// A prop whose parts move on their own (the crab's legs) as one skinned
+// mesh: each part becomes a bone with its name and its node's transform,
+// its vertices weighted to that bone alone. Code that turns a part by name
+// (beach/life.js) turns the bone instead, and the 13 parts of the crab are
+// one draw per pass, not 13. All parts must share one parent and material.
+export function skinParts( root ) {
+
+	root.updateMatrixWorld( true );
+	const meshes = [];
+	root.traverse( ( o ) => { if ( o.isMesh ) meshes.push( o ); } );
+	const holder = meshes[ 0 ]?.parent;
+	if ( meshes.length < 2 || meshes.some( ( m ) => m.parent !== holder || m.material !== meshes[ 0 ].material ) ) return null;
+	const inv = holder.matrixWorld.clone().invert();
+	const bones = [], geos = [];
+	meshes.forEach( ( m, i ) => {
+
+		const bone = new THREE.Bone();
+		bone.name = m.name;
+		bone.position.copy( m.position );
+		bone.quaternion.copy( m.quaternion );
+		bone.scale.copy( m.scale );
+		bones.push( bone );
+		const g = m.geometry.clone().applyMatrix4( inv.clone().multiply( m.matrixWorld ) ); // into the holder's space
+		const n = g.attributes.position.count;
+		const idx = new Uint16Array( n * 4 ), w = new Float32Array( n * 4 );
+		for ( let k = 0; k < n; k ++ ) { idx[ k * 4 ] = i; w[ k * 4 ] = 1; }
+		g.setAttribute( 'skinIndex', new THREE.Uint16BufferAttribute( idx, 4 ) );
+		g.setAttribute( 'skinWeight', new THREE.Float32BufferAttribute( w, 4 ) );
+		geos.push( g );
+
+	} );
+	const skinned = new THREE.SkinnedMesh( mergeGeometries( geos ), meshes[ 0 ].material );
+	skinned.name = holder.name + ':skinned';
+	skinned.castShadow = meshes[ 0 ].castShadow;
+	skinned.receiveShadow = meshes[ 0 ].receiveShadow;
+	for ( const m of meshes ) m.removeFromParent();
+	for ( const b of bones ) holder.add( b );
+	holder.add( skinned );
+	holder.updateMatrixWorld( true );
+	skinned.bind( new THREE.Skeleton( bones ), skinned.matrixWorld );
+	return skinned;
 
 }

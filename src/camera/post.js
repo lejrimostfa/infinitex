@@ -41,7 +41,6 @@ import * as THREE from 'three/webgpu';
 import { HAIR_LAYER } from '../core/hair3d.js';
 import { nodeObject, pass, mrt, output, normalView, directionToColor, colorToDirection, sample, screenUV, uniform, vec4, mix, texture, builtinAOContext, diffuseColor, velocity } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
-import { ssgi } from 'three/addons/tsl/display/SSGINode.js';
 import { traa } from 'three/addons/tsl/display/TRAANode.js';
 import { followLens } from './dof.js';
 
@@ -124,19 +123,13 @@ export function createPost( renderer, scene, camera, { lens = null, lit = false,
 	// bounce 0.2: SSGI reads the HDR frame, where the sunset sky and the
 	// lava are many times brighter than a wall; at 1 the room washed out.
 	const bounce = uniform( 0.2 );
-	let giPass = null;
-	if ( gi ) {
-
-		giPass = ssgi( color, depth, normal, camera );
-		giPass.resolutionScale = 0.5;
-		giPass.sliceCount.value = taa ? 1 : 2;
-		giPass.stepCount.value = taa ? 12 : 8;
-		giPass.aoIntensity.value = 0;
-		giPass.giIntensity.value = 1;
-		giPass.useTemporalFiltering = taa;
-		shaded = shaded.add( scenePass.getTextureNode( 'diffuse' ).rgb.mul( giPass.rgb ).mul( bounce ).mul( strength ) );
-
-	}
+	// Found 2026-11-19: `ssgi( ... ).rgb` is the node's AO texture (SSGINode
+	// returns its AO node), white with aoIntensity 0. The GI texture was
+	// never read: the pass cost its milliseconds for a flat diffuse lift,
+	// the look the room was tuned with. That lift stays, without the pass.
+	// A true bounce would read giPass.getGINode() and change the look.
+	const giPass = null;
+	if ( gi ) shaded = shaded.add( scenePass.getTextureNode( 'diffuse' ).rgb.mul( bounce ).mul( strength ) );
 
 	// Hair over the scene by its coverage (premultiplied alpha). The strands
 	// grow on the face the camera looks at, so they are always in front of

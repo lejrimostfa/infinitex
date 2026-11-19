@@ -6,15 +6,16 @@
 //   AO      GTAO from that depth (normals rebuilt from it), over the
 //           colour: contacts of the cubes on the sand, the corners of the
 //           tank
-//   gi      (option) SSGI bounce light, as in post.js but with normals
-//           rebuilt from the depth (no MRT here) and the frame's own
-//           colour standing in for the albedo: a small gain (bounce 0.15).
-//           No TRAA in this mode (no velocity target), so 2 slices
+//   gi      (option) a flat lift of the frame (bounce 0.15): what the SSGI
+//           pass here really gave (see the note at giPass)
 //   shafts  light added before the blur, such as the sun's shafts in the
 //           water (src/core/shafts.js)
 //   blur    depth of field (dof.js), the same lens as the other pages
 //   grade   bloom, colour grade and vignette (grade.js), after the blur,
 //           on linear colour; the pipeline tone maps after it
+//   fxaa    (option) edges smoothed on the tone mapped, sRGB frame (FXAA
+//           wants it so): the page is drawn under Retina density and no
+//           pass here has MSAA
 // One pipeline serves both waterlines: draw( line ) points it at that
 // line's target. drawTarget( rt ) takes a plain render of the scene: the
 // aquarium uses it beside the tank, where no waterline is drawn. (There
@@ -31,9 +32,9 @@
 // Event bus: listens to the lens's 'dofToggled' (through followLens, dof.js).
 
 import * as THREE from 'three/webgpu';
-import { texture, screenUV, uniform, vec4, mix, reference, perspectiveDepthToViewZ } from 'three/tsl';
+import { texture, screenUV, uniform, vec4, mix, reference, perspectiveDepthToViewZ, renderOutput } from 'three/tsl';
+import { fxaa as fxaaNode } from 'three/addons/tsl/display/FXAANode.js';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
-import { ssgi } from 'three/addons/tsl/display/SSGINode.js';
 import { followLens } from './dof.js';
 import { createGrade } from './grade.js';
 
@@ -44,9 +45,9 @@ import { createGrade } from './grade.js';
 // added before the blur.
 // grade: null for none (no extra pass), or createGrade() settings ({} for
 // the default look, grade.js).
-// gi: SSGI bounce light. aoMax: the largest AO radius (m); 0.25 suits a
+// gi: the flat lift (bounce). aoMax: the largest AO radius (m); 0.25 suits a
 // tank, a beach with palms wants metres.
-export function createTargetPost( renderer, camera, first, { lens = null, shafts = null, grade = null, gi = false, aoMax = 0.25 } = {} ) {
+export function createTargetPost( renderer, camera, first, { lens = null, shafts = null, grade = null, gi = false, aoMax = 0.25, fxaa = false } = {} ) {
 
 	const pipeline = new THREE.RenderPipeline( renderer );
 	const colour = texture( first.texture ), depth = texture( first.depthTexture );
@@ -55,26 +56,27 @@ export function createTargetPost( renderer, camera, first, { lens = null, shafts
 	const strength = uniform( 0.8 );
 	let lit = colour.sample( screenUV ).rgb.mul( mix( 1, aoPass.getTextureNode().sample( screenUV ).r, strength ) );
 	const bounce = uniform( 0.15 );
-	let giPass = null;
-	if ( gi ) {
-
-		giPass = ssgi( colour, depth, null, camera );
-		giPass.resolutionScale = 0.5;
-		giPass.sliceCount.value = 2;
-		giPass.stepCount.value = 8;
-		giPass.aoIntensity.value = 0;
-		giPass.giIntensity.value = 1;
-		giPass.useTemporalFiltering = false;
-		lit = lit.add( colour.sample( screenUV ).rgb.mul( giPass.rgb ).mul( bounce ) );
-
-	}
+	// gi: the frame lifted by bounce (colour x bounce added). This was an
+	// SSGI pass, but `ssgi( ... ).rgb` is the node's AO texture (SSGINode
+	// returns its AO node), white with aoIntensity 0: the GI texture was
+	// never read, and 3 to 5 ms a frame bought a flat gain. Same image now,
+	// no pass. A true bounce would read getGINode() and change the look.
+	const giPass = null;
+	if ( gi ) lit = lit.add( colour.sample( screenUV ).rgb.mul( bounce ) );
 
 	if ( shafts ) lit = lit.add( shafts.sample( screenUV ) );
 	const shaded = vec4( lit, 1 );
 	const viewZ = perspectiveDepthToViewZ( depth.sample( screenUV ).r, reference( 'near', 'float', camera ), reference( 'far', 'float', camera ) );
 	const graded = grade ? createGrade( grade ) : null;
 	let base = null, gradeOn = !! graded; // base: the sharp or the blurred frame
-	const output = () => { pipeline.outputNode = gradeOn ? graded.apply( base ) : base; pipeline.needsUpdate = true; };
+	const output = () => {
+
+		const n = gradeOn ? graded.apply( base ) : base;
+		pipeline.outputColorTransform = ! fxaa; // with FXAA the tone map and sRGB come first, in the graph
+		pipeline.outputNode = fxaa ? fxaaNode( renderOutput( n ) ) : n;
+		pipeline.needsUpdate = true;
+
+	};
 	// followLens writes outputNode and needsUpdate on a lens toggle: this
 	// adapter takes the node and outputs it graded.
 	const stage = { set outputNode( n ) { base = n; output(); }, set needsUpdate( v ) {} };

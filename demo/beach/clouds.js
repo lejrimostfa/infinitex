@@ -45,26 +45,40 @@ export function createClouds( { tex, rects, scene, count = 48, seed = 7 } ) {
 
 	} );
 
+	// One instanced mesh per cut-out (6 draws, not 48): each card is an
+	// empty stand-in whose matrix update() copies into its instance.
 	const cards = [];
 	const plane = new THREE.PlaneGeometry( 1, 1 );
 	for ( let i = 0; i < count; i ++ ) {
 
 		const r = Math.floor( rnd() * mats.length );
 		const w = 250 + rnd() * 650;
-		const mesh = new THREE.Mesh( plane, mats[ r ].m );
+		const mesh = new THREE.Object3D();
 		mesh.scale.set( w, w / mats[ r ].aspect, 1 );
 		const home = new THREE.Vector3( ( rnd() - 0.5 ) * 7000, 500 + rnd() * 1100, 300 + rnd() * 6000 );
 		mesh.position.copy( home );
 		mesh.rotation.set( 0, Math.PI + ( rnd() - 0.5 ) * 0.5, 0 ); // faces the beach (-z), a little turned
-		// No sun shadow: the cascades reach 120 m around the eye, and with the
-		// sun high behind the beach a card 500 m up throws its shadow 300 m
-		// or more out to sea, never inside them. Casting, the 48 cards were
-		// drawn in every cascade for nothing (about 150 draws a frame).
-		mesh.castShadow = false;
-		group.add( mesh );
-		cards.push( { mesh, home, off: new THREE.Vector3(), phase: rnd() * 6.28, yaw: mesh.rotation.y } );
+		cards.push( { mesh, r, home, off: new THREE.Vector3(), phase: rnd() * 6.28, yaw: mesh.rotation.y } );
 
 	}
+
+	const sheets = mats.map( ( { m }, r ) => {
+
+		const mine = cards.filter( ( c ) => c.r === r );
+		const im = new THREE.InstancedMesh( plane, m, Math.max( 1, mine.length ) );
+		im.count = mine.length;
+		mine.forEach( ( c, k ) => { c.k = k; } );
+		// No sun shadow: the cascades reach 120 m around the eye, and with the
+		// sun high behind the beach a card 500 m up throws its shadow 300 m
+		// or more out to sea, never inside them.
+		im.castShadow = false;
+		im.frustumCulled = false; // the cards drift over 7 km: one bound would hold them all anyway
+		group.add( im );
+		return im;
+
+	} );
+	const write = ( c ) => { c.mesh.updateMatrix(); sheets[ c.r ].setMatrixAt( c.k, c.mesh.matrix ); sheets[ c.r ].instanceMatrix.needsUpdate = true; };
+	cards.forEach( write );
 
 	const d = new THREE.Vector3();
 	function update( t, ship = null ) {
@@ -89,11 +103,12 @@ export function createClouds( { tex, rects, scene, count = 48, seed = 7 } ) {
 			} else c.off.multiplyScalar( 0.98 );
 			c.mesh.position.set( px + c.off.x, py + c.off.y, pz );
 			c.mesh.rotation.y = c.yaw + turn;
+			write( c );
 
 		}
 
 	}
 
-	return { group, cards, update };
+	return { group, cards, sheets, update };
 
 }
