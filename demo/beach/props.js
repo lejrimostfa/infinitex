@@ -91,3 +91,57 @@ export function place( prop, parent, entry ) {
 	return o;
 
 }
+
+// Many copies of one prop in one draw per part (the grove: some 280 palms,
+// 2 parts each, were 560 draws in every pass, cascades and mirror
+// included). add( entry ) returns an empty stand-in placed like place()
+// does: beach/life.js moves, sways and pops it as before; sync() copies
+// each stand-in into the instance matrices (a hidden one gets a zero
+// matrix). The page calls sync() once per frame before drawing.
+// instanced( prop, parent ) -> { add( entry ), build(), sync(), meshes }.
+export function instanced( prop, parent ) {
+
+	const root = prop.scene;
+	root.updateMatrixWorld( true );
+	const inv = root.matrixWorld.clone().invert();
+	const parts = [];
+	root.traverse( ( o ) => { if ( o.isMesh ) parts.push( { src: o, rel: inv.clone().multiply( o.matrixWorld ) } ); } );
+	const stands = [], meshes = [];
+	const m = new THREE.Matrix4(), zero = new THREE.Matrix4().makeScale( 0, 0, 0 );
+	const empty = { scene: new THREE.Group() };
+
+	function sync() {
+
+		for ( const o of stands ) o.updateMatrix();
+		parts.forEach( ( p, k ) => {
+
+			const im = meshes[ k ];
+			stands.forEach( ( o, i ) => im.setMatrixAt( i, o.visible ? m.multiplyMatrices( o.matrix, p.rel ) : zero ) );
+			im.instanceMatrix.needsUpdate = true;
+
+		} );
+
+	}
+
+	function build() {
+
+		for ( const p of parts ) {
+
+			const im = new THREE.InstancedMesh( p.src.geometry, p.src.material, stands.length );
+			im.name = prop.scene.name + ':' + p.src.name;
+			im.castShadow = p.src.castShadow;
+			im.receiveShadow = p.src.receiveShadow;
+			parent.add( im );
+			meshes.push( im );
+
+		}
+
+		sync();
+		// The bound of all copies standing, with room for the sway.
+		for ( const im of meshes ) { im.computeBoundingSphere(); im.boundingSphere.radius += 2; }
+
+	}
+
+	return { add: ( entry ) => { const o = place( empty, parent, entry ); stands.push( o ); return o; }, build, sync, meshes };
+
+}

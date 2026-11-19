@@ -56,8 +56,11 @@ export function createClouds( { tex, rects, scene, count = 48, seed = 7 } ) {
 		const home = new THREE.Vector3( ( rnd() - 0.5 ) * 7000, 500 + rnd() * 1100, 300 + rnd() * 6000 );
 		mesh.position.copy( home );
 		mesh.rotation.set( 0, Math.PI + ( rnd() - 0.5 ) * 0.5, 0 ); // faces the beach (-z), a little turned
-		mesh.castShadow = true; // cloud shadows on the bay (inside the sun cascades only)
-		mesh.frustumCulled = false;
+		// No sun shadow: the cascades reach 120 m around the eye, and with the
+		// sun high behind the beach a card 500 m up throws its shadow 300 m
+		// or more out to sea, never inside them. Casting, the 48 cards were
+		// drawn in every cascade for nothing (about 150 draws a frame).
+		mesh.castShadow = false;
 		group.add( mesh );
 		cards.push( { mesh, home, off: new THREE.Vector3(), phase: rnd() * 6.28, yaw: mesh.rotation.y } );
 

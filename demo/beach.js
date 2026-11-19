@@ -31,7 +31,7 @@ import { groundGeometry, sandHeight, deepFloor } from './beach/terrain.js';
 import { createOcean } from './beach/ocean.js';
 import { createViews } from './beach/views.js';
 import { tropicalSky } from './beach/sky.js';
-import { loadProps, place, fileURL } from './beach/props.js';
+import { loadProps, place, instanced, fileURL } from './beach/props.js';
 import { createClouds } from './beach/clouds.js';
 import { createLife } from './beach/life.js';
 import { placements } from './beach/layout.js';
@@ -110,12 +110,17 @@ const groundMat = createMaterial( sandPreset, { coords: uv() } ).material;
 const ground = new THREE.Mesh( groundGeometry( + params.get( 'step' ) || 1.5 ), groundMat );
 ground.receiveShadow = true;
 world.add( ground );
-world.add( deepFloor( applyUnderwater ) );
+const deep = deepFloor( applyUnderwater );
+world.add( deep );
 
 // The folded paper props (beach/props.js, beach/layout.js); ?noprops.
 const props = params.has( 'noprops' ) ? {} : await loadProps();
+// The palms are instanced (one draw per part for the whole grove): each
+// gets an empty stand-in that beach/life.js moves as before.
 const placed = [];
-for ( const e of placements( { dense: ! params.has( 'sparse' ) } ) ) if ( props[ e.name ] ) placed.push( place( props[ e.name ], world, e ) );
+const palms = props.palm ? instanced( props.palm, world ) : null;
+for ( const e of placements( { dense: ! params.has( 'sparse' ) } ) ) if ( props[ e.name ] ) placed.push( e.name === 'palm' && palms ? palms.add( e ) : place( props[ e.name ], world, e ) );
+palms?.build();
 // Life (beach/life.js): palms sway, the crab walks sideways, and the
 // pop-up: each prop stands up from the sand like a pop-up book, in a wave
 // from the pier (setPop( seconds ), null: all standing).
@@ -175,6 +180,7 @@ const mirrors = {
 const prepare = ( cam ) => { mirrors.up.render( renderer, cam ); mirrors.down.render( renderer, cam ); };
 const ocean = createOcean( { sky, mirrors, W } );
 for ( const m of [ ocean.near, ocean.far ] ) { world.add( m ); hide.push( m ); hideUp.push( m ); }
+hideUp.push( deep ); // 25 m down: the mirror above the level clips all of it, it only cost its vertices
 
 // The camera port at the waterline: near or under the surface the frame
 // is drawn twice (air and water) and split along the line.
@@ -208,8 +214,21 @@ view( params.get( 'view' ) ?? 'beach' );
 
 // Near or under the surface: the port (two passes). Above: one pass, the
 // lagoon floor bent by the flat surface (core/refraction.js).
+// The sun's cascades fit the page camera (CSMShadowNode keeps the camera
+// it was built with), but three re-renders a shadow map once per camera
+// per frame: the mirror's camera and the port's second pass drew the same
+// three maps again (6 to 9 cascade passes a frame). Drawn once per frame,
+// by the first pass that needs them.
+function shadowsOnce() {
+
+	for ( const l of kit.cascades?.csm.lights ?? [] ) { l.shadow.autoUpdate = false; l.shadow.needsUpdate = true; }
+
+}
+
 function draw() {
 
+	shadowsOnce();
+	palms?.sync();
 	const y = camera.position.y - W.level.value;
 	if ( y < 0.6 ) { if ( fx ) kit.render( port.compose() ); else port.render(); return; }
 	refractSurface( camera.position, W.level.value );
@@ -256,10 +275,12 @@ function surfaceAt( origin, target, root = world ) {
 	caster.set( o, d );
 	const hit = caster.intersectObject( root, true ).find( ( h ) => h.object.visible && ! h.object.userData.noFocus );
 	if ( ! hit ) return null;
-	const n = hit.face.normal.clone().transformDirection( hit.object.matrixWorld );
+	const n = hit.face.normal.clone();
+	if ( hit.instanceId !== undefined ) { const im = new THREE.Matrix4(); hit.object.getMatrixAt( hit.instanceId, im ); n.transformDirection( im ); }
+	n.transformDirection( hit.object.matrixWorld );
 	if ( n.dot( d ) > 0 ) n.negate(); // the side facing the ray
 	return { point: hit.point.toArray(), normal: n.toArray() };
 
 }
 
-window.__ix = { surfaceAt, life, setPop: life.setPop, clouds, ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };
+window.__ix = { surfaceAt, life, palms, setPop: life.setPop, clouds, ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };
