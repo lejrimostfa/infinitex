@@ -32,7 +32,8 @@ import { groundGeometry, sandHeight, deepFloor } from './beach/terrain.js';
 import { createOcean } from './beach/ocean.js';
 import { createViews } from './beach/views.js';
 import { tropicalSky } from './beach/sky.js';
-import { loadProps, place, instanced, skinParts, fileURL } from './beach/props.js';
+import { loadProps, place, instanced, fileURL } from './beach/props.js';
+import { skinParts } from '../src/perf/batch.js';
 import { createClouds } from './beach/clouds.js';
 import { createLife } from './beach/life.js';
 import { placements } from './beach/layout.js';
@@ -242,20 +243,8 @@ view( params.get( 'view' ) ?? 'beach' );
 
 // Near or under the surface: the port (two passes). Above: one pass, the
 // lagoon floor bent by the flat surface (core/refraction.js).
-// The sun's cascades fit the page camera (CSMShadowNode keeps the camera
-// it was built with), but three re-renders a shadow map once per camera
-// per frame: the mirror's camera and the port's second pass drew the same
-// three maps again (6 to 9 cascade passes a frame). Drawn once per frame,
-// by the first pass that needs them.
-function shadowsOnce() {
-
-	for ( const l of kit.cascades?.csm.lights ?? [] ) { l.shadow.autoUpdate = false; l.shadow.needsUpdate = true; }
-
-}
-
 function draw() {
 
-	shadowsOnce();
 	for ( const g of Object.values( groups ) ) g.sync();
 	const y = camera.position.y - W.level.value;
 	if ( y < 0.6 ) { if ( fx ) kit.render( port.compose() ); else port.render(); return; }
@@ -311,4 +300,15 @@ function surfaceAt( origin, target, root = world ) {
 
 }
 
-window.__ix = { surfaceAt, life, palms, groups, setPop: life.setPop, clouds, ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime, draw, refractOff, ready: true };
+// setTime( s ): the whole page at time s (the matters' clock, the palms, the
+// crab, the clouds), for stills that repeat (bin/infinitex-perf.mjs, films).
+function setPageTime( s ) {
+
+	clock = s;
+	setTime( s );
+	life.update( s );
+	clouds?.update( s, ship && ship.t > 0 ? ship.group.position : null );
+
+}
+
+window.__ix = { surfaceAt, life, palms, groups, setPop: life.setPop, clouds, ship, setShip, props, placed, renderer, scene, camera, controls, kit, waterBody: W, world, ground, ocean, view, setTime: setPageTime, draw, refractOff, ready: true };

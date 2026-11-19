@@ -244,6 +244,8 @@ Infinitex trades memory for computation: it stores no images, so the GPU recompu
 
 The demos lower their pixel ratio while frames are slow (Retina screens shade 4 times more pixels) and raise it back when they are fast; `?fullres` turns that off. A stats panel at the top left gives fps, frame and GPU time, triangles and draw calls.
 
+**Optimise your game.** `infinitex/perf` and `npx infinitex-perf <url>` audit a frame (draws per pass, repeated meshes, shadow maps drawn twice, casters never culled, heavy grids, pixel ratio), bench it and take stills to prove the image did not change. `createInstances` and `skinParts` cut the draws. The Claude Code skill `.claude/skills/infinitex-optimize/` runs the whole loop: `cp -r node_modules/infinitex/.claude/skills/infinitex-optimize .claude/skills/`. On the paper beach it took a frame from 24 to 8 ms and 1427 draws to 119, the image checked pixel by pixel. The camera kit already draws sun shadow maps once per frame for every page.
+
 Estimates for other machines: about 40 fps on a recent MacBook Air, 100 to 140 fps on a PC with an RTX 3060. Phones are not playable yet. The practical recipe for a game: Infinitex on what is close (the hero, the ground at their feet, the object being inspected), and a texture baked from the same material for the distance.
 
 ## Browser support

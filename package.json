@@ -10,11 +10,13 @@
     "./camera": "./src/camera/index.js",
     "./kit": "./src/kit.js",
     "./src/*": "./src/*",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./perf": "./src/perf/index.js"
   },
   "bin": {
     "infinitex-check": "bin/infinitex-check.mjs",
-    "infinitex-new-family": "bin/infinitex-new-family.mjs"
+    "infinitex-new-family": "bin/infinitex-new-family.mjs",
+    "infinitex-perf": "bin/infinitex-perf.mjs"
   },
   "scripts": {
     "dev": "vite --port 5211 --strictPort",
@@ -22,7 +24,8 @@
     "gate": "node tests/run-gate.mjs",
     "new-family": "node bin/infinitex-new-family.mjs",
     "check-family": "node bin/infinitex-check.mjs",
-    "test-kit": "node tests/kit_volume.mjs && node tests/kit_lint.mjs"
+    "test-kit": "node tests/kit_volume.mjs && node tests/kit_lint.mjs",
+    "perf": "node bin/infinitex-perf.mjs"
   },
   "peerDependencies": {
     "three": ">=0.187.0"
